@@ -16,12 +16,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
     {
       'title': 'Sesi Fisioterapi Lumbal',
       'therapist': 'Ftr. Siti Nurhaliza S.Tr.Kes',
-      'specialty': 'Spesialis Tulang Belakang',
       'date': 'Senin, 25 Mar 2026',
       'time': '10:00–11:00 WIB',
       'status': 'Terkonfirmasi',
-      'statusColor': Color(0xFFFFD166),
-      'statusTextColor': Color(0xFF6B4000),
       'type': 'Home Visit',
       'price': 'Rp 150.000',
       'emoji': '👩‍⚕️',
@@ -30,40 +27,20 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
     {
       'title': 'Terapi Bahu Kanan',
       'therapist': 'Ftr. Ahmad Rizky S.Fis',
-      'specialty': 'Fisioterapi Olahraga',
       'date': 'Jumat, 28 Mar 2026',
       'time': '14:00–15:00 WIB',
       'status': 'Menunggu',
-      'statusColor': Color(0xFFEFF6FF),
-      'statusTextColor': Color(0xFF3B82F6),
       'type': 'Klinik',
       'price': 'Rp 130.000',
       'emoji': '👨‍⚕️',
       'tab': 'upcoming',
     },
     {
-      'title': 'Fisioterapi Lutut',
-      'therapist': 'Ftr. Dewi Santoso M.Fis',
-      'specialty': 'Fisioterapi Ortopedi',
-      'date': 'Senin, 1 Apr 2026',
-      'time': '09:00–10:00 WIB',
-      'status': 'Terjadwal',
-      'statusColor': Color(0xFFD1FAE5),
-      'statusTextColor': Color(0xFF065F46),
-      'type': 'Home Visit',
-      'price': 'Rp 160.000',
-      'emoji': '👩‍⚕️',
-      'tab': 'upcoming',
-    },
-    {
       'title': 'Sesi Terapi Punggung',
       'therapist': 'Ftr. Siti Nurhaliza S.Tr.Kes',
-      'specialty': 'Spesialis Tulang Belakang',
       'date': 'Jumat, 14 Mar 2026',
       'time': '10:00–11:00 WIB',
       'status': 'Selesai',
-      'statusColor': Color(0xFFD1FAE5),
-      'statusTextColor': Color(0xFF065F46),
       'type': 'Home Visit',
       'price': 'Rp 150.000',
       'emoji': '👩‍⚕️',
@@ -81,6 +58,19 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  // Fungsi helper untuk mendapatkan warna status
+  Color _getStatusColor(String status, bool isText) {
+    switch (status) {
+      case 'Terkonfirmasi':
+      case 'Selesai':
+        return isText ? const Color(0xFF065F46) : const Color(0xFFD1FAE5);
+      case 'Menunggu':
+        return isText ? const Color(0xFFB45309) : const Color(0xFFFEF3C7);
+      default:
+        return isText ? Colors.blue : Colors.blue.shade50;
+    }
   }
 
   @override
@@ -108,7 +98,15 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
   Widget _buildHeader() {
     return Container(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [Color(0xFF00BBA7), Color(0xFF009689)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: LinearGradient(
+          colors: [Color(0xFF00BBA7), Color(0xFF009689)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
       ),
       child: SafeArea(
         bottom: false,
@@ -118,21 +116,23 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Janji Temu', style: GoogleFonts.inter(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
-                  const Spacer(),
-                  Container(
-                    width: 36, height: 36,
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.filter_list, color: Colors.white, size: 18),
-                  ),
+                  Text('Janji Temu', 
+                    style: GoogleFonts.inter(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
+                  IconButton(
+                    onPressed: () {},
+                    icon: const Icon(Icons.filter_list, color: Colors.white),
+                  )
                 ],
               ),
-              Text('Semua janji temu Anda', style: GoogleFonts.inter(color: const Color(0xFFD9EFED), fontSize: 13)),
-              const SizedBox(height: 12),
+              Text('Pantau jadwal terapi Anda', 
+                style: GoogleFonts.inter(color: const Color(0xFFD9EFED), fontSize: 13)),
+              const SizedBox(height: 15),
               TabBar(
                 controller: _tabController,
                 indicatorColor: Colors.white,
+                indicatorWeight: 3,
                 labelColor: Colors.white,
                 unselectedLabelColor: Colors.white.withOpacity(0.6),
                 labelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
@@ -151,9 +151,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('📅', style: TextStyle(fontSize: 48)),
-            const SizedBox(height: 12),
-            Text('Tidak ada janji temu', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.lightText)),
+            const Text('📅', style: TextStyle(fontSize: 60)),
+            const SizedBox(height: 16),
+            Text('Tidak ada janji temu', 
+              style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.lightText)),
           ],
         ),
       );
@@ -167,71 +168,78 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
 
   Widget _buildCard(Map<String, dynamic> apt) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))
+        ],
       ),
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      width: 46, height: 46,
+                      width: 48, height: 48,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        gradient: const LinearGradient(colors: [Color(0xFFDDD6FE), Color(0xFFB2EDE7)]),
+                        color: const Color(0xFFF1F5F9),
                       ),
-                      child: Center(child: Text(apt['emoji'], style: const TextStyle(fontSize: 22))),
+                      child: Center(child: Text(apt['emoji'], style: const TextStyle(fontSize: 24))),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(apt['title'], style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF0F2B28))),
-                          Text(apt['therapist'], style: GoogleFonts.inter(fontSize: 12, color: AppColors.acapulco)),
+                          Text(apt['title'], 
+                            style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
+                          Text(apt['therapist'], 
+                            style: GoogleFonts.inter(fontSize: 12, color: Colors.blueGrey)),
                         ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: apt['statusColor'] as Color,
-                        borderRadius: BorderRadius.circular(8),
+                        color: _getStatusColor(apt['status'], false),
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(apt['status'], style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: apt['statusTextColor'] as Color)),
+                      child: Text(apt['status'], 
+                        style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: _getStatusColor(apt['status'], true))),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Divider(color: Colors.grey.shade100, height: 1),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(height: 1),
+                ),
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_month_outlined, size: 14, color: Colors.teal),
+                    const SizedBox(width: 6),
+                    Text(apt['date'], style: GoogleFonts.inter(fontSize: 12, color: Colors.black87)),
+                    const SizedBox(width: 15),
+                    const Icon(Icons.access_time, size: 14, color: Colors.teal),
+                    const SizedBox(width: 6),
+                    Text(apt['time'], style: GoogleFonts.inter(fontSize: 12, color: Colors.black87)),
+                  ],
+                ),
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.acapulco),
-                    const SizedBox(width: 5),
-                    Text(apt['date'], style: GoogleFonts.inter(fontSize: 12, color: AppColors.lightText)),
-                    const SizedBox(width: 12),
-                    const Icon(Icons.access_time, size: 13, color: AppColors.acapulco),
-                    const SizedBox(width: 5),
-                    Text(apt['time'], style: GoogleFonts.inter(fontSize: 12, color: AppColors.lightText)),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on_outlined, size: 13, color: AppColors.acapulco),
-                    const SizedBox(width: 5),
-                    Text(apt['type'], style: GoogleFonts.inter(fontSize: 12, color: AppColors.lightText)),
+                    const Icon(Icons.location_on_outlined, size: 14, color: Colors.orange),
+                    const SizedBox(width: 6),
+                    Text(apt['type'], style: GoogleFonts.inter(fontSize: 12, color: Colors.black87)),
                     const Spacer(),
-                    Text(apt['price'], style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                    Text(apt['price'], 
+                      style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w800, color: const Color(0xFF009689))),
                   ],
                 ),
               ],
@@ -239,31 +247,29 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
           ),
           if (apt['tab'] == 'upcoming')
             Container(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {},
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFE2E8F0)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: Text('Batalkan', style: GoogleFonts.inter(fontSize: 12, color: AppColors.lightText)),
+                      child: Text('Batalkan', style: GoogleFonts.inter(fontSize: 12, color: Colors.redAccent)),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {},
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        backgroundColor: const Color(0xFF009689),
                         elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: Text('Detail', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+                      child: Text('Bantuan', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
                     ),
                   ),
                 ],
