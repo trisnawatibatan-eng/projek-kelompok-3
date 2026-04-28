@@ -264,7 +264,7 @@ class _HomeTab extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Selamat pagi,',
+                  Text('Selamat datang,',
                       style: GoogleFonts.inter(
                         color: Colors.white.withOpacity(0.82),
                         fontSize: isMobile ? 11 : 12,
