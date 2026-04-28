@@ -7,10 +7,8 @@ import 'laporan_screen.dart';
 import 'profil_screen.dart';
 import 'booking_screen.dart';
 import 'jadwal_terapi_screen.dart';
-import 'edukasi_screen.dart';
 import 'latihan_screen.dart';
 import '../models/promo_model.dart';
-import '../models/edukasi_model.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -106,12 +104,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 11) {
+      return 'Selamat pagi,';
+    } else if (hour >= 11 && hour < 15) {
+      return 'Selamat siang,';
+    } else if (hour >= 15 && hour < 19) {
+      return 'Selamat sore,';
+    } else {
+      return 'Selamat malam,';
+    }
+  }
 }
 
 // ─── Home Tab ───────────────────────────────────────────────────────────────
 
 class _HomeTab extends StatelessWidget {
   const _HomeTab();
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 11) {
+      return 'Selamat pagi,';
+    } else if (hour >= 11 && hour < 15) {
+      return 'Selamat siang,';
+    } else if (hour >= 15 && hour < 19) {
+      return 'Selamat sore,';
+    } else {
+      return 'Selamat malam,';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,13 +148,13 @@ class _HomeTab extends StatelessWidget {
           SliverToBoxAdapter(child: _buildHeader(context)),
           SliverToBoxAdapter(
             child: Transform.translate(
-              offset: Offset(0, isMobile ? -16 : -20),
+              offset: const Offset(0, -2),
               child: _buildBookingBanner(context),
             ),
           ),
+          SliverPadding(padding: EdgeInsets.only(top: isMobile ? 8 : 10)),
           SliverToBoxAdapter(child: _buildHomeCareCard(context)),
           SliverToBoxAdapter(child: _buildPromoSection(context)),
-          SliverToBoxAdapter(child: _buildEdukasiSection(context)),
           SliverToBoxAdapter(child: _buildJadwalSection(context)),
           SliverPadding(padding: EdgeInsets.only(bottom: isMobile ? 20 : 24)),
         ],
@@ -138,172 +162,158 @@ class _HomeTab extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
-    final screenWidth = MediaQuery.of(context).size.width;
-    
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        isMobile ? 16 : 24,
-        MediaQuery.of(context).padding.top + (isMobile ? 12 : 16),
-        isMobile ? 16 : 24,
-        isMobile ? 40 : 48,
+  // ───────────────── HEADER BARU (SESUIAI GAMBAR) ─────────────────
+
+Widget _buildHeader(BuildContext context) {
+  return Container(
+    padding: EdgeInsets.fromLTRB(
+      16,
+      MediaQuery.of(context).padding.top + 16,
+      16,
+      80,
+    ),
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF00BBA7), Color(0xFF009689)],
       ),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF00BBA7), Color(0xFF009689)],
+    ),
+    child: Stack(
+      children: [
+        // Background kanan
+        Positioned(
+          right: -60,
+          top: -80,
+          child: Container(
+            width: 220,
+            height: 220,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.06),
+              shape: BoxShape.circle,
+            ),
+          ),
         ),
-      ),
-      child: Stack(
-        children: [
-          // BG circles
-          Positioned(
-            right: -40,
-            top: -60,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.07),
-                shape: BoxShape.circle,
-              ),
+
+        // Background kiri
+        Positioned(
+          left: -30,
+          bottom: -10,
+          child: Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.04),
+              shape: BoxShape.circle,
             ),
           ),
-          Positioned(
-            left: -20,
-            bottom: 4,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Column(
-            children: [
-              Row(
-                children: [
-                  // Logo + Name
-                  const FisioCareLogoSmall(),
-                  SizedBox(width: isMobile ? 8 : 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('FisioCare',
-                            style: GoogleFonts.inter(
-                              color: Colors.white,
-                              fontSize: isMobile ? 16 : 19,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.3,
-                            )),
-                        Text('Your Physio Partner',
-                            style: GoogleFonts.inter(
-                              color: const Color(0xFFD9EFED),
-                              fontSize: isMobile ? 9 : 10,
-                            )),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-                  // Notification
-                  Stack(
-                    children: [
-                      Container(
-                        width: isMobile ? 32 : 36,
-                        height: isMobile ? 32 : 36,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.18),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.white.withOpacity(0.25)),
-                        ),
-                        child: Icon(
-                          Icons.notifications_outlined,
-                          color: Colors.white,
-                          size: isMobile ? 16 : 18,
-                        ),
-                      ),
-                      Positioned(
-                        right: 6,
-                        top: 6,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFD166),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFF00BBA7), width: 2),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(width: isMobile ? 6 : 8),
-                  Container(
-                    width: isMobile ? 32 : 36,
-                    height: isMobile ? 32 : 36,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white.withOpacity(0.25)),
-                    ),
-                    child: Icon(
-                      Icons.chat_bubble_outline,
-                      color: Colors.white,
-                      size: isMobile ? 16 : 18,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: isMobile ? 10 : 14),
-              // Greeting
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Selamat pagi,',
-                      style: GoogleFonts.inter(
-                        color: Colors.white.withOpacity(0.82),
-                        fontSize: isMobile ? 11 : 12,
-                        fontWeight: FontWeight.w500,
-                      )),
-                  SizedBox(height: isMobile ? 1 : 2),
-                  Text('Budi Santoso 👋',
+        ),
+
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ─── TOP ROW ───
+            Row(
+              children: [
+                const FisioCareLogoSmall(),
+                const SizedBox(width: 10),
+
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'FisioCare',
                       style: GoogleFonts.inter(
                         color: Colors.white,
-                        fontSize: isMobile ? 18 : 20,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.4,
-                      )),
-                  SizedBox(height: isMobile ? 6 : 8),
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 10 : 13,
-                      vertical: isMobile ? 4 : 5,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.16),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withOpacity(0.22)),
+                    Text(
+                      'Your Physio Partner',
+                      style: GoogleFonts.inter(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 10,
+                      ),
                     ),
-                    child: Text('🏥 Pasien Aktif  ·  Sesi ke-24',
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: isMobile ? 10 : 11,
-                          fontWeight: FontWeight.w600,
-                        )),
-                  ),
-                ],
+                  ],
+                ),
+
+                const Spacer(),
+
+                _buildIconHeader(Icons.notifications_outlined),
+                const SizedBox(width: 8),
+                _buildIconHeader(Icons.chat_bubble_outline),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // ─── GREETING ───
+            Text(
+              _getGreeting(),
+              style: GoogleFonts.inter(
+                color: Colors.white.withOpacity(0.85),
+                fontSize: 12,
               ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+            ),
+
+            const SizedBox(height: 4),
+
+            Text(
+              'Budi Santoso 👋',
+              style: GoogleFonts.inter(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            // ─── BADGE ───
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '🏥 Pasien Aktif  ·  Sesi ke-24',
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+// ───────────────── ICON HEADER ─────────────────
+
+Widget _buildIconHeader(IconData icon) {
+  return Container(
+    width: 36,
+    height: 36,
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.18),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Icon(
+      icon,
+      color: Colors.white,
+      size: 18,
+    ),
+  );
+}
 
   Widget _buildBookingBanner(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
@@ -311,101 +321,102 @@ class _HomeTab extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 20),
       child: Container(
-        padding: EdgeInsets.fromLTRB(
-          isMobile ? 16 : 20,
-          isMobile ? 12 : 14,
-          isMobile ? 12 : 16,
-          isMobile ? 12 : 14,
-        ),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border(left: BorderSide(color: AppColors.primary, width: 4)),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF009B89).withOpacity(0.16),
-              blurRadius: 28,
+              color: const Color(0xFF009B89).withOpacity(0.25),
+              blurRadius: 20,
               offset: const Offset(0, 8),
             ),
           ],
         ),
-        child: Row(
+        child: Column(
           children: [
+            // Header Gradient
             Container(
-              width: isMobile ? 44 : 48,
-              height: isMobile ? 44 : 48,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFDDD6FE), Color(0xFFB2EDE7)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
+                  colors: [Color(0xFF00BBA7), Color(0xFF009689)],
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
                 ),
               ),
-              child: Center(
-                child: Text('📋',
-                    style: TextStyle(fontSize: isMobile ? 20 : 22)),
+              padding: EdgeInsets.all(isMobile ? 12 : 14),
+              child: Row(
+                children: [
+                  Container(
+                    width: isMobile ? 40 : 44,
+                    height: isMobile ? 40 : 44,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white.withOpacity(0.2),
+                    ),
+                    child: Center(
+                      child: Text('📋',
+                          style: TextStyle(fontSize: isMobile ? 18 : 20)),
+                    ),
+                  ),
+                  SizedBox(width: isMobile ? 10 : 12),
+                  Expanded(
+                    child: Text('✓ BOOKING DITERIMA',
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: isMobile ? 10 : 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        )),
+                  ),
+                  Container(
+                    width: isMobile ? 32 : 36,
+                    height: isMobile ? 32 : 36,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.white.withOpacity(0.25),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.check_circle,
+                        color: Colors.white,
+                        size: isMobile ? 18 : 20,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            SizedBox(width: isMobile ? 10 : 12),
-            Expanded(
+            // Content
+            Padding(
+              padding: EdgeInsets.all(isMobile ? 14 : 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 6 : 8,
-                      vertical: isMobile ? 2 : 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFDDD6FE),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text('✅ Booking Diterima',
-                        style: GoogleFonts.inter(
-                          color: const Color(0xFF009689),
-                          fontSize: isMobile ? 8 : 9,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.7,
-                        )),
-                  ),
-                  SizedBox(height: isMobile ? 3 : 4),
                   Text('Sesi Fisioterapi Lumbal',
                       style: GoogleFonts.inter(
                         color: const Color(0xFF0F2B28),
-                        fontSize: isMobile ? 12 : 13,
+                        fontSize: isMobile ? 13 : 14,
                         fontWeight: FontWeight.w700,
                       )),
+                  SizedBox(height: isMobile ? 2 : 3),
                   Text('Ftr. Siti Nurhaliza S.Tr.Kes',
                       style: GoogleFonts.inter(
                         color: const Color(0xFF0F2B28),
                         fontSize: isMobile ? 12 : 13,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       )),
+                  SizedBox(height: isMobile ? 6 : 8),
                   Text('Senin, 25 Mar 2026 · 10:00–11:00 WIB',
                       style: GoogleFonts.inter(
                         color: const Color(0xFF6EA8A2),
-                        fontSize: isMobile ? 9.5 : 10.5,
+                        fontSize: isMobile ? 9 : 10,
                         fontWeight: FontWeight.w500,
                       )),
                 ],
-              ),
-            ),
-            Container(
-              width: isMobile ? 28 : 30,
-              height: isMobile ? 28 : 30,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(9),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF00BBA7), Color(0xFF009689)],
-                ),
-              ),
-              child: Center(
-                child: Icon(
-                  Icons.check,
-                  color: Colors.white,
-                  size: isMobile ? 14 : 16,
-                ),
               ),
             ),
           ],
@@ -420,7 +431,7 @@ class _HomeTab extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(
         isMobile ? 12 : 20,
-        isMobile ? 12 : 16,
+        0,
         isMobile ? 12 : 20,
         0,
       ),
@@ -660,169 +671,7 @@ class _HomeTab extends StatelessWidget {
     );
   }
 
-  Widget _buildEdukasiSection(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
-    final edukasi = EdukasiModel.sampleEdukasi.take(2).toList();
-    
-    return Padding(
-      padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, isMobile ? 16 : 20, isMobile ? 12 : 20, 0),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Edukasi Kesehatan',
-                      style: GoogleFonts.inter(
-                        fontSize: isMobile ? 14 : 15,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF0F2B28),
-                        letterSpacing: -0.3,
-                      )),
-                  Text('Tips dan trik kesehatan untuk Anda',
-                      style: GoogleFonts.inter(
-                        fontSize: isMobile ? 10 : 11,
-                        color: const Color(0xFF6EA8A2),
-                        fontStyle: FontStyle.italic,
-                      )),
-                ],
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const EdukasiScreen()),
-                  );
-                },
-                child: Text('Semua →',
-                    style: GoogleFonts.inter(
-                      fontSize: isMobile ? 10.5 : 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
-                    )),
-              ),
-            ],
-          ),
-          SizedBox(height: isMobile ? 10 : 12),
-          Column(
-            children: edukasi.map((edu) {
-              return Padding(
-                padding: EdgeInsets.only(bottom: isMobile ? 10 : 12),
-                child: _buildEdukasiCardSmall(edu, context),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildEdukasiCardSmall(EdukasiModel edukasi, BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
-    
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => EdukasiDetailScreen(edukasi: edukasi),
-          ),
-        );
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        padding: EdgeInsets.all(isMobile ? 10 : 12),
-        child: Row(
-          children: [
-            Container(
-              width: isMobile ? 70 : 80,
-              height: isMobile ? 70 : 80,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF00BBA7), Color(0xFF009689)],
-                ),
-              ),
-              child: Icon(
-                Icons.health_and_safety,
-                color: Colors.white,
-                size: isMobile ? 34 : 40,
-              ),
-            ),
-            SizedBox(width: isMobile ? 10 : 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 6 : 8,
-                      vertical: isMobile ? 1.5 : 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      edukasi.category,
-                      style: GoogleFonts.inter(
-                        fontSize: isMobile ? 8 : 9,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: isMobile ? 3 : 4),
-                  Text(
-                    edukasi.title,
-                    style: GoogleFonts.inter(
-                      fontSize: isMobile ? 12 : 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primaryText,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: isMobile ? 3 : 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.visibility,
-                        size: isMobile ? 10 : 12,
-                        color: AppColors.lightText,
-                      ),
-                      SizedBox(width: isMobile ? 3 : 4),
-                      Text(
-                        '${edukasi.viewCount} views',
-                        style: GoogleFonts.inter(
-                          fontSize: isMobile ? 8 : 9,
-                          color: AppColors.lightText,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildJadwalSection(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
