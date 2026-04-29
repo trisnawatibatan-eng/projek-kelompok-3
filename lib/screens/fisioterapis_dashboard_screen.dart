@@ -116,22 +116,40 @@ class _HomeTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const FisioCareLogoSmall(),
-              const Spacer(),
-              Stack(
-                children: [
-                  _circleIcon(Icons.notifications),
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: _badge("3"),
-                  )
-                ],
-              )
-            ],
-          ),
+Row(
+  children: [
+    const FisioCareLogoSmall(),
+    const Spacer(),
+
+    // 💬 CHAT
+    Stack(
+      children: [
+        _circleIcon(Icons.chat_bubble_outline),
+        Positioned(
+          right: 0,
+          top: 0,
+          child: _badge("2"),
+        ),
+      ],
+    ),
+
+    const SizedBox(width: 10),
+
+    // 🔔 NOTIF
+    Stack(
+      children: [
+        _circleIcon(Icons.notifications_none),
+        Positioned(
+          right: 0,
+          top: 0,
+          child: _badge("3"),
+        ),
+      ],
+    ),
+  ],
+), // ✅ koma penting
+
+
           const SizedBox(height: 20),
           Text('Selamat datang,', style: GoogleFonts.inter(color: Colors.white70)),
           Text('Ftr. Siti Nurhaliza\nS.Tr.Kes',
