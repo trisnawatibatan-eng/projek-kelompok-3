@@ -4,7 +4,7 @@ description: FisioCare - Homecare Fisioterapi App
 publish_to: 'none'
 
 version: 1.0.0+1
-
+# The following defines the version and build number for your application.
 environment:
   sdk: '>=3.0.0 <4.0.0'
 

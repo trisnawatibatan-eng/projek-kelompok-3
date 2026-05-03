@@ -6,6 +6,8 @@ import 'register_screen.dart';
 import 'register_fisioterapis_screen.dart';
 import 'dashboard_screen.dart';
 import 'fisioterapis_dashboard_screen.dart';
+// TAMBAHKAN IMPORT INI
+import 'forgot_password_screen.dart'; 
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -214,11 +216,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      // Forgot password
+                      // Forgot password - SUDAH DITAMBAHKAN NAVIGASI
                       Align(
                         alignment: Alignment.centerRight,
                         child: GestureDetector(
-                          onTap: () {},
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ForgotPasswordScreen(),
+                              ),
+                            );
+                          },
                           child: Text(
                             'Lupa password?',
                             style: GoogleFonts.inter(
