@@ -131,7 +131,7 @@ class _HomeTab extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 25),
-                Text('Selamat pagi,', style: GoogleFonts.inter(color: Colors.white.withOpacity(0.9), fontSize: 14)),
+                Text('${getGreeting()},', style: GoogleFonts.inter(color: Colors.white.withOpacity(0.9), fontSize: 14)),
                 Text('Budi Santoso 👋', style: GoogleFonts.inter(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
               ],
             ),
@@ -380,5 +380,19 @@ class _HomeTab extends StatelessWidget {
         );
       },
     );
+  }
+
+  String getGreeting() {
+    final hour = DateTime.now().hour;
+    
+    if (hour < 12) {
+      return 'Selamat pagi';
+    } else if (hour < 15) {
+      return 'Selamat siang';
+    } else if (hour < 18) {
+      return 'Selamat sore';
+    } else {
+      return 'Selamat malam';
+    }
   }
 }

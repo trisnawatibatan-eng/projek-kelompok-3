@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
 import '../widgets/fisiocare_logo.dart';
 import 'register_screen.dart';
 import 'register_fisioterapis_screen.dart';
 import 'dashboard_screen.dart';
 import 'fisioterapis_dashboard_screen.dart';
-// TAMBAHKAN IMPORT INI
-import 'forgot_password_screen.dart'; 
+import 'forgot_password_screen.dart';
+
+final supabase = Supabase.instance.client; 
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,6 +21,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   int _selectedTab = 0; // 0 = Pasien, 1 = Fisioterapis
   bool _obscurePassword = true;
+  bool _isLoading = false;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -243,29 +246,24 @@ class _LoginScreenState extends State<LoginScreen> {
                         width: double.infinity,
                         height: 44,
                         child: ElevatedButton(
-                          onPressed: () {
-                            if (_selectedTab == 0) {
-                              // Pasien login
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(builder: (_) => const DashboardScreen()),
-                              );
-                            } else {
-                              // Fisioterapis login
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(builder: (_) => const FisioterapisDashboardScreen()),
-                              );
-                            }
-                          },
-                          child: Text(
-                            'Masuk',
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
-                            ),
-                          ),
+                          onPressed: _isLoading ? null : () => _handleLogin(),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(
+                                  'Masuk',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white,
+                                  ),
+                                ),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -335,5 +333,71 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _handleLogin() async {
+    // Validasi input
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      _showError('Mohon isi email dan password');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Login dengan Supabase
+      final AuthResponse res = await supabase.auth.signInWithPassword(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+
+      if (res.user != null) {
+        // Login berhasil, navigasi sesuai tab yang dipilih
+        if (mounted) {
+          if (_selectedTab == 0) {
+            // Pasien login
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const DashboardScreen()),
+            );
+          } else {
+            // Fisioterapis login
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const FisioterapisDashboardScreen()),
+            );
+          }
+        }
+      }
+    } on AuthException catch (error) {
+      _showError(_parseAuthError(error.message));
+    } catch (error) {
+      _showError('Terjadi kesalahan: ${error.toString()}');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  String _parseAuthError(String error) {
+    if (error.contains('Invalid login credentials')) {
+      return 'Email atau password salah';
+    } else if (error.contains('Email not confirmed')) {
+      return 'Email belum dikonfirmasi. Cek email Anda';
+    } else if (error.contains('Too many requests')) {
+      return 'Terlalu banyak percobaan login. Coba lagi nanti';
+    }
+    return error;
   }
 }
