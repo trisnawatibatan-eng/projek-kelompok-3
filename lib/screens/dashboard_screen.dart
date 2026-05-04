@@ -4,11 +4,12 @@ import '../theme.dart';
 import '../widgets/fisiocare_logo.dart';
 import 'appointments_screen.dart';
 import 'laporan_screen.dart';
-import 'profil_screen.dart';
+import 'profile_screen.dart';
 import 'booking_screen.dart';
 import 'jadwal_terapi_screen.dart';
 import 'edukasi_screen.dart';
 import 'latihan_screen.dart';
+import 'edukasi_detail_screen.dart';
 import '../models/promo_model.dart';
 import '../models/edukasi_model.dart';
 
@@ -27,7 +28,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const BookingScreen(),
     const JadwalTerapiScreen(),
     const LaporanScreen(),
-    const ProfilScreen(),
+    const ProfileScreen(),
   ];
 
   @override
