@@ -1,317 +1,275 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../theme.dart';
 
-class LaporanScreen extends StatefulWidget {
+class LaporanScreen extends StatelessWidget {
   const LaporanScreen({super.key});
 
-  @override
-  State<LaporanScreen> createState() => _LaporanScreenState();
-}
-
-class _LaporanScreenState extends State<LaporanScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  final List<Map<String, dynamic>> _records = [
-    {
-      'title': 'Sesi Fisioterapi Lumbal',
-      'therapist': 'Ftr. Siti Nurhaliza S.Tr.Kes',
-      'date': '25 Mar 2026',
-      'status': 'Selesai',
-      'statusColor': const Color(0xFFD1FAE5),
-      'statusTextColor': const Color(0xFF065F46),
-      'diagnosis': 'Nyeri Lumbal Kronik',
-      'notes': 'Pasien menunjukkan perkembangan yang baik. Latihan peregangan dilanjutkan.',
-      'emoji': '👩‍⚕️',
-      'rating': 5,
-    },
-    {
-      'title': 'Terapi Bahu Kanan',
-      'therapist': 'Ftr. Ahmad Rizky S.Fis',
-      'date': '15 Mar 2026',
-      'status': 'Selesai',
-      'statusColor': const Color(0xFFD1FAE5),
-      'statusTextColor': const Color(0xFF065F46),
-      'diagnosis': 'Rotator Cuff Syndrome',
-      'notes': 'Program latihan rumah diberikan. Kontrol 2 minggu lagi.',
-      'emoji': '👨‍⚕️',
-      'rating': 4,
-    },
-    {
-      'title': 'Fisioterapi Lutut',
-      'therapist': 'Ftr. Dewi Santoso M.Fis',
-      'date': '5 Mar 2026',
-      'status': 'Selesai',
-      'statusColor': const Color(0xFFD1FAE5),
-      'statusTextColor': const Color(0xFF065F46),
-      'diagnosis': 'Osteoarthritis Grade II',
-      'notes': 'Penambahan sesi hidroterapi disarankan.',
-      'emoji': '👩‍⚕️',
-      'rating': 5,
-    },
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  // Fungsi untuk menampilkan notifikasi unduh
+  void _prosesUnduh(BuildContext context) {
+    // Simulasi proses unduh
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: const [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 10),
+            Text("File laporan telah berhasil diunduh!"),
+          ],
+        ),
+        backgroundColor: const Color(0xFF00BBA7),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
-      body: Column(
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(colors: [Color(0xFF00BBA7), Color(0xFF009689)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text('Laporan', style: GoogleFonts.inter(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
-                        const Spacer(),
-                        Container(
-                          width: 36, height: 36,
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(10)),
-                          child: const Icon(Icons.download_outlined, color: Colors.white, size: 18),
-                        ),
-                      ],
-                    ),
-                    Text('Riwayat & rekam medis Anda', style: GoogleFonts.inter(color: const Color(0xFFD9EFED), fontSize: 13)),
-                    const SizedBox(height: 12),
-                    TabBar(
-                      controller: _tabController,
-                      indicatorColor: Colors.white,
-                      labelColor: Colors.white,
-                      unselectedLabelColor: Colors.white.withOpacity(0.6),
-                      labelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-                      tabs: const [Tab(text: 'Rekam Medis'), Tab(text: 'Rating & Review')],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildMedicalRecords(),
-                _buildRatings(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMedicalRecords() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Stats row
-        Row(
-          children: [
-            _buildStatCard('24', 'Total Sesi', Icons.calendar_today_outlined, const Color(0xFFDDD6FE)),
-            const SizedBox(width: 10),
-            _buildStatCard('6', 'Bulan Aktif', Icons.access_time_outlined, const Color(0xFFB2EDE7)),
-            const SizedBox(width: 10),
-            _buildStatCard('4.9', 'Avg Rating', Icons.star_outline, const Color(0xFFFFE4B5)),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Text('Riwayat Sesi', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF0F172B))),
-        const SizedBox(height: 12),
-        ..._records.map((r) => _buildRecordCard(r)),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(String value, String label, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
-        ),
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: SingleChildScrollView(
         child: Column(
           children: [
-            Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              child: Icon(icon, size: 18, color: AppColors.primary),
-            ),
-            const SizedBox(height: 8),
-            Text(value, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF0F172B))),
-            Text(label, style: GoogleFonts.inter(fontSize: 10, color: AppColors.lightText), textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecordCard(Map<String, dynamic> r) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
+            // --- HEADER & PROFIL PASIEN ---
+            Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
               children: [
                 Container(
-                  width: 46, height: 46,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    gradient: const LinearGradient(colors: [Color(0xFFDDD6FE), Color(0xFFB2EDE7)]),
-                  ),
-                  child: Center(child: Text(r['emoji'] as String, style: const TextStyle(fontSize: 22))),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
+                  width: double.infinity,
+                  padding: const EdgeInsets.only(top: 60, left: 25, right: 25, bottom: 60),
+                  decoration: const BoxDecoration(color: Color(0xFF00BBA7)),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(r['title'] as String, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF0F172B))),
-                      Text(r['therapist'] as String, style: GoogleFonts.inter(fontSize: 12, color: AppColors.acapulco)),
-                      Text(r['date'] as String, style: GoogleFonts.inter(fontSize: 11, color: AppColors.lightText)),
+                      Text('Laporan Medis', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                      Text('Riwayat pemeriksaan dan terapi', style: GoogleFonts.inter(fontSize: 14, color: Colors.white.withOpacity(0.9))),
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: r['statusColor'] as Color, borderRadius: BorderRadius.circular(8)),
-                  child: Text(r['status'] as String,
-                      style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: r['statusTextColor'] as Color)),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(14), bottomRight: Radius.circular(14)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text('Diagnosis: ', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.lightText)),
-                    Text(r['diagnosis'] as String, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary)),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(r['notes'] as String, style: GoogleFonts.inter(fontSize: 12, color: AppColors.secondaryText)),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    ...List.generate(5, (i) => Icon(
-                      i < (r['rating'] as int) ? Icons.star : Icons.star_border,
-                      size: 16, color: const Color(0xFFFFD166),
-                    )),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () {},
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [Color(0xFF00BBA7), Color(0xFF009689)]),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text('Lihat Detail', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white)),
-                      ),
+                Positioned(
+                  bottom: -40,
+                  child: Container(
+                    width: MediaQuery.of(context).size.width * 0.85,
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))],
                     ),
-                  ],
-                ),
+                    child: Row(
+                      children: [
+                        const CircleAvatar(radius: 30, backgroundColor: Color(0xFFE0F2F1), child: Icon(Icons.person, color: Color(0xFF00BBA7), size: 35)),
+                        const SizedBox(width: 15),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Budi Santoso', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold)),
+                            Text('ID: FSC-2026-01', style: GoogleFonts.inter(fontSize: 12, color: Colors.grey)),
+                          ],
+                        )
+                      ],
+                    ),
+                  ),
+                )
               ],
             ),
-          ),
-        ],
+
+            const SizedBox(height: 60),
+
+            // --- KONTEN LAPORAN ---
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.description_outlined, color: Color(0xFF00BBA7)),
+                          const SizedBox(width: 8),
+                          Text("Catatan Terapi", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(color: const Color(0xFFE0F7F4), borderRadius: BorderRadius.circular(20)),
+                        child: const Text("1 Pertemuan", style: TextStyle(color: Color(0xFF00BBA7), fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+
+                  // Card Laporan Utama
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: const Color(0xFFE0E0E0)),
+                    ),
+                    child: Column(
+                      children: [
+                        // Header Card dengan Tombol Unduh
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFE0F7F4),
+                            borderRadius: BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: const [
+                                  Text("Pertemuan #1", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                  SizedBox(width: 10),
+                                  Icon(Icons.calendar_today, size: 12, color: Colors.grey),
+                                  SizedBox(width: 4),
+                                  Text("28 Maret 2026", style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                ],
+                              ),
+                              // Tombol Unduh
+                              GestureDetector(
+                                onTap: () => _prosesUnduh(context),
+                                child: const Icon(Icons.file_download_outlined, color: Color(0xFF00BBA7), size: 24),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        Padding(
+                          padding: const EdgeInsets.all(15),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("Ftr. Siti Nurhaliza S.Tr.Kes", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14)),
+                              const Divider(height: 25),
+                              
+                              _buildInfoDetail("Pertemuan 1", "29 Maret 2026 • 08:00 - 09:00"),
+                              _buildTextSection("Keluhan:", "Nyeri bahu kanan saat digerakkan, kaku pada pagi hari"),
+                              _buildTextSection("Diagnosis:", "Passive ROM shoulder, Strengthening exercises dengan resistance band, Gait training dengan walker 15 menit"),
+                              
+                              Row(
+                                children: [
+                                  _buildSmallStat("Skala Nyeri:", "5/10", isYellow: true),
+                                  _buildSmallStat("Tekanan Darah:", "120/80", isYellow: false),
+                                ],
+                              ),
+                              
+                              const SizedBox(height: 15),
+                              _buildTextSection("Perencanaan Tindakan:", "Pasien kooperatif, menunjukkan peningkatan ROM shoulder."),
+                              
+                              // Evaluasi
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1FAF9),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFFB2DFDB)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text("Evaluasi Terapi", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00796B), fontSize: 12)),
+                                    const SizedBox(height: 4),
+                                    Text("Progress baik, lanjutkan program. Tambahkan ice therapy.", style: GoogleFonts.inter(fontSize: 11)),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(height: 20),
+                              
+                              // --- BAGIAN REKOMENDASI LATIHAN (DIJAMIN TIDAK HILANG) ---
+                              const Text("Rekomendasi Latihan", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              const SizedBox(height: 8),
+                              const Text(
+                                "1. Latihan bahu 2x sehari\n2. Gunakan resistance band ring\n3. Hindari mengangkat beban berat", 
+                                style: TextStyle(fontSize: 12, height: 1.6, color: Colors.black87)
+                              ),
+
+                              const SizedBox(height: 20),
+                              
+                              // Info Terapi Berikutnya
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF5FDFB),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFF00BBA7).withOpacity(0.2)),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text("Terapi Berikutnya:", style: TextStyle(fontSize: 12, color: Color(0xFF00796B))),
+                                    const Text("30 Maret 2026", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00796B))),
+                                  ],
+                                ),
+                              )
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 30),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildRatings() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-          ),
-          child: Column(
-            children: [
-              Text('4.9', style: GoogleFonts.inter(fontSize: 48, fontWeight: FontWeight.w800, color: const Color(0xFF0F172B))),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (i) => const Icon(Icons.star, size: 22, color: Color(0xFFFFD166))),
-              ),
-              const SizedBox(height: 4),
-              Text('Berdasarkan 24 sesi', style: GoogleFonts.inter(fontSize: 13, color: AppColors.lightText)),
-              const SizedBox(height: 16),
-              ..._buildRatingBars(),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  List<Widget> _buildRatingBars() {
-    final data = [
-      {'star': 5, 'count': 18},
-      {'star': 4, 'count': 4},
-      {'star': 3, 'count': 1},
-      {'star': 2, 'count': 0},
-      {'star': 1, 'count': 1},
-    ];
-    return data.map((d) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+  Widget _buildInfoDetail(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Text('${d['star']}', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
-          const Icon(Icons.star, size: 13, color: Color(0xFFFFD166)),
+          const Icon(Icons.check_circle, size: 16, color: Color(0xFF00BBA7)),
           const SizedBox(width: 8),
-          Expanded(
-            child: LinearProgressIndicator(
-              value: (d['count'] as int) / 24.0,
-              backgroundColor: const Color(0xFFF3F3F5),
-              color: const Color(0xFFFFD166),
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text('${d['count']}', style: GoogleFonts.inter(fontSize: 13, color: AppColors.lightText)),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const Spacer(),
+          Text(value, style: const TextStyle(color: Colors.grey, fontSize: 11)),
         ],
       ),
-    )).toList();
+    );
+  }
+
+  Widget _buildTextSection(String label, String content) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(content, style: const TextStyle(fontSize: 12, height: 1.4)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSmallStat(String label, String value, {required bool isYellow}) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isYellow ? const Color(0xFFFFF9C4) : Colors.transparent,
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isYellow ? Colors.orange[800] : Colors.black)),
+          ),
+        ],
+      ),
+    );
   }
 }

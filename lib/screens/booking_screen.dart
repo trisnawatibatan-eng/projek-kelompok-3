@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../theme.dart';
+import 'package:intl/intl.dart';
+// Pastikan path import ini sesuai dengan struktur folder Anda
+import 'package:fisiocare/screens/janji_temu_screen.dart'; 
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
@@ -9,280 +11,297 @@ class BookingScreen extends StatefulWidget {
   State<BookingScreen> createState() => _BookingScreenState();
 }
 
-class _BookingScreenState extends State<BookingScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  int _selectedCategory = 0;
+class _BookingScreenState extends State<BookingScreen> {
+  int _currentStep = 1;
 
-  final List<Map<String, dynamic>> _categories = [
-    {'icon': '🦴', 'name': 'Cedera', 'color': const Color(0xFFDDD6FE)},
-    {'icon': '🧠', 'name': 'Stroke', 'color': const Color(0xFFB2EDE7)},
-    {'icon': '👴', 'name': 'Lansia', 'color': const Color(0xFFFFE4B5)},
-    {'icon': '🩹', 'name': 'Pasca Op.', 'color': const Color(0xFFFFCCCC)},
-    {'icon': '👶', 'name': 'Pediatri', 'color': const Color(0xFFCCE8FF)},
-    {'icon': '🏃', 'name': 'Olahraga', 'color': const Color(0xFFD1FAE5)},
+  // Data Terpilih (State Management Sederhana)
+  String? _selectedTherapy;
+  String? _selectedPrice;
+  int _therapyCost = 0;
+  final int _visitCost = 50000;
+
+  // Data Form (Step 2)
+  String _selectedAddress = "Jl. Tidar No. 01, Karangrejo, Sumbersari, Jember";
+  bool _isChoosingAddress = false;
+  DateTime? _selectedDate;
+  TimeOfDay? _selectedTime;
+  final TextEditingController _noteController = TextEditingController();
+  final TextEditingController _newAddressController = TextEditingController();
+
+  List<String> _myAddresses = [
+    "Jl. Tidar No. 01, Karangrejo, Sumbersari, Jember",
+    "Jl. Pekalongan No. 01, Penanggungan, Klojen, Kota Malang",
   ];
-
-  final List<Map<String, dynamic>> _therapists = [
-    {
-      'name': 'Ftr. Siti Nurhaliza S.Tr.Kes',
-      'specialty': 'Spesialis Fisioterapi Tulang Belakang',
-      'rating': 4.9,
-      'sessions': 120,
-      'price': 'Rp 150.000',
-      'emoji': '👩‍⚕️',
-    },
-    {
-      'name': 'Ftr. Ahmad Rizky S.Fis',
-      'specialty': 'Fisioterapi Olahraga & Cedera',
-      'rating': 4.8,
-      'sessions': 98,
-      'price': 'Rp 130.000',
-      'emoji': '👨‍⚕️',
-    },
-    {
-      'name': 'Ftr. Dewi Santoso M.Fis',
-      'specialty': 'Fisioterapi Pediatri & Lansia',
-      'rating': 4.9,
-      'sessions': 145,
-      'price': 'Rp 160.000',
-      'emoji': '👩‍⚕️',
-    },
-    {
-      'name': 'Ftr. Budi Pratama S.Tr.Kes',
-      'specialty': 'Stroke Rehabilitation',
-      'rating': 4.7,
-      'sessions': 87,
-      'price': 'Rp 140.000',
-      'emoji': '👨‍⚕️',
-    },
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            expandedHeight: 120,
-            backgroundColor: AppColors.primary,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF00BBA7), Color(0xFF009689)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 16, 20, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Pemesanan', style: GoogleFonts.inter(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
-                    Text('Pilih fisioterapis untuk Anda', style: GoogleFonts.inter(color: const Color(0xFFD9EFED), fontSize: 13)),
-                  ],
-                ),
-              ),
-            ),
-            bottom: TabBar(
-              controller: _tabController,
-              indicatorColor: Colors.white,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white.withOpacity(0.6),
-              labelStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
-              tabs: const [Tab(text: 'Fisioterapis'), Tab(text: 'Layanan')],
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: MediaQuery.of(context).size.height - 220,
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildTherapistList(),
-                  _buildServiceList(),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTherapistList() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Search bar
-        Container(
-          height: 44,
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-          child: TextField(
-            decoration: InputDecoration(
-              hintText: 'Cari fisioterapis...',
-              hintStyle: GoogleFonts.inter(color: AppColors.hintText, fontSize: 14),
-              prefixIcon: const Icon(Icons.search, color: AppColors.hintText, size: 20),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              fillColor: Colors.transparent,
-              filled: false,
-            ),
-          ),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF00BBA7),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            if (_isChoosingAddress) {
+              setState(() => _isChoosingAddress = false);
+            } else if (_currentStep > 1) {
+              setState(() => _currentStep--);
+            } else {
+              Navigator.pop(context);
+            }
+          },
         ),
-        const SizedBox(height: 16),
-        // Categories
-        SizedBox(
-          height: 80,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: _categories.length,
-            itemBuilder: (ctx, i) {
-              final selected = _selectedCategory == i;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedCategory = i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.only(right: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: selected ? AppColors.primary : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: selected ? AppColors.primary : const Color(0xFFE2E8F0)),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(_categories[i]['icon'], style: const TextStyle(fontSize: 20)),
-                      const SizedBox(height: 4),
-                      Text(
-                        _categories[i]['name'],
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: selected ? Colors.white : const Color(0xFF0F172B),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 16),
-        ..._therapists.map((t) => _buildTherapistCard(t)),
-      ],
-    );
-  }
-
-  Widget _buildTherapistCard(Map<String, dynamic> t) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+        title: Text('Pesan Home Care',
+            style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
       ),
-      child: Row(
+      body: Column(
         children: [
-          Container(
-            width: 52, height: 52,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: const LinearGradient(colors: [Color(0xFFDDD6FE), Color(0xFFB2EDE7)]),
-            ),
-            child: Center(child: Text(t['emoji'], style: const TextStyle(fontSize: 24))),
+          _buildStepperHeader(),
+          Expanded(child: _buildCurrentContent()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrentContent() {
+    if (_currentStep == 1) return _buildTherapySelection();
+    if (_currentStep == 2) return _buildBookingForm();
+    return _buildPaymentSummary();
+  }
+
+  // --- STEPPER HEADER ---
+  Widget _buildStepperHeader() {
+    return Container(
+      color: const Color(0xFF00BBA7),
+      padding: const EdgeInsets.symmetric(vertical: 15),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _stepCircle("1", _currentStep >= 1), _stepLine(_currentStep >= 2),
+          _stepCircle("2", _currentStep >= 2), _stepLine(_currentStep >= 3),
+          _stepCircle("3", _currentStep >= 3),
+        ],
+      ),
+    );
+  }
+
+  Widget _stepCircle(String t, bool a) => Container(
+    width: 28, height: 28,
+    decoration: BoxDecoration(color: a ? const Color(0xFF00897B) : Colors.white24, shape: BoxShape.circle),
+    child: Center(child: Text(t, style: const TextStyle(color: Colors.white, fontSize: 12))),
+  );
+
+  Widget _stepLine(bool a) => Container(width: 40, height: 2, color: a ? const Color(0xFF00897B) : Colors.white24);
+
+  // --- STEP 1: PILIH TERAPI ---
+  Widget _buildTherapySelection() {
+    final therapies = [
+      {'name': 'Terapi Stroke', 'price': 'Rp 300.000', 'val': 300000},
+      {'name': 'Terapi Fraktur', 'price': 'Rp 280.000', 'val': 280000},
+      {'name': 'Terapi Skoliosis', 'price': 'Rp 250.000', 'val': 250000},
+    ];
+    return ListView.builder(
+      padding: const EdgeInsets.all(20),
+      itemCount: therapies.length,
+      itemBuilder: (context, index) => GestureDetector(
+        onTap: () => setState(() {
+          _selectedTherapy = therapies[index]['name'] as String;
+          _selectedPrice = therapies[index]['price'] as String;
+          _therapyCost = therapies[index]['val'] as int;
+          _currentStep = 2;
+        }),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 15),
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            border: Border.all(color: _selectedTherapy == therapies[index]['name'] ? const Color(0xFF00BBA7) : Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(12),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(t['name'], style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF0F2B28))),
-                Text(t['specialty'], style: GoogleFonts.inter(fontSize: 11, color: AppColors.acapulco)),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Icon(Icons.star, size: 13, color: Color(0xFFFFD166)),
-                    const SizedBox(width: 3),
-                    Text('${t['rating']}', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600)),
-                    const SizedBox(width: 8),
-                    Text('${t['sessions']} sesi', style: GoogleFonts.inter(fontSize: 11, color: AppColors.lightText)),
-                    const Spacer(),
-                    Text(t['price'], style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary)),
-                  ],
-                ),
-              ],
-            ),
+          child: Row(children: [
+            const Icon(Icons.medical_services_outlined, color: Color(0xFF00BBA7)),
+            const SizedBox(width: 15),
+            Expanded(child: Text(therapies[index]['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold))),
+            Text(therapies[index]['price'] as String, style: const TextStyle(color: Color(0xFF00BBA7), fontWeight: FontWeight.bold)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  // --- STEP 2: FORM ALAMAT & JADWAL ---
+  Widget _buildBookingForm() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSelectedTherapyCard(),
+          const SizedBox(height: 20),
+          _buildLabel(Icons.location_on, "Alamat"),
+          _isChoosingAddress ? _buildAddressList() : _buildSelectedAddressCard(),
+          const SizedBox(height: 20),
+          _buildLabel(Icons.calendar_today, "Tanggal Kunjungan *"),
+          _buildInkInput(_selectedDate == null ? 'pilih tanggal' : DateFormat('dd/MM/yyyy').format(_selectedDate!), Icons.calendar_month, () => _selectDate(context)),
+          const SizedBox(height: 20),
+          _buildLabel(Icons.access_time, "Waktu Kunjungan *"),
+          _buildInkInput(_selectedTime == null ? 'pilih jam' : _selectedTime!.format(context), Icons.keyboard_arrow_down, () => _selectTime(context)),
+          const SizedBox(height: 30),
+          _buildActionButtons(
+            onNext: () {
+              if (_selectedDate == null || _selectedTime == null) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Pilih tanggal dan jam dahulu")));
+              } else {
+                setState(() => _currentStep = 3);
+              }
+            },
+            nextLabel: "Lanjutkan"
           ),
         ],
       ),
     );
   }
 
-  Widget _buildServiceList() {
-    final services = [
-      {'emoji': '🦴', 'name': 'Cedera Olahraga', 'desc': 'Pemulihan cedera akibat aktivitas olahraga', 'color': const Color(0xFFDDD6FE)},
-      {'emoji': '🧠', 'name': 'Terapi Stroke', 'desc': 'Rehabilitasi pasca stroke', 'color': const Color(0xFFB2EDE7)},
-      {'emoji': '🦵', 'name': 'Nyeri Sendi', 'desc': 'Penanganan nyeri sendi kronis', 'color': const Color(0xFFFFE4B5)},
-      {'emoji': '🩹', 'name': 'Pasca Operasi', 'desc': 'Pemulihan setelah tindakan bedah', 'color': const Color(0xFFFFCCCC)},
-      {'emoji': '👴', 'name': 'Fisioterapi Lansia', 'desc': 'Layanan khusus untuk lansia', 'color': const Color(0xFFD1FAE5)},
-      {'emoji': '👶', 'name': 'Fisioterapi Pediatri', 'desc': 'Layanan fisioterapi untuk anak-anak', 'color': const Color(0xFFCCE8FF)},
-      {'emoji': '🦷', 'name': 'Skoliosis', 'desc': 'Penanganan kelainan tulang belakang', 'color': const Color(0xFFFEE2E2)},
-      {'emoji': '🏃', 'name': 'Fraktur', 'desc': 'Rehabilitasi patah tulang', 'color': const Color(0xFFE0E7FF)},
-    ];
+  // --- STEP 3: RINGKASAN PEMBAYARAN ---
+  Widget _buildPaymentSummary() {
+    // Validasi pencegahan error layar merah
+    if (_selectedDate == null || _selectedTime == null) return const Center(child: Text("Data tidak lengkap"));
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: services.length,
-      itemBuilder: (ctx, i) {
-        final s = services[i];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 46, height: 46,
-                decoration: BoxDecoration(color: s['color'] as Color, borderRadius: BorderRadius.circular(12)),
-                child: Center(child: Text(s['emoji'] as String, style: const TextStyle(fontSize: 22))),
-              ),
+    int total = _therapyCost + _visitCost;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Card Terapis
+          Container(
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(border: Border.all(color: const Color(0xFF00BBA7)), borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              const CircleAvatar(backgroundColor: Color(0xFF00BBA7), child: Icon(Icons.person, color: Colors.white)),
               const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(s['name'] as String, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
-                    Text(s['desc'] as String, style: GoogleFonts.inter(fontSize: 12, color: AppColors.lightText)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: AppColors.lightText),
-            ],
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+                Text("Ftr. Siti Nurhaliza, S.Tr.Kes", style: TextStyle(fontWeight: FontWeight.bold)),
+                Text("• 10 tahun pengalaman", style: TextStyle(fontSize: 12, color: Colors.grey)),
+              ])),
+              const Text("Lihat Profil", style: TextStyle(color: Color(0xFF00BBA7), fontWeight: FontWeight.bold, fontSize: 12)),
+            ]),
           ),
-        );
-      },
+          const SizedBox(height: 25),
+          // Rincian Biaya
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: const Color(0xFFE0F2F1), borderRadius: BorderRadius.circular(15)),
+            child: Column(children: [
+              _rowDetail("Layanan", _selectedTherapy ?? ""),
+              _rowDetail("Waktu", "${DateFormat('dd MMM yyyy').format(_selectedDate!)} - ${_selectedTime!.format(context)}"),
+              const Divider(height: 30),
+              _rowDetail("Biaya Terapi", _selectedPrice ?? ""),
+              _rowDetail("Biaya Kunjungan", "Rp 50.000"),
+              const Divider(height: 30),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text("Total Bayar", style: TextStyle(fontWeight: FontWeight.bold)),
+                Text("Rp ${NumberFormat('#,###', 'id_ID').format(total)}", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00BBA7), fontSize: 18)),
+              ]),
+            ]),
+          ),
+          const SizedBox(height: 20),
+          // Info Cash
+          Container(
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(12)),
+            child: Row(children: const [
+              Icon(Icons.info_outline, color: Colors.orange),
+              SizedBox(width: 10),
+              Expanded(child: Text("Pembayaran tunai dilakukan setelah layanan selesai.", style: TextStyle(fontSize: 12, color: Colors.orange))),
+            ]),
+          ),
+          const SizedBox(height: 30),
+          _buildActionButtons(
+            onNext: () {
+              // Navigasi ke Janji Temu
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const JanjiTemuScreen()),
+              );
+            }, 
+            nextLabel: "Konfirmasi Pesanan"
+          ),
+        ],
+      ),
     );
+  }
+
+  // --- SUB WIDGETS & LOGIKA ---
+
+  void _showAddAddressDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Tambah Alamat Baru"),
+        content: TextField(
+          controller: _newAddressController,
+          decoration: const InputDecoration(hintText: "Masukkan alamat lengkap"),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+          ElevatedButton(
+            onPressed: () {
+              if (_newAddressController.text.isNotEmpty) {
+                setState(() {
+                  _myAddresses.add(_newAddressController.text);
+                  _selectedAddress = _newAddressController.text;
+                  _isChoosingAddress = false;
+                });
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BBA7)),
+            child: const Text("Simpan"),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedTherapyCard() => Container(
+    padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: const Color(0xFFE0F2F1), borderRadius: BorderRadius.circular(12)),
+    child: Row(children: [const Icon(Icons.check_circle, color: Color(0xFF00BBA7)), const SizedBox(width: 10), Text(_selectedTherapy ?? ""), const Spacer(), Text(_selectedPrice ?? "", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00BBA7)))]),
+  );
+
+  Widget _buildSelectedAddressCard() => Container(
+    padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade300)),
+    child: Column(children: [Text(_selectedAddress, style: const TextStyle(fontSize: 12)), const SizedBox(height: 8), InkWell(onTap: () => setState(() => _isChoosingAddress = true), child: const Text("Ganti alamat", style: TextStyle(color: Color(0xFF00BBA7), fontWeight: FontWeight.bold, fontSize: 12)))]),
+  );
+
+  Widget _buildAddressList() => Container(
+    padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFFE0F2F1), borderRadius: BorderRadius.circular(12)),
+    child: Column(children: [
+      ..._myAddresses.map((addr) => RadioListTile<String>(value: addr, groupValue: _selectedAddress, activeColor: const Color(0xFF00BBA7), title: Text(addr, style: const TextStyle(fontSize: 12)), onChanged: (val) => setState(() { _selectedAddress = val!; _isChoosingAddress = false; }))),
+      const Divider(),
+      TextButton.icon(onPressed: _showAddAddressDialog, icon: const Icon(Icons.add, color: Color(0xFF00BBA7)), label: const Text("Tambah Alamat Baru", style: TextStyle(color: Color(0xFF00BBA7)))),
+    ]),
+  );
+
+  Widget _buildLabel(IconData i, String t) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [Icon(i, size: 18, color: const Color(0xFF00BBA7)), const SizedBox(width: 8), Text(t, style: const TextStyle(fontWeight: FontWeight.bold))]));
+
+  Widget _buildInkInput(String t, IconData i, VoidCallback tap) => InkWell(onTap: tap, child: Container(padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(t), Icon(i, color: Colors.grey)])));
+
+  Widget _rowDetail(String l, String v) => Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(l, style: const TextStyle(color: Colors.grey, fontSize: 13)), Text(v, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))]));
+
+  Widget _buildActionButtons({required VoidCallback onNext, required String nextLabel}) => Row(children: [
+    Expanded(child: OutlinedButton(onPressed: () => setState(() { if(_currentStep > 1) _currentStep--; }), child: const Text("Kembali"))),
+    const SizedBox(width: 15),
+    Expanded(child: ElevatedButton(onPressed: onNext, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BBA7)), child: Text(nextLabel, style: const TextStyle(color: Colors.white)))),
+  ]);
+
+  Future<void> _selectDate(BuildContext c) async {
+    final DateTime? p = await showDatePicker(context: c, initialDate: DateTime.now(), firstDate: DateTime.now(), lastDate: DateTime(2030));
+    if (p != null) setState(() => _selectedDate = p);
+  }
+
+  Future<void> _selectTime(BuildContext c) async {
+    final TimeOfDay? p = await showTimePicker(context: c, initialTime: TimeOfDay.now());
+    if (p != null) setState(() => _selectedTime = p);
   }
 }
