@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../theme.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/fisiocare_logo.dart';
 import 'register_screen.dart';
 import 'register_fisioterapis_screen.dart';
-import 'dashboard_screen.dart'; // IMPORT INI WAJIB ADA
+import 'dashboard_screen.dart';
 import 'fisioterapis_dashboard_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -16,16 +16,90 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  int _selectedTab = 0; // 0 untuk Pasien, 1 untuk Fisioterapis
+  int _selectedTab = 0;
   bool _obscurePassword = true;
+  bool _isLoading = false;
+  String? _errorMessage;
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _supabase = Supabase.instance.client;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handlePatientLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => _errorMessage = 'Email dan password tidak boleh kosong.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // 1. Login via Supabase Auth
+      final authResponse = await _supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      final user = authResponse.user;
+      if (user == null) {
+        setState(() => _errorMessage = 'Login gagal. Periksa email dan password.');
+        return;
+      }
+
+      // 2. Verifikasi bahwa user terdaftar sebagai pasien
+      final patientData = await _supabase
+          .from('patients')
+          .select('id, full_name, email')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (patientData == null) {
+        // User ada di auth tapi bukan pasien — logout dan tampilkan pesan
+        await _supabase.auth.signOut();
+        setState(() =>
+            _errorMessage = 'Akun ini bukan akun pasien. Gunakan tab Fisioterapis.');
+        return;
+      }
+
+      // 3. Berhasil — navigasi ke dashboard
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        );
+      }
+    } on AuthException catch (e) {
+      setState(() => _errorMessage = _mapAuthError(e.message));
+    } catch (e) {
+      setState(() => _errorMessage = 'Terjadi kesalahan. Silakan coba lagi.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Memetakan pesan error Supabase ke bahasa Indonesia
+  String _mapAuthError(String message) {
+    if (message.contains('Invalid login credentials')) {
+      return 'Email atau password salah.';
+    } else if (message.contains('Email not confirmed')) {
+      return 'Email belum dikonfirmasi. Cek inbox Anda.';
+    } else if (message.contains('Too many requests')) {
+      return 'Terlalu banyak percobaan. Tunggu beberapa saat.';
+    }
+    return 'Login gagal: $message';
   }
 
   @override
@@ -135,6 +209,36 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           const SizedBox(height: 10),
           _buildForgotPassword(),
+
+          // Error message
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFCA5A5)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _errorMessage!,
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFFB91C1C),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           const SizedBox(height: 24),
           _buildLoginButton(),
           const SizedBox(height: 16),
@@ -164,7 +268,10 @@ class _LoginScreenState extends State<LoginScreen> {
     bool isSelected = _selectedTab == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _selectedTab = index),
+        onTap: () => setState(() {
+          _selectedTab = index;
+          _errorMessage = null; // reset error saat ganti tab
+        }),
         child: Container(
           margin: const EdgeInsets.all(4),
           decoration: BoxDecoration(
@@ -207,6 +314,10 @@ class _LoginScreenState extends State<LoginScreen> {
         TextField(
           controller: controller,
           obscureText: isPassword ? _obscurePassword : false,
+          keyboardType: isPassword ? TextInputType.text : TextInputType.emailAddress,
+          onChanged: (_) {
+            if (_errorMessage != null) setState(() => _errorMessage = null);
+          },
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon, size: 20, color: const Color(0xFF00BBA7)),
@@ -216,7 +327,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       _obscurePassword ? Icons.visibility_off : Icons.visibility,
                       size: 20,
                     ),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                   )
                 : null,
             filled: true,
@@ -252,33 +364,43 @@ class _LoginScreenState extends State<LoginScreen> {
       width: double.infinity,
       height: 50,
       child: ElevatedButton(
-        onPressed: () {
-          if (_selectedTab == 0) {
-            // PERBAIKAN DI SINI: Arahkan ke DashboardScreen, bukan ProfileScreen
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const DashboardScreen()),
-            );
-          } else {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const FisioterapisDashboardScreen()),
-            );
-          }
-        },
+        onPressed: _isLoading
+            ? null
+            : () {
+                if (_selectedTab == 0) {
+                  _handlePatientLogin();
+                } else {
+                  // TODO: implementasi login fisioterapis
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const FisioterapisDashboardScreen()),
+                  );
+                }
+              },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF00BBA7),
+          disabledBackgroundColor: const Color(0xFF00BBA7).withOpacity(0.6),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           elevation: 0,
         ),
-        child: Text(
-          'Masuk',
-          style: GoogleFonts.inter(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : Text(
+                'Masuk',
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
       ),
     );
   }
@@ -297,9 +419,9 @@ class _LoginScreenState extends State<LoginScreen> {
             style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[700]),
             children: [
               const TextSpan(text: 'Belum punya akun? '),
-              TextSpan(
+              const TextSpan(
                 text: 'Daftar Sekarang',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Color(0xFF00BBA7),
                   fontWeight: FontWeight.bold,
                 ),
