@@ -1,8 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-// Import halaman tujuan agar tombol berfungsi
-import 'login_screen.dart'; 
-import 'profile_screen.dart';
+import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -12,256 +12,364 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
+  final supabase = Supabase.instance.client;
+
+  // Controllers
+  final nameC = TextEditingController();
+  final emailC = TextEditingController();
+  final phoneC = TextEditingController();
+  final addressC = TextEditingController();
+  final kodePosC = TextEditingController();
+  final passwordC = TextEditingController();
+  final confirmPasswordC = TextEditingController();
+
+  final weightC = TextEditingController();
+  final heightC = TextEditingController();
+  final bloodC = TextEditingController();
+  final allergyC = TextEditingController();
+  final historyC = TextEditingController();
+
+  bool obscurePassword = true;
+
+  // API wilayah
+  List provinces = [];
+  List regencies = [];
+  List districts = [];
+  List villages = [];
+
+  String? provinceId, regencyId, districtId, villageId;
+  String? provinceName, regencyName, districtName, villageName;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchProvinces();
+  }
+
+  // ================= API =================
+
+  Future<void> fetchProvinces() async {
+    final res = await http.get(Uri.parse(
+        'https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json'));
+    setState(() => provinces = json.decode(res.body));
+  }
+
+  Future<void> fetchRegencies(String id) async {
+    final res = await http.get(Uri.parse(
+        'https://www.emsifa.com/api-wilayah-indonesia/api/regencies/$id.json'));
+    setState(() {
+      regencies = json.decode(res.body);
+      districts = [];
+      villages = [];
+    });
+  }
+
+  Future<void> fetchDistricts(String id) async {
+    final res = await http.get(Uri.parse(
+        'https://www.emsifa.com/api-wilayah-indonesia/api/districts/$id.json'));
+    setState(() {
+      districts = json.decode(res.body);
+      villages = [];
+    });
+  }
+
+  Future<void> fetchVillages(String id) async {
+    final res = await http.get(Uri.parse(
+        'https://www.emsifa.com/api-wilayah-indonesia/api/villages/$id.json'));
+    setState(() => villages = json.decode(res.body));
+  }
+
+  // ================= REGISTER =================
+
+  Future<void> register() async {
+    if (passwordC.text != confirmPasswordC.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password tidak sama')),
+      );
+      return;
+    }
+
+    try {
+      final auth = await supabase.auth.signUp(
+        email: emailC.text,
+        password: passwordC.text,
+      );
+
+      final userId = auth.user!.id;
+
+      await supabase.from('patients').insert({
+        'id': userId,
+        'full_name': nameC.text,
+        'email': emailC.text,
+        'phone': phoneC.text,
+        'provinsi': provinceName,
+        'kota': regencyName,
+        'kecamatan': districtName,
+        'kelurahan': villageName,
+        'kode_pos': kodePosC.text,
+        'address': addressC.text,
+        'weight': weightC.text,
+        'height': heightC.text,
+        'blood_type': bloodC.text,
+        'allergy': allergyC.text,
+        'medical_history': historyC.text,
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Registrasi berhasil')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
+  // ================= UI =================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF5F7F9),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // --- HEADER SECTION ---
+            // HEADER
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.only(top: 60, left: 20, right: 20, bottom: 30),
-              decoration: const BoxDecoration(
-                color: Color(0xFF00BBA7),
-              ),
-              child: Row(
+              padding: const EdgeInsets.fromLTRB(20, 60, 20, 25),
+              color: const Color(0xFF00BBA7),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Daftar Pasien',
-                        style: GoogleFonts.poppins(
+                  Text("Daftar Pasien",
+                      style: GoogleFonts.poppins(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Text(
-                        'Buat akun untuk layanan fisioterapi',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.white.withOpacity(0.9),
-                        ),
-                      ),
-                    ],
-                  ),
+                          color: Colors.white)),
+                  Text("Buat akun untuk layanan fisioterapi",
+                      style: GoogleFonts.poppins(
+                          fontSize: 12, color: Colors.white70)),
                 ],
               ),
             ),
 
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- INFORMASI PRIBADI ---
-                  _buildSectionTitle('Informasi Pribadi'),
-                  const SizedBox(height: 15),
-                  _buildLabel('Nama Lengkap *'),
-                  _buildTextField('Masukkan nama lengkap'),
-                  _buildLabel('Email *'),
-                  _buildTextField('nama@email.com'),
-                  _buildLabel('Nomor Telepon *'),
-                  _buildTextField('+62 812 3456 7890'),
-                  _buildLabel('Tanggal Lahir'),
-                  _buildTextField('dd/mm/yyyy'),
-                  _buildLabel('Jenis Kelamin'),
-                  _buildDropdownField('Pilih jenis kelamin', ['Laki-laki', 'Perempuan']),
-                  _buildLabel('Alamat'),
-                  _buildTextField('Masukkan alamat lengkap', maxLines: 3),
+                  section("Informasi Pribadi"),
 
-                  const SizedBox(height: 30),
-                  
-                  // --- INFORMASI MEDIS ---
-                  _buildSectionTitle('Informasi Medis'),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Informasi ini membantu terapis memberikan perawatan terbaik',
-                    style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 15),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildLabel('Berat Badan'),
-                            _buildTextField('Contoh : 72 kg'),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 15),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildLabel('Tinggi Badan'),
-                            _buildTextField('Contoh : 170 cm'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  _buildLabel('Golongan Darah'),
-                  _buildTextField('Contoh : O+'),
-                  _buildLabel('Alergi'),
-                  _buildTextField('Contoh : Kacang, Debu, dll'),
-                  _buildLabel('Riwayat Penyakit (Opsional)'),
-                  _buildTextField('Contoh: Diabetes, Hipertensi, dll.', maxLines: 3),
+                  label("Nama Lengkap *"),
+                  field("Masukkan nama lengkap", nameC, Icons.person),
 
-                  const SizedBox(height: 30),
+                  label("Email *"),
+                  field("nama@email.com", emailC, Icons.email),
 
-                  // --- KEAMANAN AKUN ---
-                  _buildSectionTitle('Keamanan Akun'),
-                  const SizedBox(height: 15),
-                  _buildLabel('Password *'),
-                  _buildPasswordField('Minimal 8 karakter', _obscurePassword, () {
-                    setState(() => _obscurePassword = !_obscurePassword);
-                  }),
-                  _buildLabel('Konfirmasi Password *'),
-                  _buildPasswordField('Masukkan ulang password', _obscureConfirmPassword, () {
-                    setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
+                  label("Nomor Telepon *"),
+                  field("+62 812 xxxx", phoneC, Icons.phone),
+
+                  label("Alamat"),
+                  dropdown("Pilih Provinsi", provinces, provinceId,
+                      Icons.location_on, (val) {
+                    setState(() {
+                      provinceId = val['id'];
+                      provinceName = val['name'];
+                    });
+                    fetchRegencies(val['id']);
                   }),
 
-                  const SizedBox(height: 30),
+                  dropdown("Pilih Kota", regencies, regencyId,
+                      Icons.location_city, (val) {
+                    setState(() {
+                      regencyId = val['id'];
+                      regencyName = val['name'];
+                    });
+                    fetchDistricts(val['id']);
+                  }),
 
-                  // --- TOMBOL DAFTAR ---
-                  SizedBox(
-                    width: double.infinity,
-                    height: 55,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // Navigasi ke profil setelah daftar
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00BBA7),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        'Daftar Sekarang',
-                        style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                    ),
-                  ),
+                  dropdown("Pilih Kecamatan", districts, districtId,
+                      Icons.map, (val) {
+                    setState(() {
+                      districtId = val['id'];
+                      districtName = val['name'];
+                    });
+                    fetchVillages(val['id']);
+                  }),
+
+                  dropdown("Pilih Kelurahan", villages, villageId,
+                      Icons.home, (val) {
+                    setState(() {
+                      villageId = val['id'];
+                      villageName = val['name'];
+                    });
+                  }),
+
+                  field("Kode Pos", kodePosC, Icons.numbers),
+                  field("Alamat lengkap", addressC, Icons.home,
+                      maxLines: 3),
 
                   const SizedBox(height: 20),
 
-                  // --- TOMBOL MASUK (LOGIN) ---
-                  Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Sudah punya akun? ',
-                          style: GoogleFonts.poppins(color: Colors.grey, fontSize: 13),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            // Fungsi Navigasi ke Halaman Login
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const LoginScreen()),
-                            );
-                          },
-                          child: Text(
-                            'Masuk',
-                            style: GoogleFonts.poppins(
-                              color: const Color(0xFF00BBA7),
+                  section("Informasi Medis"),
+                  helper(
+                      "Informasi ini membantu terapis memberikan perawatan terbaik"),
+
+                  Row(
+                    children: [
+                      Expanded(
+                          child: field(
+                              "Berat (kg)", weightC, Icons.monitor_weight)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child:
+                              field("Tinggi (cm)", heightC, Icons.height)),
+                    ],
+                  ),
+
+                  field("Golongan Darah", bloodC, Icons.bloodtype),
+                  field("Alergi", allergyC, Icons.warning),
+                  field("Riwayat Penyakit", historyC, Icons.history,
+                      maxLines: 3),
+
+                  const SizedBox(height: 20),
+
+                  section("Keamanan Akun"),
+
+                  label("Password *"),
+                  passwordField("Minimal 8 karakter", passwordC),
+
+                  label("Konfirmasi Password *"),
+                  passwordField("Ulangi password", confirmPasswordC),
+
+                  const SizedBox(height: 20),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: register,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00BBA7),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text("Daftar Sekarang",
+                          style: GoogleFonts.poppins(
                               fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ],
+                              color: Colors.white)),
                     ),
                   ),
-                  const SizedBox(height: 40),
                 ],
               ),
-            ),
+            )
           ],
         ),
       ),
     );
   }
 
-  // Helper Widgets untuk merapikan kode
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF1A237E)),
-    );
-  }
+  // ================= COMPONENT =================
 
-  Widget _buildLabel(String label) {
+  Widget section(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 10),
-      child: Text(
-        label,
-        style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87),
-      ),
+      padding: const EdgeInsets.only(top: 10, bottom: 10),
+      child: Text(title,
+          style: GoogleFonts.poppins(
+              fontSize: 16, fontWeight: FontWeight.bold)),
     );
   }
 
-  Widget _buildTextField(String hint, {int maxLines = 1}) {
-    return TextFormField(
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: GoogleFonts.poppins(color: Colors.grey.shade400, fontSize: 14),
-        filled: true,
-        fillColor: const Color(0xFFF5F7F9),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      ),
+  Widget label(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 5),
+      child: Text(text,
+          style: GoogleFonts.poppins(
+              fontSize: 12, fontWeight: FontWeight.w600)),
     );
   }
 
-  Widget _buildPasswordField(String hint, bool obscure, VoidCallback toggle) {
-    return TextFormField(
-      obscureText: obscure,
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: GoogleFonts.poppins(color: Colors.grey.shade400, fontSize: 14),
-        filled: true,
-        fillColor: const Color(0xFFF5F7F9),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        suffixIcon: IconButton(
-          icon: Icon(obscure ? Icons.visibility_off : Icons.visibility, color: Colors.grey, size: 20),
-          onPressed: toggle,
+  Widget helper(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(text,
+          style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
+    );
+  }
+
+  Widget field(String hint, TextEditingController c, IconData icon,
+      {int maxLines = 1}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: c,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          hintText: hint,
+          prefixIcon: Icon(icon, size: 18),
+          filled: true,
+          fillColor: const Color(0xFFF5F7F9),
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none),
         ),
       ),
     );
   }
 
-  Widget _buildDropdownField(String hint, List<String> items) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(color: const Color(0xFFF5F7F9), borderRadius: BorderRadius.circular(12)),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          hint: Text(hint, style: GoogleFonts.poppins(color: Colors.grey.shade400, fontSize: 14)),
-          isExpanded: true,
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (val) {},
+  Widget passwordField(String hint, TextEditingController c) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: c,
+        obscureText: obscurePassword,
+        decoration: InputDecoration(
+          hintText: hint,
+          prefixIcon: const Icon(Icons.lock, size: 18),
+          suffixIcon: IconButton(
+            icon: Icon(obscurePassword
+                ? Icons.visibility_off
+                : Icons.visibility),
+            onPressed: () {
+              setState(() => obscurePassword = !obscurePassword);
+            },
+          ),
+          filled: true,
+          fillColor: const Color(0xFFF5F7F9),
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none),
+        ),
+      ),
+    );
+  }
+
+  Widget dropdown(String hint, List data, String? value, IconData icon,
+      Function(dynamic) onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField(
+        value: value,
+        hint: Text(hint),
+        items: data
+            .map<DropdownMenuItem>((e) => DropdownMenuItem(
+                  value: e['id'],
+                  child: Text(e['name']),
+                ))
+            .toList(),
+        onChanged: (val) {
+          final selected =
+              data.firstWhere((element) => element['id'] == val);
+          onChanged(selected);
+        },
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, size: 18),
+          filled: true,
+          fillColor: const Color(0xFFF5F7F9),
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none),
         ),
       ),
     );
