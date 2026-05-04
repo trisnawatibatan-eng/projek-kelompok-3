@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 // Import halaman tujuan agar tombol berfungsi
 import 'login_screen.dart'; 
-import 'dashboard_screen.dart';
+import 'profile_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -143,10 +143,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     height: 55,
                     child: ElevatedButton(
                       onPressed: () {
-                        // Navigasi ke Dashboard setelah daftar
+                        // Navigasi ke profil setelah daftar
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+                          MaterialPageRoute(builder: (context) => const ProfileScreen()),
                         );
                       },
                       style: ElevatedButton.styleFrom(
