@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
 import '../widgets/fisiocare_logo.dart';
 import 'register_screen.dart';
 import 'register_fisioterapis_screen.dart';
-import 'dashboard_screen.dart';
+import 'dashboard_screen.dart'; // IMPORT INI WAJIB ADA
 import 'fisioterapis_dashboard_screen.dart';
 import 'forgot_password_screen.dart';
-
-final supabase = Supabase.instance.client; 
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,9 +16,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  int _selectedTab = 0; // 0 = Pasien, 1 = Fisioterapis
+  int _selectedTab = 0; // 0 untuk Pasien, 1 untuk Fisioterapis
   bool _obscurePassword = true;
-  bool _isLoading = false;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -42,10 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF00BBA7),
-              Color(0xFF009689),
-            ],
+            colors: [Color(0xFF00BBA7), Color(0xFF009689)],
           ),
         ),
         child: SafeArea(
@@ -54,262 +47,11 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               children: [
                 const SizedBox(height: 40),
-                // Logo + Title
-                Column(
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.12),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Padding(
-                        padding: EdgeInsets.all(10),
-                        child: FisioCareLogoWidget(),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'FisioCare',
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Homecare Fisioterapi',
-                      style: GoogleFonts.inter(
-                        color: const Color(0xFFCBFBF1),
-                        fontSize: 16,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ),
+                _buildLogoSection(),
                 const SizedBox(height: 32),
-                // Card
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.black.withOpacity(0.1)),
-                  ),
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Title
-                      Center(
-                        child: Text(
-                          'Masuk ke Akun',
-                          style: GoogleFonts.inter(
-                            color: const Color(0xFF0F172B),
-                            fontSize: 20,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      // Tab Switcher
-                      Container(
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFECECF0),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => setState(() => _selectedTab = 0),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  margin: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(
-                                    color: _selectedTab == 0 ? Colors.white : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: _selectedTab == 0
-                                        ? [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4)]
-                                        : null,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      'Pasien',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: const Color(0xFF0A0A0A),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => setState(() => _selectedTab = 1),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  margin: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(
-                                    color: _selectedTab == 1 ? Colors.white : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: _selectedTab == 1
-                                        ? [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4)]
-                                        : null,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      'Fisioterapis',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: const Color(0xFF0A0A0A),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      // Email field
-                      _buildLabel(Icons.email_outlined, 'Email'),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        style: GoogleFonts.inter(fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'nama@email.com',
-                          hintStyle: GoogleFonts.inter(color: AppColors.hintText, fontSize: 14),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      // Password field
-                      _buildLabel(Icons.lock_outline, 'Password'),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: _passwordController,
-                        obscureText: _obscurePassword,
-                        style: GoogleFonts.inter(fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'Masukkan password',
-                          hintStyle: GoogleFonts.inter(color: AppColors.hintText, fontSize: 14),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                              color: AppColors.hintText,
-                              size: 18,
-                            ),
-                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      // Forgot password - SUDAH DITAMBAHKAN NAVIGASI
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const ForgotPasswordScreen(),
-                              ),
-                            );
-                          },
-                          child: Text(
-                            'Lupa password?',
-                            style: GoogleFonts.inter(
-                              color: AppColors.primary,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Login button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 44,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : () => _handleLogin(),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Text(
-                                  'Masuk',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      // Register link
-                      Center(
-                        child: GestureDetector(
-                          onTap: () {
-                            if (_selectedTab == 0) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                              );
-                            } else {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const RegisterFisioterapisScreen()),
-                              );
-                            }
-                          },
-                          child: RichText(
-                            text: TextSpan(
-                              style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF45556C)),
-                              children: [
-                                const TextSpan(text: 'Belum punya akun? '),
-                                TextSpan(
-                                  text: _selectedTab == 0 ? 'Daftar sebagai Pasien' : 'Daftar sebagai Fisioterapis',
-                                  style: const TextStyle(color: AppColors.primary),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _buildLoginForm(),
                 const SizedBox(height: 20),
-                Text(
-                  'Dengan masuk, Anda menyetujui Syarat & Ketentuan kami',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    color: const Color(0xFFCBFBF1),
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 24),
+                _buildFooterText(),
               ],
             ),
           ),
@@ -318,86 +60,262 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildLabel(IconData icon, String text) {
-    return Row(
+  Widget _buildLogoSection() {
+    return Column(
       children: [
-        Icon(icon, size: 16, color: AppColors.primary),
-        const SizedBox(width: 6),
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [
+              BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4))
+            ],
+          ),
+          child: const Padding(
+            padding: EdgeInsets.all(10),
+            child: FisioCareLogoWidget(),
+          ),
+        ),
+        const SizedBox(height: 14),
         Text(
-          text,
+          'FisioCare',
           style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: const Color(0xFF0A0A0A),
+            color: Colors.white,
+            fontSize: 30,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Homecare Fisioterapi',
+          style: GoogleFonts.inter(
+            color: const Color(0xFFCBFBF1),
+            fontSize: 16,
+            fontStyle: FontStyle.italic,
           ),
         ),
       ],
     );
   }
 
-  Future<void> _handleLogin() async {
-    // Validasi input
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-      _showError('Mohon isi email dan password');
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      // Login dengan Supabase
-      final AuthResponse res = await supabase.auth.signInWithPassword(
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
-
-      if (res.user != null) {
-        // Login berhasil, navigasi sesuai tab yang dipilih
-        if (mounted) {
-          if (_selectedTab == 0) {
-            // Pasien login
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const DashboardScreen()),
-            );
-          } else {
-            // Fisioterapis login
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const FisioterapisDashboardScreen()),
-            );
-          }
-        }
-      }
-    } on AuthException catch (error) {
-      _showError(_parseAuthError(error.message));
-    } catch (error) {
-      _showError('Terjadi kesalahan: ${error.toString()}');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
+  Widget _buildLoginForm() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Text(
+              'Masuk ke Akun',
+              style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 24),
+          _buildTabSwitcher(),
+          const SizedBox(height: 20),
+          _buildTextField(
+            controller: _emailController,
+            label: 'Email',
+            hint: 'nama@email.com',
+            icon: Icons.email_outlined,
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: _passwordController,
+            label: 'Password',
+            hint: 'Masukkan password',
+            icon: Icons.lock_outline,
+            isPassword: true,
+          ),
+          const SizedBox(height: 10),
+          _buildForgotPassword(),
+          const SizedBox(height: 24),
+          _buildLoginButton(),
+          const SizedBox(height: 16),
+          _buildRegisterLink(),
+        ],
       ),
     );
   }
 
-  String _parseAuthError(String error) {
-    if (error.contains('Invalid login credentials')) {
-      return 'Email atau password salah';
-    } else if (error.contains('Email not confirmed')) {
-      return 'Email belum dikonfirmasi. Cek email Anda';
-    } else if (error.contains('Too many requests')) {
-      return 'Terlalu banyak percobaan login. Coba lagi nanti';
-    }
-    return error;
+  Widget _buildTabSwitcher() {
+    return Container(
+      height: 45,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          _tabItem(0, 'Pasien'),
+          _tabItem(1, 'Fisioterapis'),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabItem(int index, String title) {
+    bool isSelected = _selectedTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedTab = index),
+        child: Container(
+          margin: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected
+                ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]
+                : [],
+          ),
+          child: Center(
+            child: Text(
+              title,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? const Color(0xFF00BBA7) : Colors.grey,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    bool isPassword = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          obscureText: isPassword ? _obscurePassword : false,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: Icon(icon, size: 20, color: const Color(0xFF00BBA7)),
+            suffixIcon: isPassword
+                ? IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      size: 20,
+                    ),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  )
+                : null,
+            filled: true,
+            fillColor: const Color(0xFFF9FAFB),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildForgotPassword() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: TextButton(
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+        ),
+        child: Text(
+          'Lupa password?',
+          style: GoogleFonts.inter(color: const Color(0xFF00BBA7), fontSize: 13),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoginButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: ElevatedButton(
+        onPressed: () {
+          if (_selectedTab == 0) {
+            // PERBAIKAN DI SINI: Arahkan ke DashboardScreen, bukan ProfileScreen
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const DashboardScreen()),
+            );
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const FisioterapisDashboardScreen()),
+            );
+          }
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF00BBA7),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
+        ),
+        child: Text(
+          'Masuk',
+          style: GoogleFonts.inter(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRegisterLink() {
+    return Center(
+      child: GestureDetector(
+        onTap: () {
+          Widget screen = _selectedTab == 0
+              ? const RegisterScreen()
+              : const RegisterFisioterapisScreen();
+          Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+        },
+        child: RichText(
+          text: TextSpan(
+            style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[700]),
+            children: [
+              const TextSpan(text: 'Belum punya akun? '),
+              TextSpan(
+                text: 'Daftar Sekarang',
+                style: const TextStyle(
+                  color: Color(0xFF00BBA7),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooterText() {
+    return Text(
+      'Dengan masuk, Anda menyetujui Syarat & Ketentuan kami',
+      textAlign: TextAlign.center,
+      style: GoogleFonts.inter(color: const Color(0xFFCBFBF1), fontSize: 12),
+    );
   }
 }

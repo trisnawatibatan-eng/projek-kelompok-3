@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 // Import halaman tujuan agar tombol berfungsi
 import 'login_screen.dart'; 
-import 'dashboard_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-
-final supabase = Supabase.instance.client;
+import 'profile_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -17,21 +14,6 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-
-  TextEditingController emailController = TextEditingController();
-  TextEditingController passwordController = TextEditingController();
-  TextEditingController confirmPasswordController = TextEditingController();
-  TextEditingController namaController = TextEditingController();
-  TextEditingController teleponController = TextEditingController();
-  TextEditingController alamatController = TextEditingController();
-  TextEditingController beratController = TextEditingController();
-  TextEditingController tinggiController = TextEditingController();
-  TextEditingController golonganDarahController = TextEditingController();
-  TextEditingController alergiController = TextEditingController();
-  TextEditingController riwayatController = TextEditingController();
-
-  String selectedGender = 'Laki-laki';
-  DateTime? selectedDate;
 
   @override
   Widget build(BuildContext context) {
@@ -87,19 +69,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   _buildSectionTitle('Informasi Pribadi'),
                   const SizedBox(height: 15),
                   _buildLabel('Nama Lengkap *'),
-                  _buildTextField('Masukkan nama lengkap', controller: namaController),
+                  _buildTextField('Masukkan nama lengkap'),
                   _buildLabel('Email *'),
-                  _buildTextField('nama@email.com', controller: emailController),
+                  _buildTextField('nama@email.com'),
                   _buildLabel('Nomor Telepon *'),
-                  _buildTextField('+62 812 3456 7890', controller: teleponController),
+                  _buildTextField('+62 812 3456 7890'),
                   _buildLabel('Tanggal Lahir'),
-                  _buildDatePickerField(),
+                  _buildTextField('dd/mm/yyyy'),
                   _buildLabel('Jenis Kelamin'),
-                  _buildDropdownField('Pilih jenis kelamin', ['Laki-laki', 'Perempuan'],
-                    onChanged: (value) => setState(() => selectedGender = value ?? 'Laki-laki'),
-                  ),
+                  _buildDropdownField('Pilih jenis kelamin', ['Laki-laki', 'Perempuan']),
                   _buildLabel('Alamat'),
-                  _buildTextField('Masukkan alamat lengkap', maxLines: 3, controller: alamatController),
+                  _buildTextField('Masukkan alamat lengkap', maxLines: 3),
 
                   const SizedBox(height: 30),
                   
@@ -118,7 +98,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildLabel('Berat Badan'),
-                            _buildTextField('Contoh : 72 kg', controller: beratController),
+                            _buildTextField('Contoh : 72 kg'),
                           ],
                         ),
                       ),
@@ -128,18 +108,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildLabel('Tinggi Badan'),
-                            _buildTextField('Contoh : 170 cm', controller: tinggiController),
+                            _buildTextField('Contoh : 170 cm'),
                           ],
                         ),
                       ),
                     ],
                   ),
                   _buildLabel('Golongan Darah'),
-                  _buildTextField('Contoh : O+', controller: golonganDarahController),
+                  _buildTextField('Contoh : O+'),
                   _buildLabel('Alergi'),
-                  _buildTextField('Contoh : Kacang, Debu, dll', controller: alergiController),
+                  _buildTextField('Contoh : Kacang, Debu, dll'),
                   _buildLabel('Riwayat Penyakit (Opsional)'),
-                  _buildTextField('Contoh: Diabetes, Hipertensi, dll.', maxLines: 3, controller: riwayatController),
+                  _buildTextField('Contoh: Diabetes, Hipertensi, dll.', maxLines: 3),
 
                   const SizedBox(height: 30),
 
@@ -149,11 +129,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   _buildLabel('Password *'),
                   _buildPasswordField('Minimal 8 karakter', _obscurePassword, () {
                     setState(() => _obscurePassword = !_obscurePassword);
-                  }, controller: passwordController),
+                  }),
                   _buildLabel('Konfirmasi Password *'),
                   _buildPasswordField('Masukkan ulang password', _obscureConfirmPassword, () {
                     setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
-                  }, controller: confirmPasswordController),
+                  }),
 
                   const SizedBox(height: 30),
 
@@ -162,9 +142,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: () async {
-                        // Navigasi ke Dashboard setelah daftar
-                        await _registerUser();
+                      onPressed: () {
+                        // Navigasi ke profil setelah daftar
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF00BBA7),
@@ -237,9 +220,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildTextField(String hint, {int maxLines = 1, TextEditingController? controller}) {
+  Widget _buildTextField(String hint, {int maxLines = 1}) {
     return TextFormField(
-      controller: controller,
       maxLines: maxLines,
       decoration: InputDecoration(
         hintText: hint,
@@ -252,9 +234,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildPasswordField(String hint, bool obscure, VoidCallback toggle, {TextEditingController? controller}) {
+  Widget _buildPasswordField(String hint, bool obscure, VoidCallback toggle) {
     return TextFormField(
-      controller: controller,
       obscureText: obscure,
       decoration: InputDecoration(
         hintText: hint,
@@ -271,7 +252,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildDropdownField(String hint, List<String> items, {required Function(String?)? onChanged}) {
+  Widget _buildDropdownField(String hint, List<String> items) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(color: const Color(0xFFF5F7F9), borderRadius: BorderRadius.circular(12)),
@@ -279,127 +260,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: DropdownButton<String>(
           hint: Text(hint, style: GoogleFonts.poppins(color: Colors.grey.shade400, fontSize: 14)),
           isExpanded: true,
-          value: selectedGender.isNotEmpty ? selectedGender : null,
           items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: onChanged,
+          onChanged: (val) {},
         ),
       ),
     );
-  }
-
-  Widget _buildDatePickerField() {
-    return GestureDetector(
-      onTap: _selectDate,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF5F7F9),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              selectedDate == null
-                  ? 'Pilih tanggal lahir'
-                  : '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: selectedDate == null ? Colors.grey.shade400 : Colors.black87,
-              ),
-            ),
-            Icon(Icons.calendar_today, color: Colors.grey.shade400, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _selectDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate ?? DateTime.now(),
-      firstDate: DateTime(1950),
-      lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: Color(0xFF00BBA7)),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null && picked != selectedDate) {
-      setState(() => selectedDate = picked);
-    }
-  }
-
-  Future<void> _registerUser() async {
-    // Validasi field kosong
-    if (namaController.text.isEmpty || emailController.text.isEmpty || passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mohon isi semua field yang wajib')),
-      );
-      return;
-    }
-
-    // Validasi password tidak cocok
-    if (passwordController.text != confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password tidak cocok')),
-      );
-      return;
-    }
-
-    // Validasi panjang password
-    if (passwordController.text.length < 8) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password minimal 8 karakter')),
-      );
-      return;
-    }
-
-    try {
-      // 1. Register user di Auth Supabase
-      final AuthResponse res = await supabase.auth.signUp(
-        email: emailController.text,
-        password: passwordController.text,
-      );
-
-      if (res.user != null) {
-        // 2. Simpan data pasien ke tabel 'patients'
-        await supabase.from('patients').insert({
-          'id': res.user!.id,
-          'email': emailController.text,
-          'full_name': namaController.text,
-          'phone': teleponController.text,
-          'birth_date': selectedDate != null ? selectedDate!.toIso8601String().split('T')[0] : null,
-          'gender': selectedGender,
-          'address': alamatController.text,
-          'weight': beratController.text,
-          'height': tinggiController.text,
-          'blood_type': golonganDarahController.text,
-          'allergies': alergiController.text,
-          'medical_history': riwayatController.text,
-          'created_at': DateTime.now().toIso8601String(),
-        });
-
-        // 3. Navigasi ke Dashboard
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const DashboardScreen()),
-          );
-        }
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${error.toString()}')),
-        );
-      }
-    }
   }
 }
