@@ -10,6 +10,8 @@ class FisioterapisJadwalTab extends StatefulWidget {
 class _FisioterapisJadwalTabState extends State<FisioterapisJadwalTab>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool showCalendar = false;
+  DateTime selectedDate = DateTime.now();
 
   @override
   void initState() {
@@ -22,6 +24,7 @@ class _FisioterapisJadwalTabState extends State<FisioterapisJadwalTab>
     _tabController.dispose();
     super.dispose();
   }
+  
 
   @override
   Widget build(BuildContext context) {
@@ -93,15 +96,36 @@ class _FisioterapisJadwalTabState extends State<FisioterapisJadwalTab>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              showCalendar = !showCalendar;
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                showCalendar
+                    ? "Sembunyikan Kalender"
+                    : "Tampilkan Kalender",
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
           ),
-          child: const Center(child: Text("Tampilkan Kalender")),
         ),
+
         const SizedBox(height: 16),
+
+        // 🔥 INI YANG KAMU LUPA
+        if (showCalendar) _buildCalendar(),
+
+        const SizedBox(height: 16),
+
         _jadwalCard("08:00 - 09:00", "Budi Santoso", false),
         const SizedBox(height: 10),
         _jadwalCard("09:30 - 10:30", "Siti Aminah", true),
@@ -194,5 +218,167 @@ class _FisioterapisJadwalTabState extends State<FisioterapisJadwalTab>
         ],
       ),
     );
+  }
+
+  Widget _buildCalendar() {
+    int daysInMonth = DateTime(
+      selectedDate.year,
+      selectedDate.month + 1,
+      0,
+    ).day;
+
+    int firstDayOffset = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      1,
+    ).weekday % 7;
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+
+          // HEADER BULAN
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    selectedDate = DateTime(
+                      selectedDate.year,
+                      selectedDate.month - 1,
+                    );
+                  });
+                },
+                child: const Icon(Icons.chevron_left),
+              ),
+
+              Text(
+                "${_getMonthName(selectedDate.month)} ${selectedDate.year}",
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    selectedDate = DateTime(
+                      selectedDate.year,
+                      selectedDate.month + 1,
+                    );
+                  });
+                },
+                child: const Icon(Icons.chevron_right),
+              ),
+            ],
+          ),
+
+          // HARI
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: const [
+              Text("Min"), Text("Sen"), Text("Sel"),
+              Text("Rab"), Text("Kam"), Text("Jum"), Text("Sab"),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+
+
+          // GRID TANGGAL
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: daysInMonth + firstDayOffset,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+            ),
+            itemBuilder: (context, index) {
+
+              if (index < firstDayOffset) {
+                return const SizedBox();
+              }
+
+              int day = index - firstDayOffset + 1;
+
+              DateTime now = DateTime.now();
+
+              bool isToday =
+                  day == now.day &&
+                  selectedDate.month == now.month &&
+                  selectedDate.year == now.year;
+
+              return Container(
+                margin: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: isToday ? Colors.teal : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Text(
+                    "$day",
+                    style: TextStyle(
+                      color: isToday ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 12),
+
+          // LEGEND
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _legend(Colors.teal, "Hari Ini"),
+              _legend(Colors.teal.withOpacity(0.2), "Ada Jadwal"),
+              _legend(Colors.grey.shade300, "Kosong"),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _legend(Color color, String text) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(text),
+      ],
+    );
+  }
+
+  String _getMonthName(int month) {
+    const monthNames = [
+      "Januari",
+      "Februari",
+      "Maret",
+      "April",
+      "Mei",
+      "Juni",
+      "Juli",
+      "Agustus",
+      "September",
+      "Oktober",
+      "November",
+      "Desember"
+    ];
+    return monthNames[month - 1];
   }
 }
