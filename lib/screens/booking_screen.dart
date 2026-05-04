@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-// Pastikan path import ini sesuai dengan struktur folder Anda
-import 'package:fisiocare/screens/janji_temu_screen.dart'; 
+import '../widgets/bottom_nav_bar.dart';
+import 'janji_temu_screen.dart'; 
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
@@ -61,6 +61,7 @@ class _BookingScreenState extends State<BookingScreen> {
           Expanded(child: _buildCurrentContent()),
         ],
       ),
+      bottomNavigationBar: const BottomNavBar(currentIndex: 1),
     );
   }
 
@@ -222,7 +223,7 @@ class _BookingScreenState extends State<BookingScreen> {
               // Navigasi ke Janji Temu
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => const JanjiTemuScreen()),
+                MaterialPageRoute(builder: (context) => JanjiTemuScreen()),
               );
             }, 
             nextLabel: "Konfirmasi Pesanan"

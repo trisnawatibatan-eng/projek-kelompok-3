@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../widgets/bottom_nav_bar.dart';
 import 'edit_profile_screen.dart'; 
 import 'change_password_screen.dart'; 
 
@@ -47,6 +48,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: const BottomNavBar(currentIndex: 4),
     );
   }
 

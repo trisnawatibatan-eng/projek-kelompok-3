@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../widgets/bottom_nav_bar.dart';
 
 class LaporanScreen extends StatelessWidget {
   const LaporanScreen({super.key});
@@ -221,6 +222,7 @@ class LaporanScreen extends StatelessWidget {
           ],
         ),
       ),
+      bottomNavigationBar: const BottomNavBar(currentIndex: 3),
     );
   }
 

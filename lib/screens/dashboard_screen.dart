@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-// HANYA mengimport file yang terlihat di VS Code Anda
-import 'booking_screen.dart'; 
-import 'janji_temu_screen.dart'; 
-import 'laporan_screen.dart';
-import 'profile_screen.dart';
+import '../widgets/bottom_nav_bar.dart';
 import 'edukasi_screen.dart';
+import 'booking_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -16,69 +12,17 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  int _selectedIndex = 0;
-
-  // List ini hanya menggunakan class dari file yang ada di VS Code Anda
-  late final List<Widget> _pages = [
-    _buildHomeContent(),       // Beranda (Isi konten dashboard ini sendiri)
-    const BookingScreen(),     // Sesuai booking_screen.dart
-    const JanjiTemuScreen(),   // Sesuai janji_temu_screen.dart
-    const LaporanScreen(),     // Sesuai laporan_screen.dart
-    const ProfileScreen(),     // Sesuai profile_screen.dart
-  ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+  @override
+  void initState() {
+    super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: _buildBottomNav(),
-    );
-  }
-
-  // --- BOTTOM NAVIGATION BAR (Sesuai Label di Gambar Anda) ---
-  Widget _buildBottomNav() {
-    return BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,
-      currentIndex: _selectedIndex,
-      selectedItemColor: const Color(0xFF00BBA7),
-      unselectedItemColor: Colors.grey,
-      onTap: _onItemTapped,
-      selectedFontSize: 12,
-      unselectedFontSize: 12,
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined), 
-          activeIcon: Icon(Icons.home), 
-          label: 'Beranda'
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.favorite_border), 
-          activeIcon: Icon(Icons.favorite), 
-          label: 'Pemesanan'
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.calendar_today_outlined), 
-          activeIcon: Icon(Icons.calendar_today), 
-          label: 'Janji Temu'
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.assignment_outlined), 
-          activeIcon: Icon(Icons.assignment), 
-          label: 'Laporan'
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline), 
-          activeIcon: Icon(Icons.person), 
-          label: 'Profil'
-        ),
-      ],
+      body: _buildHomeContent(),
+      bottomNavigationBar: const BottomNavBar(currentIndex: 0),
     );
   }
 
@@ -169,7 +113,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => _onItemTapped(1), 
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const BookingScreen()));
+              }, 
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF00BBA7), 
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))

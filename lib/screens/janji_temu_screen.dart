@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-// Import screen lain agar navigasi berfungsi (sesuaikan dengan nama class di file Anda)
-import 'dashboard_screen.dart';
-import 'booking_screen.dart';
-import 'laporan_screen.dart';
-import 'profile_screen.dart';
+import '../widgets/bottom_nav_bar.dart';
 
 class JanjiTemuScreen extends StatefulWidget {
   const JanjiTemuScreen({super.key});
@@ -84,46 +79,8 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
         ],
       ),
 
-      // --- BOTTOM NAVIGATION BAR DENGAN NAVIGASI AKTIF ---
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF00BBA7),
-        unselectedItemColor: Colors.grey,
-        currentIndex: 2, // Halaman Janji Temu aktif
-        onTap: (index) {
-          if (index == 2) return; // Tetap di sini jika klik Janji Temu
-
-          Widget targetScreen;
-          switch (index) {
-            case 0:
-              targetScreen = const DashboardScreen();
-              break;
-            case 1:
-              targetScreen = const BookingScreen();
-              break;
-            case 3:
-              targetScreen = const LaporanScreen();
-              break;
-            case 4:
-              targetScreen = const ProfileScreen();
-              break;
-            default:
-              return;
-          }
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => targetScreen),
-          );
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Beranda"),
-          BottomNavigationBarItem(icon: Icon(Icons.favorite_border), label: "Pemesanan"),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: "Janji Temu"),
-          BottomNavigationBarItem(icon: Icon(Icons.description_outlined), label: "Laporan"),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Profil"),
-        ],
-      ),
+      // --- BOTTOM NAVIGATION BAR ---
+      bottomNavigationBar: const BottomNavBar(currentIndex: 2),
     );
   }
 
