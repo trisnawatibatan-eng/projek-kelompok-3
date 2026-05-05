@@ -4,9 +4,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
 import 'login_screen.dart';
 import 'fisioterapis_edit_profil_screen.dart';
+import 'kelola_layanan_screen.dart';
 
 class FisioterapisProfilTab extends StatefulWidget {
-  const FisioterapisProfilTab({super.key});
+  final Map<String, dynamic>? profil;
+  final VoidCallback? onProfilUpdated;
+  const FisioterapisProfilTab({super.key, this.profil, this.onProfilUpdated});
 
   @override
   State<FisioterapisProfilTab> createState() => _FisioterapisProfilTabState();
@@ -14,63 +17,73 @@ class FisioterapisProfilTab extends StatefulWidget {
 
 class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
   final _supabase = Supabase.instance.client;
-  Map<String, dynamic>? _profil;
-  bool _isLoading = true;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadProfil();
-  }
+  // ✅ Getter sesuai kolom schema
+  String get _namaLengkap => widget.profil?['nama_lengkap'] ?? 'Fisioterapis';
+  String get _email => widget.profil?['email'] ?? '-';
+  String get _telepon => widget.profil?['nomor_telepon'] ?? '-';
+  String get _alamat => widget.profil?['alamat'] ?? '-';
+  String get _pengalaman => widget.profil?['pengalaman_kerja'] ?? '-';
+  String get _pendidikan => widget.profil?['pendidikan_terakhir'] ?? '-';
+  String get _str => widget.profil?['nomor_str_sipa'] ?? '-';
+  String get _biografi => widget.profil?['biografi'] ?? '-';
+  String get _sertifikasi => widget.profil?['sertifikasi'] ?? '-';
+  String get _fotoProfilUrl => widget.profil?['foto_profil_url'] ?? '';
 
-  Future<void> _loadProfil() async {
-    setState(() => _isLoading = true);
-    try {
-      final userId = _supabase.auth.currentUser?.id;
-      if (userId == null) return;
-      final data = await _supabase
-          .from('fisioterapis')
-          .select()
-          .eq('user_id', userId)
-          .single();
-      setState(() => _profil = data);
-    } catch (_) {
-    } finally {
-      setState(() => _isLoading = false);
+  // ✅ status_verifikasi ada di schema
+  String get _statusVerifikasi =>
+      widget.profil?['status_verifikasi'] ?? 'pending';
+
+  // ✅ Warna dan label badge status verifikasi
+  Color get _statusColor {
+    switch (_statusVerifikasi) {
+      case 'verified':
+        return const Color(0xFF00BBA7);
+      case 'rejected':
+        return AppColors.errorRed;
+      default:
+        return const Color(0xFFF59E0B);
     }
   }
 
-  String get _namaLengkap => _profil?['nama_lengkap'] ?? 'Fisioterapis';
-  String get _email => _profil?['email'] ?? '-';
-  String get _telepon => _profil?['nomor_telepon'] ?? '-';
-  String get _pengalaman => _profil?['pengalaman_kerja'] ?? '-';
-  String get _str => _profil?['nomor_str_sipa'] ?? '-';
-  String get _role => _profil?['role'] ?? 'admin';
-  double get _rating => (_profil?['rating_rata_rata'] ?? 4.9).toDouble();
-  int get _jumlahUlasan => _profil?['jumlah_ulasan'] ?? 0;
+  String get _statusLabel {
+    switch (_statusVerifikasi) {
+      case 'verified':
+        return 'TERVERIFIKASI';
+      case 'rejected':
+        return 'DITOLAK';
+      default:
+        return 'MENUNGGU';
+    }
+  }
+
+  IconData get _statusIcon {
+    switch (_statusVerifikasi) {
+      case 'verified':
+        return Icons.verified_outlined;
+      case 'rejected':
+        return Icons.cancel_outlined;
+      default:
+        return Icons.hourglass_empty_outlined;
+    }
+  }
 
   String get _inisial {
-    final parts = _namaLengkap.split(' ');
+    final parts = _namaLengkap.trim().split(' ');
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
-    return _namaLengkap.substring(0, 2).toUpperCase();
+    return _namaLengkap.substring(0, _namaLengkap.length >= 2 ? 2 : 1)
+        .toUpperCase();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-            child: CircularProgressIndicator(color: AppColors.primary)),
-      );
-    }
-
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
       body: RefreshIndicator(
         color: AppColors.primary,
-        onRefresh: _loadProfil,
+        onRefresh: () async => widget.onProfilUpdated?.call(),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
@@ -84,6 +97,10 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                     _buildSectionTitle('Informasi Kontak'),
                     const SizedBox(height: 10),
                     _buildContactCard(),
+                    const SizedBox(height: 20),
+                    _buildSectionTitle('Informasi Profesional'),
+                    const SizedBox(height: 10),
+                    _buildProfesionalCard(),
                     const SizedBox(height: 20),
                     _buildSectionTitle('Akun & Profil'),
                     const SizedBox(height: 10),
@@ -139,6 +156,7 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                   children: [
                     Row(
                       children: [
+                        // ✅ Tampilkan foto profil jika ada, fallback ke inisial
                         Container(
                           width: 56,
                           height: 56,
@@ -146,16 +164,26 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                             color: const Color(0xFF00BBA7),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: Center(
-                            child: Text(
-                              _inisial,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: _fotoProfilUrl.isNotEmpty
+                              ? Image.network(
+                                  _fotoProfilUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Center(
+                                    child: Text(_inisial,
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w700)),
+                                  ),
+                                )
+                              : Center(
+                                  child: Text(_inisial,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700)),
+                                ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -172,31 +200,28 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                                 ),
                               ),
                               const SizedBox(height: 5),
-                              // Badge ADMIN
+                              // ✅ Badge status verifikasi dari schema
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF6366F1)
-                                      .withOpacity(0.1),
+                                  color: _statusColor.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
-                                      color: const Color(0xFF6366F1)
-                                          .withOpacity(0.3)),
+                                      color: _statusColor.withOpacity(0.3)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(Icons.shield_outlined,
-                                        size: 11,
-                                        color: Color(0xFF6366F1)),
+                                    Icon(_statusIcon,
+                                        size: 11, color: _statusColor),
                                     const SizedBox(width: 4),
                                     Text(
-                                      _role.toUpperCase(),
+                                      _statusLabel,
                                       style: GoogleFonts.inter(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w700,
-                                        color: const Color(0xFF6366F1),
+                                        color: _statusColor,
                                       ),
                                     ),
                                   ],
@@ -226,55 +251,6 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF8E1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                '${_rating.toStringAsFixed(1)} ',
-                                style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                  color: const Color(0xFFF59E0B),
-                                ),
-                              ),
-                              ...List.generate(
-                                5,
-                                (i) => const Icon(Icons.star,
-                                    color: Color(0xFFF59E0B), size: 16),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '($_jumlahUlasan)',
-                                style: GoogleFonts.inter(
-                                    fontSize: 10,
-                                    color: AppColors.lightText),
-                              ),
-                            ],
-                          ),
-                          GestureDetector(
-                            onTap: () {},
-                            child: Text(
-                              'Lihat Semua Ulasan',
-                              style: GoogleFonts.inter(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF00BBA7),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
                   ],
                 ),
@@ -311,7 +287,8 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: valueColor ?? AppColors.primaryText,
-                    )),
+                    ),
+                    overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -341,6 +318,76 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
           _buildContactItem(Icons.email_outlined, 'Email', _email),
           Divider(height: 1, color: AppColors.borderColor),
           _buildContactItem(Icons.phone_outlined, 'Telepon', _telepon),
+          Divider(height: 1, color: AppColors.borderColor),
+          _buildContactItem(Icons.location_on_outlined, 'Alamat', _alamat),
+        ],
+      ),
+    );
+  }
+
+  // ✅ Card baru untuk info profesional dari schema
+  Widget _buildProfesionalCard() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.borderColor),
+      ),
+      child: Column(
+        children: [
+          _buildContactItem(
+              Icons.school_outlined, 'Pendidikan Terakhir', _pendidikan),
+          Divider(height: 1, color: AppColors.borderColor),
+          _buildContactItem(
+              Icons.verified_outlined, 'Sertifikasi', _sertifikasi),
+          Divider(height: 1, color: AppColors.borderColor),
+          _buildBiografiItem(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBiografiItem() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE6FAF8),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child:
+                const Icon(Icons.person_outline, color: AppColors.primary, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Biografi',
+                    style: GoogleFonts.inter(
+                        fontSize: 10, color: AppColors.lightText)),
+                const SizedBox(height: 2),
+                Text(
+                  _biografi == '-' ? 'Belum diisi' : _biografi,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: _biografi == '-'
+                        ? AppColors.lightText
+                        : AppColors.primaryText,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -361,18 +408,26 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
             child: Icon(icon, color: AppColors.primary, size: 18),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: GoogleFonts.inter(
+                        fontSize: 10, color: AppColors.lightText)),
+                Text(
+                  value.isEmpty ? 'Belum diisi' : value,
                   style: GoogleFonts.inter(
-                      fontSize: 10, color: AppColors.lightText)),
-              Text(value,
-                  style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryText)),
-            ],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: value.isEmpty || value == '-'
+                        ? AppColors.lightText
+                        : AppColors.primaryText,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -389,13 +444,17 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
               context,
               MaterialPageRoute(
                   builder: (_) => const FisioterapisEditProfilScreen()),
-            ).then((_) => _loadProfil()),
+            ).then((_) => widget.onProfilUpdated?.call()),
       },
       {
         'icon': Icons.settings_outlined,
         'label': 'Kelola Layanan',
         'color': const Color(0xFFF59E0B),
-        'onTap': () {},
+        'onTap': () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const KelolLayananScreen()),
+            ),
       },
       {
         'icon': Icons.lock_outline,
@@ -428,8 +487,7 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color:
-                              (item['color'] as Color).withOpacity(0.1),
+                          color: (item['color'] as Color).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(item['icon'] as IconData,
@@ -554,8 +612,8 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                   color: AppColors.secondaryText)),
           const SizedBox(height: 2),
           Text('Layanan Fisioterapi Profesional di Rumah Pasien',
-              style: GoogleFonts.inter(
-                  fontSize: 10, color: AppColors.lightText),
+              style:
+                  GoogleFonts.inter(fontSize: 10, color: AppColors.lightText),
               textAlign: TextAlign.center),
         ],
       ),

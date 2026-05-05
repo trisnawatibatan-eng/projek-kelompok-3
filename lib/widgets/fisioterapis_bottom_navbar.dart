@@ -27,9 +27,9 @@ class FisioterapisBottomNavbar extends StatelessWidget {
           height: 65,
           child: Row(
             children: [
-              _buildNavItem(0, Icons.home_outlined, Icons.home, 'Beranda'),
-              _buildNavItem(1, Icons.people_outline, Icons.people, 'Pasien'),
-              _buildNavItem(2, Icons.attach_money_outlined, Icons.attach_money, 'Pendapatan'),
+              _buildNavItem(0, Icons.dashboard_outlined, Icons.dashboard, 'Dashboard'),
+              _buildNavItem(1, Icons.calendar_month_outlined, Icons.calendar_month, 'Jadwal'),
+              _buildNavItem(2, Icons.people_outline, Icons.people, 'Pasien'),
               _buildNavItem(3, Icons.person_outline, Icons.person, 'Profil'),
             ],
           ),
@@ -52,14 +52,15 @@ class FisioterapisBottomNavbar extends StatelessWidget {
               Icon(
                 isActive ? activeIcon : icon,
                 size: 24,
-                color: isActive ? AppColors.primary : const Color(0xFF62748E),
+                color: isActive ? AppColors.primary : const Color(0xFF94A3B8),
               ),
               const SizedBox(height: 2),
               Text(
                 label,
                 style: GoogleFonts.inter(
                   fontSize: 11,
-                  color: isActive ? AppColors.primary : const Color(0xFF62748E),
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                  color: isActive ? AppColors.primary : const Color(0xFF94A3B8),
                 ),
               ),
             ],

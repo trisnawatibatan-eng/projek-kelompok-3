@@ -3,7 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme.dart';
 
 class FisioterapisPendapatanTab extends StatefulWidget {
-  const FisioterapisPendapatanTab({super.key});
+  final Map<String, dynamic>? profil;
+  const FisioterapisPendapatanTab({super.key, this.profil});
 
   @override
   State<FisioterapisPendapatanTab> createState() =>

@@ -1,11 +1,81 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
-import '../widgets/fisiocare_logo.dart';
 import 'notifikasi_screen.dart';
 
-class FisioterapisHomeTab extends StatelessWidget {
-  const FisioterapisHomeTab({super.key});
+class FisioterapisHomeTab extends StatefulWidget {
+  final Map<String, dynamic>? profil;
+  const FisioterapisHomeTab({super.key, this.profil});
+
+  @override
+  State<FisioterapisHomeTab> createState() => _FisioterapisHomeTabState();
+}
+
+class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
+  final _supabase = Supabase.instance.client;
+
+  String get _namaLengkap =>
+      widget.profil?['nama_lengkap'] ?? 'Fisioterapis';
+
+  String get _gelar =>
+      widget.profil?['gelar'] ?? 'S.Tr.Kes';
+
+  String get _fotoProfilUrl =>
+      widget.profil?['foto_profil_url'] ?? '';
+
+  String get _inisial {
+    final parts = _namaLengkap.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return _namaLengkap
+        .substring(0, _namaLengkap.length >= 2 ? 2 : 1)
+        .toUpperCase();
+  }
+
+  String get _sapaan {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) return 'Selamat pagi,';
+    if (hour >= 12 && hour < 15) return 'Selamat siang,';
+    if (hour >= 15 && hour < 18) return 'Selamat sore,';
+    return 'Selamat malam,';
+  }
+
+  static const List<Map<String, dynamic>> _edukasiList = [
+    {
+      'kategori': 'PERNAPASAN',
+      'kategoriColor': Color(0xFF3B82F6),
+      'kategoriBg': Color(0xFFEFF6FF),
+      'judul': 'Teknik Pernapasan untuk Nyeri Punggung',
+      'tanggal': '12 Mei 2023',
+      'emoji': '🫁',
+    },
+    {
+      'kategori': 'NUTRISI',
+      'kategoriColor': Color(0xFF10B981),
+      'kategoriBg': Color(0xFFD1FAE5),
+      'judul': 'Suplemen yang Baik untuk Kesehatan Sendi',
+      'tanggal': '24 Mei 2023',
+      'emoji': '🥗',
+    },
+    {
+      'kategori': 'LATIHAN',
+      'kategoriColor': Color(0xFFF59E0B),
+      'kategoriBg': Color(0xFFFEF3C7),
+      'judul': '5 Gerakan Penguatan Otot Core untuk Pemula',
+      'tanggal': '24 Mei 2023',
+      'emoji': '🏋️',
+    },
+    {
+      'kategori': 'MENTAL',
+      'kategoriColor': Color(0xFF8B5CF6),
+      'kategoriBg': Color(0xFFEDE9FE),
+      'judul': 'Mengelola Stres Saat Proses Pemulihan',
+      'tanggal': '24 Mei 2023',
+      'emoji': '🧘',
+    },
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -14,9 +84,9 @@ class FisioterapisHomeTab extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _buildHeader(context)),
-          SliverToBoxAdapter(child: _buildStatsCards()),
-          SliverToBoxAdapter(child: _buildJadwalSesi()),
-          SliverToBoxAdapter(child: _buildNotifikasiSection(context)),
+          SliverToBoxAdapter(child: _buildActionCards()),
+          SliverToBoxAdapter(child: _buildPasienHariIni()),
+          SliverToBoxAdapter(child: _buildEdukasi()),
           const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
         ],
       ),
@@ -28,7 +98,7 @@ class FisioterapisHomeTab extends StatelessWidget {
   Widget _buildHeader(BuildContext context) {
     return Container(
       padding: EdgeInsets.fromLTRB(
-          20, MediaQuery.of(context).padding.top + 16, 20, 48),
+          20, MediaQuery.of(context).padding.top + 16, 20, 24),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -36,145 +106,91 @@ class FisioterapisHomeTab extends StatelessWidget {
           colors: [Color(0xFF00BBA7), Color(0xFF009689)],
         ),
       ),
-      child: Stack(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Dekorasi lingkaran latar
-          Positioned(
-            right: -40,
-            top: -60,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.07),
-                shape: BoxShape.circle,
-              ),
+          // Avatar
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.25),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withOpacity(0.5)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: _fotoProfilUrl.isNotEmpty
+                ? Image.network(
+                    _fotoProfilUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Center(
+                      child: Text(_inisial,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700)),
+                    ),
+                  )
+                : Center(
+                    child: Text(_inisial,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700)),
+                  ),
+          ),
+          const SizedBox(width: 12),
+          // Nama & gelar
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _sapaan,
+                  style: GoogleFonts.inter(
+                    color: Colors.white.withOpacity(0.82),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Ftr. $_namaLengkap',
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                Text(
+                  _gelar,
+                  style: GoogleFonts.inter(
+                    color: Colors.white.withOpacity(0.75),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
-          Positioned(
-            left: -20,
-            bottom: 4,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Column(
+          // Ikon kanan
+          Row(
             children: [
-              // App bar row
-              Row(
-                children: [
-                  const FisioCareLogoSmall(),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'FisioCare',
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      Text(
-                        'Fisioterapis',
-                        style: GoogleFonts.inter(
-                          color: const Color(0xFFD9EFED),
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  // Tombol notifikasi
-                  GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const NotifikasiScreen()),
-                    ),
-                    child: Stack(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.18),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                                color: Colors.white.withOpacity(0.25)),
-                          ),
-                          child: const Icon(Icons.notifications_outlined,
-                              color: Colors.white, size: 18),
-                        ),
-                        Positioned(
-                          right: 7,
-                          top: 7,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFD166),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                  color: const Color(0xFF00BBA7), width: 2),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              _buildHeaderIconButton(
+                icon: Icons.chat_bubble_outline,
+                badgeCount: 2,
+                onTap: () {},
               ),
-              const SizedBox(height: 14),
-              // Sapaan
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Selamat pagi,',
-                    style: GoogleFonts.inter(
-                      color: Colors.white.withOpacity(0.82),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Ftr. Siti Nurhaliza 👋',
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.4,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 13, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.16),
-                      borderRadius: BorderRadius.circular(20),
-                      border:
-                          Border.all(color: Colors.white.withOpacity(0.22)),
-                    ),
-                    child: Text(
-                      '⭐ Rating 4.9 · 120 Sesi',
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
+              const SizedBox(width: 8),
+              _buildHeaderIconButton(
+                icon: Icons.notifications_outlined,
+                badgeCount: 3,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const NotifikasiScreen()),
+                ),
               ),
             ],
           ),
@@ -183,140 +199,106 @@ class FisioterapisHomeTab extends StatelessWidget {
     );
   }
 
-  // ── Stat Cards ───────────────────────────────────────────────
-
-  Widget _buildStatsCards() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildStatCard(
-              iconBgColor: const Color(0xFFEFF6FF),
-              icon: Icons.calendar_today,
-              iconColor: AppColors.primary,
-              value: '8',
-              label: 'Sesi Hari Ini',
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              iconBgColor: const Color(0xFFD1FAE5),
-              icon: Icons.people,
-              iconColor: const Color(0xFF059669),
-              value: '24',
-              label: 'Total Pasien',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard({
-    required Color iconBgColor,
+  Widget _buildHeaderIconButton({
     required IconData icon,
-    required Color iconColor,
-    required String value,
-    required String label,
+    required int badgeCount,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
-              color: iconBgColor,
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withOpacity(0.18),
+              borderRadius: BorderRadius.circular(10),
+              border:
+                  Border.all(color: Colors.white.withOpacity(0.25)),
             ),
-            child: Icon(icon, color: iconColor, size: 22),
+            child: Icon(icon, color: Colors.white, size: 18),
           ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: GoogleFonts.inter(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: AppColors.primaryText,
+          if (badgeCount > 0)
+            Positioned(
+              right: 4,
+              top: 4,
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEF4444),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    '$badgeCount',
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-          Text(
-            label,
-            style: GoogleFonts.inter(fontSize: 12, color: AppColors.lightText),
-          ),
         ],
       ),
     );
   }
 
-  // ── Jadwal Sesi ──────────────────────────────────────────────
+  // ── Action Cards ─────────────────────────────────────────────
 
-  Widget _buildJadwalSesi() {
+  Widget _buildActionCards() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 20, 12, 0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Column(
         children: [
-          _buildSectionHeader(
-            title: 'Jadwal Sesi Hari Ini',
-            subtitle: 'Sesi yang dijadwalkan untuk hari ini',
-            actionLabel: 'Lihat semua →',
+          // Permintaan Booking
+          _buildActionCard(
+            icon: Icons.calendar_today_outlined,
+            iconBg: const Color(0xFFEFF6FF),
+            iconColor: const Color(0xFF3B82F6),
+            title: '3 Permintaan Booking',
+            subtitle: 'Menunggu konfirmasi Anda',
+            badgeCount: 3,
+            badgeColor: const Color(0xFFEF4444),
           ),
-          const SizedBox(height: 12),
-          _buildSesiCard(
-            pasien: 'Budi Santoso',
-            waktu: '10:00 - 11:00',
-            jenis: 'Fisioterapi Lumbal',
-            lokasi: 'Home Visit',
-            status: 'Terkonfirmasi',
-            statusColor: const Color(0xFFFFD166),
-            statusTextColor: const Color(0xFF6B4000),
-          ),
-          const SizedBox(height: 12),
-          _buildSesiCard(
-            pasien: 'Siti Nurhaliza',
-            waktu: '13:00 - 14:00',
-            jenis: 'Terapi Bahu',
-            lokasi: 'Klinik',
-            status: 'Menunggu',
-            statusColor: const Color(0xFFEFF6FF),
-            statusTextColor: const Color(0xFF3B82F6),
+          const SizedBox(height: 10),
+          // Riwayat Pembayaran
+          _buildActionCard(
+            icon: Icons.account_balance_wallet_outlined,
+            iconBg: const Color(0xFFF0FDF4),
+            iconColor: const Color(0xFF10B981),
+            title: 'Riwayat Pembayaran',
+            subtitle: null,
+            badgeCount: 0,
+            badgeColor: Colors.transparent,
+            prefixText: 'Rp',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSesiCard({
-    required String pasien,
-    required String waktu,
-    required String jenis,
-    required String lokasi,
-    required String status,
-    required Color statusColor,
-    required Color statusTextColor,
+  Widget _buildActionCard({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String title,
+    required String? subtitle,
+    required int badgeCount,
+    required Color badgeColor,
+    String? prefixText,
   }) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -324,133 +306,26 @@ class FisioterapisHomeTab extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // Icon atau prefix text
           Container(
-            width: 50,
-            height: 50,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
+              color: iconBg,
               borderRadius: BorderRadius.circular(12),
-              gradient: const LinearGradient(
-                colors: [Color(0xFFDDD6FE), Color(0xFFB2EDE7)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
             ),
-            child: const Center(
-                child: Text('👤', style: TextStyle(fontSize: 24))),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  pasien,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primaryText,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  jenis,
-                  style: GoogleFonts.inter(
-                      fontSize: 11, color: AppColors.secondaryText),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text('🕙 $waktu',
-                        style: GoogleFonts.inter(
-                            fontSize: 10, color: AppColors.lightText)),
-                    const SizedBox(width: 8),
-                    Text('📍 $lokasi',
-                        style: GoogleFonts.inter(
-                            fontSize: 10, color: AppColors.lightText)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-                color: statusColor, borderRadius: BorderRadius.circular(6)),
-            child: Text(
-              status,
-              style: GoogleFonts.inter(
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                color: statusTextColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Notifikasi ───────────────────────────────────────────────
-
-  Widget _buildNotifikasiSection(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 20, 12, 0),
-      child: Column(
-        children: [
-          _buildSectionHeader(
-            title: 'Notifikasi Terbaru',
-            subtitle: 'Update dari pasien dan sistem',
-            actionLabel: 'Semua →',
-          ),
-          const SizedBox(height: 12),
-          _buildNotificationCard(
-            title: 'Booking Baru',
-            subtitle: 'Ahmad Rizki ingin melakukan booking sesi baru',
-            icon: Icons.calendar_today,
-            time: '5 menit lalu',
-            unread: true,
-          ),
-          const SizedBox(height: 10),
-          _buildNotificationCard(
-            title: 'Review dari Pasien',
-            subtitle: 'Budi Santoso memberikan rating 5 bintang',
-            icon: Icons.star,
-            time: '1 jam lalu',
-            unread: false,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNotificationCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required String time,
-    required bool unread,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: unread ? const Color(0xFFEFF6FF) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: unread
-              ? AppColors.primary.withOpacity(0.2)
-              : AppColors.borderColor,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: AppColors.primary, size: 20),
+            child: prefixText != null
+                ? Center(
+                    child: Text(
+                      prefixText,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: iconColor,
+                      ),
+                    ),
+                  )
+                : Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -460,88 +335,302 @@ class FisioterapisHomeTab extends StatelessWidget {
                 Text(
                   title,
                   style: GoogleFonts.inter(
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: AppColors.primaryText,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.inter(
-                      fontSize: 10, color: AppColors.secondaryText),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.inter(
+                        fontSize: 11, color: AppColors.secondaryText),
+                  ),
+                ],
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Column(
-            children: [
-              if (unread)
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
+          if (badgeCount > 0)
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: badgeColor,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  '$badgeCount',
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              const SizedBox(height: 4),
-              Text(
-                time,
-                style:
-                    GoogleFonts.inter(fontSize: 8, color: AppColors.lightText),
               ),
-            ],
-          ),
+            )
+          else
+            const Icon(Icons.arrow_forward_ios,
+                size: 14, color: AppColors.lightText),
         ],
       ),
     );
   }
 
-  // ── Shared Helper ────────────────────────────────────────────
+  // ── Pasien Hari Ini ──────────────────────────────────────────
 
-  Widget _buildSectionHeader({
-    required String title,
-    required String subtitle,
-    required String actionLabel,
-  }) {
-    return Row(
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: GoogleFonts.inter(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF0F2B28),
-                letterSpacing: -0.3,
-              ),
-            ),
-            Text(
-              subtitle,
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                color: const Color(0xFF6EA8A2),
-                fontStyle: FontStyle.italic,
-              ),
+  Widget _buildPasienHariIni() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
-        const Spacer(),
+        child: Column(
+          children: [
+            // Header row
+            Row(
+              children: [
+                Text(
+                  'Pasien Hari Ini',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primaryText,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '6 Pasien',
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // Stat row
+            Row(
+              children: [
+                Expanded(
+                  child: _buildPasienStat(
+                    icon: Icons.check_circle_outline,
+                    iconColor: const Color(0xFF10B981),
+                    iconBg: const Color(0xFFD1FAE5),
+                    value: '2',
+                    label: 'Selesai',
+                  ),
+                ),
+                Expanded(
+                  child: _buildPasienStat(
+                    icon: Icons.play_circle_outline,
+                    iconColor: const Color(0xFFF59E0B),
+                    iconBg: const Color(0xFFFEF3C7),
+                    value: '1',
+                    label: 'Berlangsung',
+                  ),
+                ),
+                Expanded(
+                  child: _buildPasienStat(
+                    icon: Icons.schedule_outlined,
+                    iconColor: const Color(0xFF3B82F6),
+                    iconBg: const Color(0xFFEFF6FF),
+                    value: '3',
+                    label: 'Mendatang',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPasienStat({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String value,
+    required String label,
+  }) {
+    return Column(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: iconBg,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: iconColor, size: 22),
+        ),
+        const SizedBox(height: 8),
         Text(
-          actionLabel,
+          value,
           style: GoogleFonts.inter(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w700,
-            color: AppColors.primary,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: AppColors.primaryText,
           ),
         ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+              fontSize: 11, color: AppColors.secondaryText),
+        ),
       ],
+    );
+  }
+
+  // ── Edukasi ──────────────────────────────────────────────────
+
+  Widget _buildEdukasi() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      child: Column(
+        children: [
+          // Header
+          Row(
+            children: [
+              Text(
+                'Edukasi',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primaryText,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () {},
+                child: Row(
+                  children: [
+                    const Icon(Icons.add,
+                        size: 14, color: AppColors.primary),
+                    const SizedBox(width: 2),
+                    Text(
+                      'Tambah',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // List
+          ..._edukasiList.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _buildEdukasiCard(item),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEdukasiCard(Map<String, dynamic> item) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Thumbnail emoji
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: (item['kategoriBg'] as Color),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                item['emoji'],
+                style: const TextStyle(fontSize: 26),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Badge kategori
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: item['kategoriBg'] as Color,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    item['kategori'],
+                    style: GoogleFonts.inter(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: item['kategoriColor'] as Color,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item['judul'],
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryText,
+                    height: 1.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item['tanggal'],
+                  style: GoogleFonts.inter(
+                      fontSize: 10, color: AppColors.lightText),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

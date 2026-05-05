@@ -58,6 +58,7 @@ class _FisioterapisEditProfilScreenState
     super.dispose();
   }
 
+  // ✅ PERBAIKAN: pakai maybeSingle() agar tidak throw error saat data belum ada
   Future<void> _loadProfil() async {
     setState(() => _isLoading = true);
     try {
@@ -68,28 +69,46 @@ class _FisioterapisEditProfilScreenState
           .from('fisioterapis')
           .select()
           .eq('user_id', userId)
-          .single();
+          .maybeSingle(); // ← fix: tidak throw error jika row belum ada
 
-      _namaController.text = data['nama_lengkap'] ?? '';
-      _emailController.text = data['email'] ?? '';
-      _teleponController.text = data['nomor_telepon'] ?? '';
-      _alamatController.text = data['alamat'] ?? '';
-      _strController.text = data['nomor_str_sipa'] ?? '';
-      _pengalamanController.text = data['pengalaman_kerja'] ?? '';
-      _pendidikanController.text = data['pendidikan_terakhir'] ?? '';
-      _biografiController.text = data['biografi'] ?? '';
-      _sertifikasiController.text = data['sertifikasi'] ?? '';
+      if (data == null) return; // user baru, form tetap kosong
+
+      if (mounted) {
+        _namaController.text = data['nama_lengkap'] ?? '';
+        _emailController.text = data['email'] ?? '';
+        _teleponController.text = data['nomor_telepon'] ?? '';
+        _alamatController.text = data['alamat'] ?? '';
+        _strController.text = data['nomor_str_sipa'] ?? '';
+        _pengalamanController.text = data['pengalaman_kerja'] ?? '';
+        _pendidikanController.text = data['pendidikan_terakhir'] ?? '';
+        _biografiController.text = data['biografi'] ?? '';
+        _sertifikasiController.text = data['sertifikasi'] ?? '';
+      }
     } catch (e) {
-      // Data belum ada, form kosong
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal memuat profil: $e',
+                style: GoogleFonts.inter(color: Colors.white)),
+            backgroundColor: AppColors.errorRed,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<String?> _uploadFile(File file, String bucket, String path) async {
     try {
-      await _supabase.storage.from(bucket).upload(path, file,
-          fileOptions: const FileOptions(upsert: true));
+      await _supabase.storage.from(bucket).upload(
+            path,
+            file,
+            fileOptions: const FileOptions(upsert: true),
+          );
       return _supabase.storage.from(bucket).getPublicUrl(path);
     } catch (e) {
       return null;
@@ -110,17 +129,27 @@ class _FisioterapisEditProfilScreenState
 
       if (_fotoProfilFile != null) {
         fotoProfilUrl = await _uploadFile(
-            _fotoProfilFile!, 'fisioterapis-assets', '$userId/foto_profil.jpg');
+          _fotoProfilFile!,
+          'fisioterapis-assets',
+          '$userId/foto_profil.jpg',
+        );
       }
       if (_fotoStrFile != null) {
         fotoStrUrl = await _uploadFile(
-            _fotoStrFile!, 'fisioterapis-assets', '$userId/foto_str.pdf');
+          _fotoStrFile!,
+          'fisioterapis-assets',
+          '$userId/foto_str.jpg', // ✅ fix: ekstensi .jpg karena pickImage
+        );
       }
       if (_sertifikatFile != null) {
         sertifikatUrl = await _uploadFile(
-            _sertifikatFile!, 'fisioterapis-assets', '$userId/sertifikat.pdf');
+          _sertifikatFile!,
+          'fisioterapis-assets',
+          '$userId/sertifikat.jpg', // ✅ fix: ekstensi .jpg karena pickImage
+        );
       }
 
+      // ✅ updated_at tidak perlu dikirim manual, sudah ditangani trigger DB
       final payload = {
         'user_id': userId,
         'nama_lengkap': _namaController.text.trim(),
@@ -132,13 +161,14 @@ class _FisioterapisEditProfilScreenState
         'pendidikan_terakhir': _pendidikanController.text.trim(),
         'biografi': _biografiController.text.trim(),
         'sertifikasi': _sertifikasiController.text.trim(),
-        'updated_at': DateTime.now().toIso8601String(),
         if (fotoProfilUrl != null) 'foto_profil_url': fotoProfilUrl,
         if (fotoStrUrl != null) 'foto_str_url': fotoStrUrl,
         if (sertifikatUrl != null) 'sertifikat_url': sertifikatUrl,
       };
 
-      await _supabase.from('fisioterapis').upsert(payload);
+      await _supabase
+          .from('fisioterapis')
+          .upsert(payload, onConflict: 'user_id'); // ✅ eksplisit conflict target
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -167,19 +197,25 @@ class _FisioterapisEditProfilScreenState
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _pickFotoProfil() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80, // ✅ kompres agar tidak terlalu besar
+    );
     if (picked != null) setState(() => _fotoProfilFile = File(picked.path));
   }
 
   Future<void> _pickFile(bool isStr) async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80, // ✅ kompres agar tidak terlalu besar
+    );
     if (picked != null) {
       setState(() {
         if (isStr) {
@@ -313,7 +349,6 @@ class _FisioterapisEditProfilScreenState
         bottom: false,
         child: Column(
           children: [
-            // AppBar row
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
@@ -335,7 +370,6 @@ class _FisioterapisEditProfilScreenState
               ),
             ),
             const SizedBox(height: 16),
-            // Avatar
             GestureDetector(
               onTap: _pickFotoProfil,
               child: Stack(
@@ -475,10 +509,10 @@ class _FisioterapisEditProfilScreenState
                 fontSize: 13, color: AppColors.primaryText),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: GoogleFonts.inter(
-                  fontSize: 13, color: AppColors.lightText),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 10),
+              hintStyle:
+                  GoogleFonts.inter(fontSize: 13, color: AppColors.lightText),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide(color: AppColors.borderColor),
@@ -530,8 +564,8 @@ class _FisioterapisEditProfilScreenState
                 fontSize: 13, color: AppColors.primaryText),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: GoogleFonts.inter(
-                  fontSize: 13, color: AppColors.lightText),
+              hintStyle:
+                  GoogleFonts.inter(fontSize: 13, color: AppColors.lightText),
               contentPadding: const EdgeInsets.all(12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -590,7 +624,8 @@ class _FisioterapisEditProfilScreenState
                 _buildUploadBox(
                   label: 'Sertifikat Kompetensi',
                   required: false,
-                  subtitle: 'Upload sertifikat tambahan (Opsional)\nPNG, JPG atau PDF (Max. 5MB)',
+                  subtitle:
+                      'Upload sertifikat tambahan (Opsional)\nPNG, JPG atau PDF (Max. 5MB)',
                   file: _sertifikatFile,
                   onTap: () => _pickFile(false),
                 ),
@@ -635,9 +670,8 @@ class _FisioterapisEditProfilScreenState
               color: const Color(0xFFF9FAFB),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: file != null
-                    ? AppColors.primary
-                    : AppColors.borderColor,
+                color:
+                    file != null ? AppColors.primary : AppColors.borderColor,
                 style: BorderStyle.solid,
               ),
             ),
@@ -647,9 +681,8 @@ class _FisioterapisEditProfilScreenState
                   file != null
                       ? Icons.check_circle_outline
                       : Icons.upload_outlined,
-                  color: file != null
-                      ? AppColors.primary
-                      : AppColors.lightText,
+                  color:
+                      file != null ? AppColors.primary : AppColors.lightText,
                   size: 28,
                 ),
                 const SizedBox(height: 6),
@@ -668,8 +701,8 @@ class _FisioterapisEditProfilScreenState
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: GoogleFonts.inter(
-                      fontSize: 9, color: AppColors.lightText),
+                  style:
+                      GoogleFonts.inter(fontSize: 9, color: AppColors.lightText),
                   textAlign: TextAlign.center,
                 ),
               ],
