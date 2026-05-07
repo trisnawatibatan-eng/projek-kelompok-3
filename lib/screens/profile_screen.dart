@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+// --- IMPORT AREA ---
+// Pastikan nama file ini sesuai dengan yang ada di proyek Anda
 import 'edit_profile_screen.dart'; 
 import 'change_password_screen.dart'; 
+import 'login_screen.dart'; // File login Anda
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -11,20 +15,19 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Data State yang akan di-update
+  // Data State
   String _name = "Budi Santoso";
   String _email = "budi.santoso@email.com";
   String _phone = "+62 812-3456-7890";
   String _id = "FSC-2026-01";
 
-  // Fungsi Navigasi yang menangkap data balik dari Edit Profile
+  // Fungsi Navigasi ke Edit Profile
   Future<void> _goToEditProfile() async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const EditProfileScreen()),
     );
 
-    // Jika ada data yang dikirim balik (Map), perbarui tampilan
     if (result != null && result is Map<String, String>) {
       setState(() {
         _name = result['name'] ?? _name;
@@ -32,6 +35,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _phone = result['phone'] ?? _phone;
       });
     }
+  }
+
+  // --- FUNGSI LOGOUT (KONFIRMASI & NAVIGASI) ---
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: Text(
+            "Konfirmasi Keluar",
+            style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            "Apakah Anda yakin ingin keluar dari aplikasi?",
+            style: GoogleFonts.inter(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text("Batal", style: GoogleFonts.inter(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () {
+                // Keluar dan hapus semua history halaman agar tidak bisa 'Back'
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
+                );
+              },
+              child: Text("Keluar", style: GoogleFonts.inter(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -56,7 +101,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Container(
           width: double.infinity,
           decoration: const BoxDecoration(
-            color: Color(0xFF00BBA7), // Warna hijau utama
+            color: Color(0xFF00BBA7),
             borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(30),
               bottomRight: Radius.circular(30),
@@ -65,7 +110,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: const EdgeInsets.only(top: 60, bottom: 40),
           child: Column(
             children: [
-              // Foto Profil
               CircleAvatar(
                 radius: 50,
                 backgroundColor: Colors.white24,
@@ -111,14 +155,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
         ),
-        
-        // --- TOMBOL EDIT (Pojok Kanan Atas) ---
-        // Sesuai gambar: image_d1b166.png
         Positioned(
           top: 70,
           right: 20,
           child: GestureDetector(
-            onTap: _goToEditProfile, // Sekarang tombol bisa ditekan!
+            onTap: _goToEditProfile,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -167,7 +208,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildMenuItem(
               icon: Icons.person_outline,
               title: "Edit Profil",
-              onTap: _goToEditProfile, 
+              onTap: _goToEditProfile,
             ),
             _buildDivider(),
             _buildMenuItem(
@@ -187,11 +228,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: () {},
             ),
             _buildDivider(),
+            // --- TOMBOL KELUAR ---
             _buildMenuItem(
               icon: Icons.logout,
               title: "Keluar",
               color: Colors.red,
-              onTap: () {},
+              onTap: _showLogoutDialog,
             ),
           ],
         ),

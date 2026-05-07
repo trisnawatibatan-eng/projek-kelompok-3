@@ -1,12 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// Import screen lain agar navigasi berfungsi (sesuaikan dengan nama class di file Anda)
-import 'dashboard_screen.dart';
-import 'booking_screen.dart';
-import 'laporan_screen.dart';
-import 'profile_screen.dart';
-
 class JanjiTemuScreen extends StatefulWidget {
   const JanjiTemuScreen({super.key});
 
@@ -30,8 +24,14 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
           // --- HEADER ---
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.only(top: 60, left: 25, right: 25, bottom: 30),
-            decoration: const BoxDecoration(color: Color(0xFF00796B)),
+            padding: const EdgeInsets.fromLTRB(25, 60, 25, 30),
+            decoration: const BoxDecoration(
+              color: Color(0xFF00BBA7),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(30),
+                bottomRight: Radius.circular(30),
+              ),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -83,47 +83,7 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
           ),
         ],
       ),
-
-      // --- BOTTOM NAVIGATION BAR DENGAN NAVIGASI AKTIF ---
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF00BBA7),
-        unselectedItemColor: Colors.grey,
-        currentIndex: 2, // Halaman Janji Temu aktif
-        onTap: (index) {
-          if (index == 2) return; // Tetap di sini jika klik Janji Temu
-
-          Widget targetScreen;
-          switch (index) {
-            case 0:
-              targetScreen = const DashboardScreen();
-              break;
-            case 1:
-              targetScreen = const BookingScreen();
-              break;
-            case 3:
-              targetScreen = const LaporanScreen();
-              break;
-            case 4:
-              targetScreen = const ProfileScreen();
-              break;
-            default:
-              return;
-          }
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => targetScreen),
-          );
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Beranda"),
-          BottomNavigationBarItem(icon: Icon(Icons.favorite_border), label: "Pemesanan"),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: "Janji Temu"),
-          BottomNavigationBarItem(icon: Icon(Icons.description_outlined), label: "Laporan"),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Profil"),
-        ],
-      ),
+      // BAGIAN bottomNavigationBar SUDAH DIHAPUS AGAR TIDAK DOUBLE
     );
   }
 
@@ -142,9 +102,10 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
           child: Center(
             child: Text(
               title,
-              style: TextStyle(
+              style: GoogleFonts.inter(
+                fontSize: 13,
                 fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                color: isActive ? Colors.black : Colors.grey,
+                color: isActive ? const Color(0xFF00BBA7) : Colors.grey,
               ),
             ),
           ),
@@ -213,6 +174,7 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
     bool sudahReview = _ulasanTerkirim[id] ?? false;
 
     return Container(
+      margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -229,7 +191,7 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(8)),
-                child: Text(status, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: labelColor)),
+                child: Text(status, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87)),
               ),
             ],
           ),
@@ -245,13 +207,13 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Colors.grey[50],
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: Colors.grey.shade200),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.check_circle, color: Colors.black, size: 18),
+                      const Icon(Icons.check_circle, color: Color(0xFF00BBA7), size: 18),
                       const SizedBox(width: 10),
                       Text(
                         "Ulasan Anda telah dikirim!", 
@@ -268,7 +230,7 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
                       side: BorderSide(color: Colors.grey.shade300),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    child: const Text("Beri Ulasan", style: TextStyle(color: Colors.black)),
+                    child: Text("Beri Ulasan", style: GoogleFonts.inter(color: Colors.black87, fontWeight: FontWeight.w600)),
                   ),
                 ),
           ],
@@ -288,7 +250,7 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
   }
 
   void _showReviewDialog(String id, String therapy, String doctor, String date) {
-    _userRating = 0;
+    _userRating = 0; 
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -305,11 +267,12 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const SizedBox(width: 20),
-                        Text("Beri Ulasan", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 40),
+                        Text("Beri Ulasan", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16)),
                         IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                       ],
                     ),
+                    const SizedBox(height: 10),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
@@ -319,7 +282,7 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
                         children: [
                           Text(therapy, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                           Text(doctor, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          Text(date, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text(date, style: const TextStyle(fontSize: 11, color: Colors.grey)),
                         ],
                       ),
                     ),
@@ -339,12 +302,11 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
                       }),
                     ),
                     const SizedBox(height: 20),
-                    const Align(alignment: Alignment.centerLeft, child: Text("Ulasan Anda", style: TextStyle(fontWeight: FontWeight.bold))),
-                    const SizedBox(height: 8),
                     TextField(
                       maxLines: 3,
                       decoration: InputDecoration(
                         hintText: "Ceritakan pengalaman Anda...",
+                        hintStyle: const TextStyle(fontSize: 13),
                         filled: true,
                         fillColor: Colors.grey[50],
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
@@ -363,8 +325,11 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
                               });
                               Navigator.pop(context);
                             },
-                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BBA7)),
-                            child: const Text("Kirim Ulasan", style: TextStyle(color: Colors.white)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00BBA7),
+                              elevation: 0,
+                            ),
+                            child: const Text("Kirim", style: TextStyle(color: Colors.white)),
                           ),
                         ),
                       ],

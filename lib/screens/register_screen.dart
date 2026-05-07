@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-// Import halaman tujuan agar tombol berfungsi
 import 'login_screen.dart'; 
 import 'profile_screen.dart';
 
@@ -78,8 +77,67 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   _buildTextField('dd/mm/yyyy'),
                   _buildLabel('Jenis Kelamin'),
                   _buildDropdownField('Pilih jenis kelamin', ['Laki-laki', 'Perempuan']),
+                  
+                  // --- BAGIAN ALAMAT (DIPERBARUI) ---
                   _buildLabel('Alamat'),
-                  _buildTextField('Masukkan alamat lengkap', maxLines: 3),
+                  const SizedBox(height: 5),
+
+                  _buildSubLabel('Provinsi *'),
+                  _buildDropdownField('Pilih Provinsi', ['Jawa Timur', 'Jawa Tengah', 'Jawa Barat']),
+                  const SizedBox(height: 10),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSubLabel('Kab / Kota *'),
+                            _buildDropdownField('Pilih', ['Jember', 'Malang', 'Surabaya']),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSubLabel('Kecamatan *'),
+                            _buildDropdownField('Pilih', ['Sumbersari', 'Patrang', 'Kaliwates']),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSubLabel('Kelurahan *'),
+                            _buildDropdownField('Pilih', ['Karangrejo', 'Tegalgede']),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSubLabel('Kode Pos *'),
+                            _buildTextField('68xxx'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  _buildSubLabel('Alamat Lengkap *'),
+                  _buildTextField('Jl. Nama Jalan No. xx, RT/RW, Detail lainnya...', maxLines: 3),
 
                   const SizedBox(height: 30),
                   
@@ -143,7 +201,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     height: 55,
                     child: ElevatedButton(
                       onPressed: () {
-                        // Navigasi ke profil setelah daftar
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(builder: (context) => const ProfileScreen()),
@@ -174,7 +231,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         GestureDetector(
                           onTap: () {
-                            // Fungsi Navigasi ke Halaman Login
                             Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -202,7 +258,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // Helper Widgets untuk merapikan kode
+  // --- HELPER WIDGETS ---
+
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
@@ -216,6 +273,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       child: Text(
         label,
         style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87),
+      ),
+    );
+  }
+
+  // Helper baru untuk label kecil di atas dropdown
+  Widget _buildSubLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4, left: 4),
+      child: Text(
+        label,
+        style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.black54),
       ),
     );
   }

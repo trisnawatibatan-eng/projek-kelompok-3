@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// HANYA mengimport file yang terlihat di VS Code Anda
+// Import file sesuai struktur folder Anda
 import 'booking_screen.dart'; 
 import 'janji_temu_screen.dart'; 
 import 'laporan_screen.dart';
 import 'profile_screen.dart';
 import 'edukasi_screen.dart';
+import 'notifikasi_screen.dart'; 
+import 'chat_list_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -18,13 +20,13 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
 
-  // List ini hanya menggunakan class dari file yang ada di VS Code Anda
-  late final List<Widget> _pages = [
-    _buildHomeContent(),       // Beranda (Isi konten dashboard ini sendiri)
-    const BookingScreen(),     // Sesuai booking_screen.dart
-    const JanjiTemuScreen(),   // Sesuai janji_temu_screen.dart
-    const LaporanScreen(),     // Sesuai laporan_screen.dart
-    const ProfileScreen(),     // Sesuai profile_screen.dart
+  // Menggunakan getter untuk daftar halaman agar sinkron dengan context
+  List<Widget> get _pages => [
+    _buildHomeContent(),       // Index 0: Beranda
+    BookingScreen(),     // Index 1: Pemesanan
+    JanjiTemuScreen(),   // Index 2: Janji Temu
+    LaporanScreen(),     // Index 3: Laporan
+    ProfileScreen(),     // Index 4: Profil
   ];
 
   void _onItemTapped(int index) {
@@ -37,12 +39,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: _pages[_selectedIndex],
+      // Menggunakan IndexedStack agar state tiap halaman terjaga (tidak reload)
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _pages,
+      ),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  // --- BOTTOM NAVIGATION BAR (Sesuai Label di Gambar Anda) ---
+  // --- BOTTOM NAVIGATION BAR ---
   Widget _buildBottomNav() {
     return BottomNavigationBar(
       type: BottomNavigationBarType.fixed,
@@ -50,39 +56,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       selectedItemColor: const Color(0xFF00BBA7),
       unselectedItemColor: Colors.grey,
       onTap: _onItemTapped,
-      selectedFontSize: 12,
-      unselectedFontSize: 12,
+      selectedLabelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold),
+      unselectedLabelStyle: GoogleFonts.inter(fontSize: 12),
       items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined), 
-          activeIcon: Icon(Icons.home), 
-          label: 'Beranda'
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.favorite_border), 
-          activeIcon: Icon(Icons.favorite), 
-          label: 'Pemesanan'
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.calendar_today_outlined), 
-          activeIcon: Icon(Icons.calendar_today), 
-          label: 'Janji Temu'
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.assignment_outlined), 
-          activeIcon: Icon(Icons.assignment), 
-          label: 'Laporan'
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline), 
-          activeIcon: Icon(Icons.person), 
-          label: 'Profil'
-        ),
+        BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Beranda'),
+        BottomNavigationBarItem(icon: Icon(Icons.favorite_border), activeIcon: Icon(Icons.favorite), label: 'Pemesanan'),
+        BottomNavigationBarItem(icon: Icon(Icons.calendar_today_outlined), activeIcon: Icon(Icons.calendar_today), label: 'Janji Temu'),
+        BottomNavigationBarItem(icon: Icon(Icons.assignment_outlined), activeIcon: Icon(Icons.assignment), label: 'Laporan'),
+        BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profil'),
       ],
     );
   }
 
-  // --- ISI KONTEN BERANDA (HOME) ---
+  // --- ISI KONTEN BERANDA ---
   Widget _buildHomeContent() {
     return SingleChildScrollView(
       child: Column(
@@ -100,14 +86,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 15),
                 _buildScheduleCard(),
                 const SizedBox(height: 25),
-                
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('Edukasi', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold)),
                     GestureDetector(
                       onTap: () {
-                        // Navigasi ke edukasi_screen.dart
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const EdukasiScreen()));
                       },
                       child: Text('Lihat Semua →', 
@@ -129,7 +113,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- WIDGET KOMPONEN ---
+  // --- HEADER ---
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
@@ -144,10 +128,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Selamat pagi,', style: GoogleFonts.inter(color: Colors.white, fontSize: 14)),
-              Text('Pasien 👋', style: GoogleFonts.inter(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+              Text('Budi Santoso 👋', style: GoogleFonts.inter(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
             ],
           ),
-          const CircleAvatar(backgroundColor: Colors.white24, child: Icon(Icons.notifications_none, color: Colors.white)),
+          Row(
+            children: [
+              _buildHeaderIconButton(
+                icon: Icons.chat_bubble_outline, 
+                count: '5', 
+                onTap: () {
+                  Navigator.push(
+                    context, 
+                    MaterialPageRoute(builder: (context) => const ChatListScreen())
+                  );
+                }, 
+              ),
+              const SizedBox(width: 12),
+              _buildHeaderIconButton(
+                icon: Icons.notifications_none, 
+                count: '3', 
+                onTap: () async {
+                  final targetTab = await Navigator.push(
+                    context, 
+                    MaterialPageRoute(builder: (context) => NotifikasiScreen())
+                  );
+                  
+                  if (!mounted) return;
+                  if (targetTab != null && targetTab is int) {
+                    _onItemTapped(targetTab);
+                  }
+                }
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderIconButton({required IconData icon, required String count, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: Colors.white.withOpacity(0.2),
+            child: Icon(icon, color: Colors.white, size: 22),
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              child: Text(count, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+            ),
+          ),
         ],
       ),
     );
@@ -172,9 +210,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onPressed: () => _onItemTapped(1), 
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF00BBA7), 
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                elevation: 0,
               ),
-              child: const Text('Pesan Sekarang', style: TextStyle(color: Colors.white)),
+              child: const Text('Pesan Sekarang', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           )
         ],
@@ -183,38 +223,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildScheduleCard() {
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(color: const Color(0xFF00BBA7), borderRadius: BorderRadius.circular(20)),
-      child: const Row(
-        children: [
-          CircleAvatar(backgroundColor: Colors.white24, child: Icon(Icons.person, color: Colors.white)),
-          SizedBox(width: 15),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Ftr. Siti Nurhaliza', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            Text('Besok, 10:00 WIB', style: TextStyle(color: Colors.white70, fontSize: 12)),
-          ]),
-        ],
+    return InkWell(
+      onTap: () => _onItemTapped(2), 
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: const Color(0xFF00BBA7), 
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: const Color(0xFF00BBA7).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))]
+        ),
+        child: Row(
+          children: [
+            const CircleAvatar(backgroundColor: Colors.white24, child: Icon(Icons.person, color: Colors.white)),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, 
+                children: [
+                  Text('Ftr. Siti Nurhaliza', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+                  Text('Besok, 10:00 WIB', style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
+                ]
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 14),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildEdukasiItem({required IconData icon, required Color color, required String title}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white, 
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.grey.shade100)
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color),
-          const SizedBox(width: 15),
-          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-          const Icon(Icons.chevron_right, color: Colors.grey),
-        ],
+    return InkWell(
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const EdukasiScreen()));
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white, 
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.grey.shade100)
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 15),
+            Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+            const Icon(Icons.chevron_right, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }

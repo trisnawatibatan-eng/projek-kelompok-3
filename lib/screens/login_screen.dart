@@ -1,10 +1,13 @@
+import 'dashboard_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme.dart';
 import '../widgets/fisiocare_logo.dart';
 import 'register_screen.dart';
 import 'register_fisioterapis_screen.dart';
-import 'dashboard_screen.dart'; // IMPORT INI WAJIB ADA
+
+// PERBAIKAN 1: Gunakan import relatif yang lebih aman jika file berada di folder yang sama
+import 'package:fisiocare/screens/dashboard_screen.dart'; 
 import 'fisioterapis_dashboard_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -16,7 +19,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  int _selectedTab = 0; // 0 untuk Pasien, 1 untuk Fisioterapis
+  int _selectedTab = 0; 
   bool _obscurePassword = true;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -235,10 +238,12 @@ class _LoginScreenState extends State<LoginScreen> {
     return Align(
       alignment: Alignment.centerRight,
       child: TextButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
-        ),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+          );
+        },
         child: Text(
           'Lupa password?',
           style: GoogleFonts.inter(color: const Color(0xFF00BBA7), fontSize: 13),
@@ -253,16 +258,16 @@ class _LoginScreenState extends State<LoginScreen> {
       height: 50,
       child: ElevatedButton(
         onPressed: () {
+          // PERBAIKAN 2: Pastikan class dipanggil tanpa 'const' jika ia memiliki state/logic dinamis
           if (_selectedTab == 0) {
-            // PERBAIKAN DI SINI: Arahkan ke DashboardScreen, bukan ProfileScreen
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const DashboardScreen()),
+              MaterialPageRoute(builder: (context) => DashboardScreen()), 
             );
           } else {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const FisioterapisDashboardScreen()),
+              MaterialPageRoute(builder: (context) => FisioterapisDashboardScreen()),
             );
           }
         },

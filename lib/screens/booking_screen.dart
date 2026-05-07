@@ -14,7 +14,7 @@ class BookingScreen extends StatefulWidget {
 class _BookingScreenState extends State<BookingScreen> {
   int _currentStep = 1;
 
-  // Data Terpilih (State Management Sederhana)
+  // Data Terpilih
   String? _selectedTherapy;
   String? _selectedPrice;
   int _therapyCost = 0;
@@ -25,13 +25,106 @@ class _BookingScreenState extends State<BookingScreen> {
   bool _isChoosingAddress = false;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
-  final TextEditingController _noteController = TextEditingController();
   final TextEditingController _newAddressController = TextEditingController();
 
   List<String> _myAddresses = [
     "Jl. Tidar No. 01, Karangrejo, Sumbersari, Jember",
     "Jl. Pekalongan No. 01, Penanggungan, Klojen, Kota Malang",
   ];
+
+  // --- FUNGSI MODAL PROFIL (Gambar 2) ---
+  void _showFisioProfile(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.8,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(25),
+              topRight: Radius.circular(25),
+            ),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const SizedBox(width: 32),
+                    Text("Profil Fisioterapis",
+                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16)),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Column(
+                          children: [
+                            const CircleAvatar(
+                              radius: 40,
+                              backgroundColor: Color(0xFF00BBA7),
+                              child: Text("SN", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                            ),
+                            const SizedBox(height: 12),
+                            Text("Ftr. Siti Nurhaliza S.Tr.Kes", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold)),
+                            Text("Fisioterapi Ortopedi", style: GoogleFonts.inter(color: Colors.grey, fontSize: 13)),
+                            const SizedBox(height: 4),
+                            const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.star, color: Colors.orange, size: 16),
+                                SizedBox(width: 4),
+                                Text("4.8 (51 ulasan)", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const Divider(),
+                      _buildSectionTitle(Icons.person_outline, "Biografi"),
+                      Text(
+                        "Fisioterapis spesialis ortopedi yang berfokus pada pemulihan sistem muskuloskeletal. Memiliki keahlian dalam menangani kasus pasca-operasi, cedera olahraga, serta gangguan pada sendi dan tulang belakang.",
+                        style: GoogleFonts.inter(fontSize: 13, height: 1.5),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildSectionTitle(Icons.school_outlined, "Pendidikan"),
+                      _buildBulletPoint("S1 Fisioterapi - Universitas Airlangga (2018)"),
+                      const SizedBox(height: 20),
+                      _buildSectionTitle(Icons.verified_outlined, "Sertifikasi"),
+                      _buildBulletPoint("Sertifikasi Orthopedic Manual Physical Therapy (OMPT)"),
+                      _buildBulletPoint("Sports Injury Management & Rehabilitation"),
+                      _buildBulletPoint("Dry Needling Practitioner Level 1"),
+                      const SizedBox(height: 20),
+                      _buildSectionTitle(Icons.work_outline, "Pengalaman Kerja"),
+                      _buildBulletPoint("RS Orthopedi & Traumatologi (2018-2021)"),
+                      _buildBulletPoint("Clinic Sports Center (2021-Sekarang)"),
+                      _buildBulletPoint("Konsultan Ortopedi di RS Siloam (2022-Sekarang)"),
+                      const SizedBox(height: 30),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -162,9 +255,8 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
-  // --- STEP 3: RINGKASAN PEMBAYARAN ---
+  // --- STEP 3: RINGKASAN PEMBAYARAN (Gambar 1) ---
   Widget _buildPaymentSummary() {
-    // Validasi pencegahan error layar merah
     if (_selectedDate == null || _selectedTime == null) return const Center(child: Text("Data tidak lengkap"));
 
     int total = _therapyCost + _visitCost;
@@ -184,7 +276,24 @@ class _BookingScreenState extends State<BookingScreen> {
                 Text("Ftr. Siti Nurhaliza, S.Tr.Kes", style: TextStyle(fontWeight: FontWeight.bold)),
                 Text("• 10 tahun pengalaman", style: TextStyle(fontSize: 12, color: Colors.grey)),
               ])),
-              const Text("Lihat Profil", style: TextStyle(color: Color(0xFF00BBA7), fontWeight: FontWeight.bold, fontSize: 12)),
+              // BAGIAN YANG DIPERBAIKI: Menggunakan InkWell agar bisa diklik
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _showFisioProfile(context), // <--- Memanggil Modal Profil
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Text(
+                      "Lihat Profil", 
+                      style: TextStyle(
+                        color: Color(0xFF00BBA7), 
+                        fontWeight: FontWeight.bold, 
+                        fontSize: 12
+                      )
+                    ),
+                  ),
+                ),
+              ),
             ]),
           ),
           const SizedBox(height: 25),
@@ -219,7 +328,6 @@ class _BookingScreenState extends State<BookingScreen> {
           const SizedBox(height: 30),
           _buildActionButtons(
             onNext: () {
-              // Navigasi ke Janji Temu
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => const JanjiTemuScreen()),
@@ -300,8 +408,38 @@ class _BookingScreenState extends State<BookingScreen> {
     if (p != null) setState(() => _selectedDate = p);
   }
 
-  Future<void> _selectTime(BuildContext c) async {
-    final TimeOfDay? p = await showTimePicker(context: c, initialTime: TimeOfDay.now());
-    if (p != null) setState(() => _selectedTime = p);
+  Future<void> _selectTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (picked != null) setState(() => _selectedTime = picked);
+  }
+
+  // --- HELPERS MODAL ---
+  Widget _buildSectionTitle(IconData icon, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: const Color(0xFF00BBA7)),
+          const SizedBox(width: 8),
+          Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBulletPoint(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 26, bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("• ", style: TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(child: Text(text, style: GoogleFonts.inter(fontSize: 12, color: Colors.black87))),
+        ],
+      ),
+    );
   }
 }
