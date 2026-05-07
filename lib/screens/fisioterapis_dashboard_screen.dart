@@ -6,6 +6,7 @@ import 'fisioterapis_home_tab.dart';
 import 'fisioterapis_jadwal_tab.dart';
 import 'fisioterapis_pasien_tab.dart';
 import 'fisioterapis_profil_tab.dart';
+import 'jadwal_praktik.dart';
 
 class FisioterapisDashboardScreen extends StatefulWidget {
   const FisioterapisDashboardScreen({super.key});
@@ -72,7 +73,17 @@ class _FisioterapisDashboardScreenState
       body: pages[_currentIndex],
       bottomNavigationBar: FisioterapisBottomNavbar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (index) {
+          if (index == 1) {
+            // Navigate ke jadwal_praktik.dart ketika klik jadwal
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const JadwalPraktikScreen()),
+            );
+          } else {
+            setState(() => _currentIndex = index);
+          }
+        },
       ),
     );
   }
