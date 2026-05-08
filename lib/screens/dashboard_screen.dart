@@ -5,6 +5,8 @@ import '../widgets/bottom_nav_bar.dart';
 import 'edukasi_screen.dart';
 import 'booking_screen.dart';
 import 'login_screen.dart';
+import 'chat_list_screen.dart';
+import 'notifikasi_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -30,7 +32,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final user = _supabase.auth.currentUser;
 
       if (user == null) {
-        // Tidak ada sesi aktif — kembali ke login
         if (mounted) {
           Navigator.pushReplacement(
             context,
@@ -59,7 +60,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  /// Sapa berdasarkan jam lokal
   String get _greeting {
     final hour = DateTime.now().hour;
     if (hour < 11) return 'Selamat pagi';
@@ -68,7 +68,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return 'Selamat malam';
   }
 
-  /// Ambil nama depan saja agar tidak terlalu panjang
   String get _firstName {
     final fullName = _patientData?['full_name'] as String?;
     if (fullName == null || fullName.isEmpty) return 'Pasien';
@@ -102,7 +101,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 25),
                 Text(
                   'Jadwal Terapi Terdekat',
-                  style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.inter(
+                      fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 15),
                 _buildScheduleCard(),
@@ -112,12 +112,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Text(
                       'Edukasi',
-                      style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.inter(
+                          fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     GestureDetector(
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const EdukasiScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const EdukasiScreen()),
                       ),
                       child: Text(
                         'Lihat Semua →',
@@ -174,9 +176,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
-          const CircleAvatar(
-            backgroundColor: Colors.white24,
-            child: Icon(Icons.notifications_none, color: Colors.white),
+          Row(
+            children: [
+              // Tombol Chat
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const ChatListScreen()),
+                ),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 10),
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: Colors.white24,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.chat_bubble_outline,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+              ),
+              // Tombol Notifikasi
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const NotifikasiScreen()),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: Colors.white24,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.notifications_none,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -190,7 +233,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)
+          BoxShadow(
+              color: Colors.black.withOpacity(0.05), blurRadius: 15)
         ],
       ),
       child: Column(
@@ -244,7 +288,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Text(
                 'Ftr. Siti Nurhaliza',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold),
               ),
               Text(
                 'Besok, 10:00 WIB',
@@ -277,7 +322,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: 13),
             ),
           ),
           const Icon(Icons.chevron_right, color: Colors.grey),
