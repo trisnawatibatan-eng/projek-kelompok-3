@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart'; // Pastikan sudah install google_fonts di pubspec.yaml
 import 'fisioterapis_booking_screen.dart';
 import 'atur_jadwal_screen.dart';
+import 'jadwal_kalender_screen.dart';
 
 enum StatusJadwal { belumMulai, berlangsung, selesai }
 
@@ -211,33 +212,41 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
           ),
 
           // Date Navigator
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.chevron_left, color: Colors.grey),
-                  onPressed: () => setState(() => selectedDate = selectedDate.subtract(const Duration(days: 1))),
-                ),
-                Column(
-                  children: [
-                    Text(
-                      _formatDate(selectedDate),
-                      style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                    Text(
-                      'Tampilkan Kalender',
-                      style: GoogleFonts.inter(color: const Color(0xFF00BBA7), fontSize: 11, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  icon: const Icon(Icons.chevron_right, color: Colors.grey),
-                  onPressed: () => setState(() => selectedDate = selectedDate.add(const Duration(days: 1))),
-                ),
-              ],
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const JadwalKalenderScreen()),
+              );
+            },
+            child: Container(
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left, color: Colors.grey),
+                    onPressed: () => setState(() => selectedDate = selectedDate.subtract(const Duration(days: 1))),
+                  ),
+                  Column(
+                    children: [
+                      Text(
+                        _formatDate(selectedDate),
+                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      Text(
+                        'Tampilkan Kalender',
+                        style: GoogleFonts.inter(color: const Color(0xFF00BBA7), fontSize: 11, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right, color: Colors.grey),
+                    onPressed: () => setState(() => selectedDate = selectedDate.add(const Duration(days: 1))),
+                  ),
+                ],
+              ),
             ),
           ),
 
