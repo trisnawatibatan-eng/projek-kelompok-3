@@ -1,4 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart'; // Pastikan sudah install google_fonts di pubspec.yaml
+import 'fisioterapis_booking_screen.dart';
+
+enum StatusJadwal { belumMulai, berlangsung, selesai }
+
+class JadwalItem {
+  final String jamMulai;
+  final String jamSelesai;
+  final String namaPasien;
+  final String jenisTermi;
+  final String alamat;
+  final String telepon;
+  final String pertemuan;
+  StatusJadwal status;
+
+  JadwalItem({
+    required this.jamMulai,
+    required this.jamSelesai,
+    required this.namaPasien,
+    required this.jenisTermi,
+    required this.alamat,
+    required this.telepon,
+    required this.pertemuan,
+    required this.status,
+  });
+}
 
 void main() {
   runApp(const MyApp());
@@ -13,9 +39,9 @@ class MyApp extends StatelessWidget {
       title: 'Jadwal Praktik',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF26A69A)),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF00BBA7)),
         useMaterial3: true,
-        fontFamily: 'Roboto',
+        textTheme: GoogleFonts.interTextTheme(),
       ),
       home: const JadwalPraktikScreen(),
     );
@@ -66,94 +92,99 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
   ];
 
   String _formatDate(DateTime date) {
-    const days = [
-      'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'
-    ];
+    const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
     const months = [
       'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
     ];
-    // weekday: 1=Monday, 7=Sunday
     return '${days[date.weekday - 1]}, ${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF26A69A),
+        backgroundColor: const Color(0xFF00BBA7),
         foregroundColor: Colors.white,
         elevation: 0,
         leading: const BackButton(),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text(
               'Jadwal Praktik',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: Colors.white,
-              ),
+              style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             Text(
               'Kelola jadwal Terapi',
-              style: TextStyle(fontSize: 12, color: Colors.white70),
+              style: GoogleFonts.inter(fontSize: 12, color: Colors.white70),
             ),
           ],
         ),
         actions: [
-          TextButton.icon(
+          IconButton(
             onPressed: () {},
-            icon: const Icon(Icons.settings, color: Colors.white, size: 16),
-            label: const Text(
-              'Atur Jadwal',
-              style: TextStyle(color: Colors.white, fontSize: 12),
-            ),
+            icon: const Icon(Icons.settings_outlined, size: 20),
           ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Text("Atur Jadwal", style: GoogleFonts.inter(fontSize: 12)),
+            ),
+          )
         ],
       ),
       body: Column(
         children: [
-          // Booking request & stats
+          // Bagian Hijau (Button & Stats)
           Container(
-            color: const Color(0xFF26A69A),
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            color: const Color(0xFF00BBA7),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
             child: Column(
               children: [
-                // Permintaan Booking button
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: TextButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(
-                      Icons.calendar_month_outlined,
-                      color: Color(0xFF26A69A),
-                      size: 18,
-                    ),
-                    label: const Text(
-                      'Permintaan Booking',
-                      style: TextStyle(
-                        color: Color(0xFF26A69A),
-                        fontWeight: FontWeight.w600,
+                // Button Permintaan Booking (Sesuai Figma)
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FisioterapiBookingScreen(),
                       ),
+                    );
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.calendar_today_outlined, color: Color(0xFF00BBA7), size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Permintaan Booking',
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFF00BBA7),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                // Stats row
+                const SizedBox(height: 16),
+                // Stats Row
                 Row(
                   children: [
                     Expanded(
                       child: _StatCard(
                         label: 'Hari Ini',
                         value: '2',
-                        icon: Icons.calendar_today_outlined,
+                        icon: Icons.calendar_today,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -170,73 +201,73 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
             ),
           ),
 
-          // Date navigator
+          // Date Navigator
           Container(
             color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.chevron_left),
-                  onPressed: () {
-                    setState(() {
-                      selectedDate = selectedDate.subtract(const Duration(days: 1));
-                    });
-                  },
+                  icon: const Icon(Icons.chevron_left, color: Colors.grey),
+                  onPressed: () => setState(() => selectedDate = selectedDate.subtract(const Duration(days: 1))),
                 ),
                 Column(
                   children: [
                     Text(
                       _formatDate(selectedDate),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
+                      style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14),
                     ),
-                    const Text(
+                    Text(
                       'Tampilkan Kalender',
-                      style: TextStyle(
-                        color: Color(0xFF26A69A),
-                        fontSize: 12,
-                      ),
+                      style: GoogleFonts.inter(color: const Color(0xFF00BBA7), fontSize: 11, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
                 IconButton(
-                  icon: const Icon(Icons.chevron_right),
-                  onPressed: () {
-                    setState(() {
-                      selectedDate = selectedDate.add(const Duration(days: 1));
-                    });
-                  },
+                  icon: const Icon(Icons.chevron_right, color: Colors.grey),
+                  onPressed: () => setState(() => selectedDate = selectedDate.add(const Duration(days: 1))),
                 ),
               ],
             ),
           ),
 
-          // Jadwal list header
+          // List Header
           Container(
-            color: const Color(0xFFF5F5F5),
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            alignment: Alignment.centerLeft,
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(
               'Jadwal ${_formatDate(selectedDate)}',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: Colors.black87,
-              ),
+              style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14),
             ),
           ),
 
-          // Jadwal list
+          // List Jadwal
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: jadwalList.length,
               itemBuilder: (context, index) {
-                return _JadwalCard(item: jadwalList[index]);
+                final item = jadwalList[index];
+                return _JadwalCard(
+                  item: item,
+                  onPressed: item.status == StatusJadwal.selesai
+                      ? null
+                      : () async {
+                          if (item.status == StatusJadwal.belumMulai) {
+                            setState(() => item.status = StatusJadwal.berlangsung);
+                          }
+                          final completed = await Navigator.push<bool?>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => _SelesaikanFormScreen(item: item),
+                            ),
+                          );
+                          if (completed == true) {
+                            setState(() => item.status = StatusJadwal.selesai);
+                          }
+                        },
+                );
               },
             ),
           ),
@@ -251,300 +282,275 @@ class _StatCard extends StatelessWidget {
   final String value;
   final IconData icon;
 
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
+  const _StatCard({required this.label, required this.value, required this.icon});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
+            style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Colors.black54,
-                  ),
-                ),
-              ],
+            child: Text(
+              label,
+              style: GoogleFonts.inter(fontSize: 10, color: Colors.black54, height: 1.2),
             ),
           ),
-          Icon(icon, color: const Color(0xFF26A69A), size: 20),
+          Icon(icon, color: const Color(0xFF00BBA7), size: 20),
         ],
       ),
     );
   }
 }
 
-enum StatusJadwal { belumMulai, berlangsung, selesai }
-
-class JadwalItem {
-  final String jamMulai;
-  final String jamSelesai;
-  final String namaPasien;
-  final String jenisTermi;
-  final String alamat;
-  final String telepon;
-  final String pertemuan;
-  final StatusJadwal status;
-
-  JadwalItem({
-    required this.jamMulai,
-    required this.jamSelesai,
-    required this.namaPasien,
-    required this.jenisTermi,
-    required this.alamat,
-    required this.telepon,
-    required this.pertemuan,
-    required this.status,
-  });
-}
+// ... (Tetap gunakan Enum StatusJadwal dan Class JadwalItem milik Anda)
 
 class _JadwalCard extends StatelessWidget {
   final JadwalItem item;
+  final VoidCallback? onPressed;
 
-  const _JadwalCard({required this.item});
-
-  Color get _borderColor {
-    switch (item.status) {
-      case StatusJadwal.berlangsung:
-        return const Color(0xFFFFB300);
-      case StatusJadwal.selesai:
-        return const Color(0xFF26A69A);
-      default:
-        return Colors.transparent;
-    }
-  }
+  const _JadwalCard({required this.item, this.onPressed});
 
   @override
   Widget build(BuildContext context) {
+    bool isBerlangsung = item.status == StatusJadwal.berlangsung;
+    bool isSelesai = item.status == StatusJadwal.selesai;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: item.status != StatusJadwal.belumMulai
-            ? Border.all(color: _borderColor, width: 1.5)
-            : null,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(12),
+        border: isBerlangsung 
+            ? Border.all(color: const Color(0xFFFFB300), width: 1.5)
+            : isSelesai ? Border.all(color: const Color(0xFF00BBA7), width: 1.5) : null,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5, offset: const Offset(0, 2))],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Status badge (jika berlangsung atau selesai)
-          if (item.status == StatusJadwal.berlangsung)
+          if (isBerlangsung || isSelesai)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF8E1),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                color: isBerlangsung ? const Color(0xFFFFF8E1) : const Color(0xFFE0F2F1),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
               ),
-              alignment: Alignment.center,
-              child: const Text(
-                'Sedang Berlangsung',
-                style: TextStyle(
-                  color: Color(0xFFFFB300),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
+              child: Center(
+                child: Text(
+                  isBerlangsung ? 'Sedang Berlangsung' : 'Terapi Selesai',
+                  style: GoogleFonts.inter(
+                    fontSize: 12, 
+                    fontWeight: FontWeight.bold, 
+                    color: isBerlangsung ? const Color(0xFFFFB300) : const Color(0xFF00BBA7)
+                  ),
                 ),
               ),
             ),
-          if (item.status == StatusJadwal.selesai)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE0F2F1),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-              ),
-              alignment: Alignment.center,
-              child: const Text(
-                'Terapi Selesai',
-                style: TextStyle(
-                  color: Color(0xFF26A69A),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Jam & nama
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${item.jamMulai} - ${item.jamSelesai}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
+                    Text('${item.jamMulai} - ${item.jamSelesai}', 
+                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            item.namaPasien,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          Text(
-                            item.jenisTermi,
-                            style: const TextStyle(
-                              color: Colors.black54,
-                              fontSize: 12,
-                            ),
-                          ),
+                          Text(item.namaPasien, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14)),
+                          Text(item.jenisTermi, style: GoogleFonts.inter(fontSize: 12, color: Colors.black54)),
                         ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-
-                // Alamat
-                Row(
-                  children: [
-                    const Icon(Icons.location_on_outlined,
-                        size: 14, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        item.alamat,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.black54,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-
-                // Telepon
-                Row(
-                  children: [
-                    const Icon(Icons.phone_outlined,
-                        size: 14, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(
-                      item.telepon,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.black54,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-
-                // Pertemuan
-                Row(
-                  children: [
-                    const Icon(Icons.repeat_outlined,
-                        size: 14, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(
-                      item.pertemuan,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.black54,
-                      ),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 12),
-
-                // Action buttons
+                _iconInfo(Icons.location_on_outlined, item.alamat),
+                _iconInfo(Icons.phone_outlined, item.telepon),
+                _iconInfo(Icons.repeat, item.pertemuan),
+                const SizedBox(height: 16),
                 Row(
                   children: [
-                    // Chat icon button
                     Container(
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: IconButton(
-                        onPressed: () {},
-                        icon: const Icon(Icons.chat_bubble_outline,
-                            size: 18, color: Colors.grey),
-                        padding: const EdgeInsets.all(6),
-                        constraints: const BoxConstraints(),
-                      ),
+                      child: const Icon(Icons.chat_bubble_outline, size: 18, color: Colors.grey),
                     ),
-                    const SizedBox(width: 10),
-
-                    // Main action button
+                    const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: onPressed,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: item.status == StatusJadwal.berlangsung
-                              ? const Color(0xFF26A69A)
-                              : item.status == StatusJadwal.selesai
-                                  ? Colors.grey.shade300
-                                  : const Color(0xFF26A69A),
-                          foregroundColor: item.status == StatusJadwal.selesai
-                              ? Colors.black54
-                              : Colors.white,
+                          backgroundColor: item.status == StatusJadwal.selesai ? Colors.grey.shade200 : const Color(0xFF00BBA7),
+                          foregroundColor: item.status == StatusJadwal.selesai ? Colors.black54 : Colors.white,
                           elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                         child: Text(
-                          item.status == StatusJadwal.belumMulai
-                              ? 'Mulai'
-                              : item.status == StatusJadwal.berlangsung
-                                  ? 'Selesaikan'
-                                  : 'Selesai',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          item.status == StatusJadwal.belumMulai ? 'Mulai' : 
+                          isBerlangsung ? 'Selesaikan' : 'Selesai',
+                          style: GoogleFonts.inter(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
                   ],
-                ),
+                )
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _iconInfo(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: Colors.grey),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: GoogleFonts.inter(fontSize: 12, color: Colors.black54))),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelesaikanFormScreen extends StatelessWidget {
+  final JadwalItem item;
+
+  const _SelesaikanFormScreen({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF00BBA7),
+        title: Text('Form Selesaikan', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16)),
+        elevation: 0,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${item.jamMulai} - ${item.jamSelesai}', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text(item.namaPasien, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold)),
+                  Text(item.jenisTermi, style: GoogleFonts.inter(fontSize: 12, color: Colors.black54)),
+                  const SizedBox(height: 12),
+                  _detailRow(Icons.location_on_outlined, item.alamat),
+                  _detailRow(Icons.phone_outlined, item.telepon),
+                  _detailRow(Icons.repeat, item.pertemuan),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Selesaikan Layanan', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 16),
+                    Text('Pastikan pasien sudah menyelesaikan sesi dan pembayaran sebelum menandai selesai.', style: GoogleFonts.inter(fontSize: 12, color: Colors.black54)),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      maxLines: 5,
+                      decoration: InputDecoration(
+                        hintText: 'Catatan penyelesaian (opsional)',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    const Spacer(),
+                    ElevatedButton(
+                      onPressed: () => _confirmCompletion(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00BBA7),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Text('Selesaikan', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmCompletion(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Konfirmasi Pembayaran dan Layanan', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+        content: Text('Apakah anda yakin pasien sudah melakukan layanan dan pembayaran?', style: GoogleFonts.inter()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Belum', style: GoogleFonts.inter(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BBA7)),
+            child: Text('Sudah', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      Navigator.pop(context, true);
+    }
+  }
+
+  Widget _detailRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: Colors.grey),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: GoogleFonts.inter(fontSize: 12, color: Colors.black54))),
         ],
       ),
     );

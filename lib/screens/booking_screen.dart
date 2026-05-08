@@ -5,7 +5,16 @@ import '../widgets/bottom_nav_bar.dart';
 import 'janji_temu_screen.dart'; 
 
 class BookingScreen extends StatefulWidget {
-  const BookingScreen({super.key});
+  final String? initialTherapy;
+  final String? initialPrice;
+  final int? initialCost;
+
+  const BookingScreen({
+    super.key,
+    this.initialTherapy,
+    this.initialPrice,
+    this.initialCost,
+  });
 
   @override
   State<BookingScreen> createState() => _BookingScreenState();
@@ -18,6 +27,11 @@ class _BookingScreenState extends State<BookingScreen> {
   String? _selectedTherapy;
   String? _selectedPrice;
   int _therapyCost = 0;
+  final Map<String, int> _therapyPriceMap = {
+    'Terapi Stroke': 300000,
+    'Terapi Fraktur': 280000,
+    'Terapi Skoliosis': 250000,
+  };
   final int _visitCost = 50000;
 
   // Data Form (Step 2)
@@ -32,6 +46,17 @@ class _BookingScreenState extends State<BookingScreen> {
     "Jl. Tidar No. 01, Karangrejo, Sumbersari, Jember",
     "Jl. Pekalongan No. 01, Penanggungan, Klojen, Kota Malang",
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialTherapy != null) {
+      _selectedTherapy = widget.initialTherapy;
+      _therapyCost = widget.initialCost ?? _therapyPriceMap[widget.initialTherapy!] ?? 0;
+      _selectedPrice = widget.initialPrice ?? (_therapyCost > 0 ? 'Rp ${NumberFormat('#,###', 'id_ID').format(_therapyCost)}' : null);
+      _currentStep = 2;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
