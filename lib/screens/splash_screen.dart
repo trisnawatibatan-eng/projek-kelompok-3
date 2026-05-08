@@ -120,70 +120,9 @@ class _SplashScreenState extends State<SplashScreen>
 class _FisioCareLogoIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _LogoPainter(),
-      child: Container(),
+    return Image.asset(
+      'assets/images/logo.jpeg',
+      fit: BoxFit.contain,
     );
   }
-}
-
-class _LogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.primary
-      ..style = PaintingStyle.fill;
-
-    // Draw a simple house + medical cross logo
-    final path = Path();
-    // House body
-    path.moveTo(size.width * 0.2, size.height * 0.55);
-    path.lineTo(size.width * 0.2, size.height * 0.85);
-    path.lineTo(size.width * 0.8, size.height * 0.85);
-    path.lineTo(size.width * 0.8, size.height * 0.55);
-    path.close();
-    canvas.drawPath(path, paint);
-
-    // Roof
-    final roofPath = Path();
-    roofPath.moveTo(size.width * 0.1, size.height * 0.55);
-    roofPath.lineTo(size.width * 0.5, size.height * 0.15);
-    roofPath.lineTo(size.width * 0.9, size.height * 0.55);
-    roofPath.close();
-    canvas.drawPath(roofPath, paint);
-
-    // Medical cross (white)
-    final crossPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
-    // Horizontal bar
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(size.width * 0.5, size.height * 0.65),
-          width: size.width * 0.3,
-          height: size.height * 0.1,
-        ),
-        const Radius.circular(2),
-      ),
-      crossPaint,
-    );
-
-    // Vertical bar
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(size.width * 0.5, size.height * 0.65),
-          width: size.width * 0.1,
-          height: size.height * 0.3,
-        ),
-        const Radius.circular(2),
-      ),
-      crossPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
