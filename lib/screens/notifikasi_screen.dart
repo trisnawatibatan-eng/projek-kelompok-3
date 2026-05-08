@@ -1,216 +1,179 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../theme.dart';
+import 'edukasi_screen.dart'; // Pastikan file ini diimport
 
-class NotifikasiScreen extends StatefulWidget {
+class NotifikasiScreen extends StatelessWidget {
   const NotifikasiScreen({super.key});
-
-  @override
-  State<NotifikasiScreen> createState() => _NotifikasiScreenState();
-}
-
-class _NotifikasiScreenState extends State<NotifikasiScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  final List<Map<String, dynamic>> _notifications = [
-    {
-      'title': 'Booking Baru',
-      'subtitle': 'Ahmad Rizki ingin melakukan booking sesi baru untuk Terapi Bahu',
-      'time': '5 menit lalu',
-      'icon': Icons.calendar_today,
-      'color': Color(0xFFEFF6FF),
-      'iconColor': AppColors.primary,
-      'read': false,
-      'type': 'booking',
-      'actionable': true,
-    },
-    {
-      'title': 'Review dari Pasien',
-      'subtitle': 'Budi Santoso memberikan rating 5 bintang untuk sesi terapi Anda',
-      'time': '1 jam lalu',
-      'icon': Icons.star,
-      'color': Color(0xFFFEF3C7),
-      'iconColor': Color(0xFFF59E0B),
-      'read': false,
-      'type': 'review',
-      'actionable': false,
-    },
-    {
-      'title': 'Pembayaran Diterima',
-      'subtitle': 'Pembayaran untuk sesi tanggal 25 Maret sebesar Rp 150.000 telah diterima',
-      'time': '2 jam lalu',
-      'icon': Icons.check_circle,
-      'color': Color(0xFFD1FAE5),
-      'iconColor': Color(0xFF10B981),
-      'read': true,
-      'type': 'payment',
-      'actionable': false,
-    },
-    {
-      'title': 'Pembatalan Sesi',
-      'subtitle': 'Siti Nurhaliza membatalkan sesi pada 28 Maret pukul 14:00',
-      'time': '3 jam lalu',
-      'icon': Icons.cancel,
-      'color': Color(0xFFFEE2E2),
-      'iconColor': Color(0xFFEF4444),
-      'read': true,
-      'type': 'cancellation',
-      'actionable': false,
-    },
-    {
-      'title': 'Pengingat Sesi',
-      'subtitle': 'Anda memiliki sesi fisioterapi dengan Budi Santoso dalam 2 jam',
-      'time': '1 hari lalu',
-      'icon': Icons.notifications_active,
-      'color': Color(0xFFDDD6FE),
-      'iconColor': AppColors.primary,
-      'read': true,
-      'type': 'reminder',
-      'actionable': false,
-    },
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  List<Map<String, dynamic>> get _unreadNotifications =>
-      _notifications.where((n) => !n['read']).toList();
-
-  List<Map<String, dynamic>> get _readNotifications =>
-      _notifications.where((n) => n['read']).toList();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        title: Text('Notifikasi', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700)),
+        backgroundColor: const Color(0xFF00BBA7),
         elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Container(
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Notifikasi Pasien',
+          style: GoogleFonts.poppins(
             color: Colors.white,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: AppColors.primary,
-              unselectedLabelColor: AppColors.lightText,
-              indicatorColor: AppColors.primary,
-              tabs: [
-                Tab(child: Text('Semua', style: GoogleFonts.inter(fontWeight: FontWeight.w600))),
-                Tab(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Belum dibaca', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-                      const SizedBox(width: 6),
-                      if (_unreadNotifications.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${_unreadNotifications.length}',
-                            style: GoogleFonts.inter(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                Tab(child: Text('Sudah dibaca', style: GoogleFonts.inter(fontWeight: FontWeight.w600))),
-              ],
-            ),
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          _buildNotificationList(_notifications),
-          _buildNotificationList(_unreadNotifications),
-          _buildNotificationList(_readNotifications),
+          _buildFilterTabs(),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              children: [
+                _buildSectionHeader('Hari Ini'),
+                
+                // 1. NOTIFIKASI JADWAL -> Klik akan balik ke Dashboard Tab Janji Temu (Index 2)
+                _buildNotificationItem(
+                  context: context,
+                  icon: Icons.calendar_today,
+                  color: Colors.blue,
+                  category: 'Jadwal',
+                  title: 'Ingat: Jadwal Terapi Besok',
+                  desc: 'Jadwal Anda dengan Ftr. Siti Nurhaliza besok pukul 10:00 WIB. Klik untuk detail.',
+                  time: '10:30',
+                  isUnread: true,
+                  onTap: () => Navigator.pop(context, 2), // Kirim index 2 ke Dashboard
+                ),
+
+                // 2. NOTIFIKASI MEDIS -> Klik akan balik ke Dashboard Tab Laporan (Index 3)
+                _buildNotificationItem(
+                  context: context,
+                  icon: Icons.assignment_turned_in_outlined,
+                  color: Colors.teal,
+                  category: 'Medis',
+                  title: 'Laporan Baru Tersedia',
+                  desc: 'Fisioterapis telah mengunggah laporan hasil terapi sesi terbaru. Klik untuk melihat.',
+                  time: '08:15',
+                  isUnread: true,
+                  onTap: () => Navigator.pop(context, 3), // Kirim index 3 ke Dashboard
+                ),
+                
+                const SizedBox(height: 20),
+                _buildSectionHeader('Kemarin'),
+
+                // 3. NOTIFIKASI EDUKASI (Ganti dari Pembayaran) -> Klik buka EdukasiScreen
+                _buildNotificationItem(
+                  context: context,
+                  icon: Icons.lightbulb_outline, // Ikon Edukasi
+                  color: Colors.orange,
+                  category: 'Edukasi',
+                  title: 'Tips Edukasi Baru',
+                  desc: 'Baru! "Teknik Pernapasan untuk Nyeri Punggung" telah tersedia. Yuk baca!',
+                  time: 'Kemarin, 09:00',
+                  isUnread: false,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const EdukasiScreen()),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildNotificationList(List<Map<String, dynamic>> notifications) {
-    if (notifications.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.notifications_none, size: 64, color: AppColors.lightText),
-            const SizedBox(height: 16),
-            Text(
-              'Tidak ada notifikasi',
-              style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.primaryText),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Notifikasi akan muncul di sini',
-              style: GoogleFonts.inter(fontSize: 12, color: AppColors.lightText),
-            ),
-          ],
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Text(
+        title,
+        style: GoogleFonts.poppins(
+          fontSize: 14, 
+          fontWeight: FontWeight.bold, 
+          color: Colors.grey.shade700
         ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: notifications.length,
-      itemBuilder: (context, index) {
-        final notif = notifications[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _buildNotificationCard(notif, context),
-        );
-      },
+      ),
     );
   }
 
-  Widget _buildNotificationCard(Map<String, dynamic> notif, BuildContext context) {
+  Widget _buildFilterTabs() {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+      child: Row(
+        children: [
+          _buildChip('Semua', true),
+          const SizedBox(width: 10),
+          _buildChip('Jadwal', false),
+          const SizedBox(width: 10),
+          _buildChip('Medis', false),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChip(String label, bool isSelected) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: notif['read'] ? Colors.white : notif['color'],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: notif['read'] ? AppColors.borderColor : notif['iconColor'].withOpacity(0.2),
-          width: 1,
+        color: isSelected ? const Color(0xFF00BBA7) : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.poppins(
+          fontSize: 12,
+          color: isSelected ? Colors.white : Colors.grey.shade600,
+          fontWeight: FontWeight.w500,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    );
+  }
+
+  // WIDGET ITEM YANG BISA DIKLIK
+  Widget _buildNotificationItem({
+    required BuildContext context,
+    required IconData icon,
+    required Color color,
+    required String category,
+    required String title,
+    required String desc,
+    required String time,
+    required bool isUnread,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap, // Fungsi klik aktif di sini
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: isUnread ? const Color(0xFFF0F9F8) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isUnread ? const Color(0xFF00BBA7).withOpacity(0.3) : Colors.grey.shade100
+            ),
+          ),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 44,
-                height: 44,
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: notif['color'].withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(10),
+                  color: color.withOpacity(0.1), 
+                  borderRadius: BorderRadius.circular(12)
                 ),
-                child: Icon(notif['icon'] as IconData, color: notif['iconColor'], size: 22),
+                child: Icon(icon, color: color, size: 22),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 15),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,106 +181,36 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> with SingleTickerPr
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200, 
+                            borderRadius: BorderRadius.circular(4)
+                          ),
                           child: Text(
-                            notif['title'],
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primaryText,
-                            ),
+                            category, 
+                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.black54)
                           ),
                         ),
-                        if (!notif['read'])
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
+                        Text(time, style: const TextStyle(fontSize: 10, color: Colors.grey)),
                       ],
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      title, 
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      notif['subtitle'],
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        color: AppColors.secondaryText,
-                        height: 1.4,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      notif['time'],
-                      style: GoogleFonts.inter(fontSize: 9, color: AppColors.lightText),
+                      desc, 
+                      style: GoogleFonts.poppins(fontSize: 12, color: Colors.black54, height: 1.4)
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          if (notif['actionable'])
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 36,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                '✅ Booking diterima!',
-                                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                              ),
-                              backgroundColor: const Color(0xFF10B981),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          'Terima',
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: SizedBox(
-                      height: 36,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                '❌ Booking ditolak',
-                                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                              ),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        },
-                        child: Text(
-                          'Tolak',
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.red,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
