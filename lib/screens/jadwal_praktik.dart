@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart'; // Pastikan sudah install google_fonts di pubspec.yaml
 import 'fisioterapis_booking_screen.dart';
+import 'atur_jadwal_screen.dart';
 
 enum StatusJadwal { belumMulai, berlangsung, selesai }
 
@@ -127,10 +128,18 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
             onPressed: () {},
             icon: const Icon(Icons.settings_outlined, size: 20),
           ),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Text("Atur Jadwal", style: GoogleFonts.inter(fontSize: 12)),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AturJadwalScreen()),
+              );
+            },
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Text("Atur Jadwal", style: GoogleFonts.inter(fontSize: 12)),
+              ),
             ),
           )
         ],
