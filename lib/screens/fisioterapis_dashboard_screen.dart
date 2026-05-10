@@ -8,7 +8,8 @@ import 'fisioterapis_profil_tab.dart';
 import 'fisioterapis_jadwal_praktik.dart';
 
 class FisioterapisDashboardScreen extends StatefulWidget {
-  const FisioterapisDashboardScreen({super.key});
+  final Map<String, dynamic>? profilCache; // ✅ terima cache dari luar
+  const FisioterapisDashboardScreen({super.key, this.profilCache});
 
   @override
   State<FisioterapisDashboardScreen> createState() =>
@@ -18,17 +19,17 @@ class FisioterapisDashboardScreen extends StatefulWidget {
 class _FisioterapisDashboardScreenState
     extends State<FisioterapisDashboardScreen> {
   final _supabase = Supabase.instance.client;
-
-  // 0=Dashboard, 1=Pasien, 2=Profil
-  // Jadwal (navbar index 1) → Navigator.push, tidak masuk pages[]
-  int _currentIndex = 0;
   Map<String, dynamic>? _profilFisioterapis;
-  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadProfil();
+    // ✅ Pakai cache jika ada, fetch hanya jika belum punya data
+    if (widget.profilCache != null) {
+      _profilFisioterapis = widget.profilCache;
+    } else {
+      _loadProfil();
+    }
   }
 
   Future<void> _loadProfil() async {
@@ -45,63 +46,61 @@ class _FisioterapisDashboardScreenState
       if (mounted) setState(() => _profilFisioterapis = data);
     } catch (e) {
       // Tetap lanjut meski gagal load profil
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _onNavTap(int index) {
+    switch (index) {
+      case 0:
+        // Sudah di Dashboard
+        break;
+      case 1:
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => const JadwalPraktikScreen(),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        );
+        break;
+      case 2:
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => FisioterapisPasienTab(
+              profil: _profilFisioterapis,
+            ),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        );
+        break;
+      case 3:
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => FisioterapisProfilTab(
+              profil: _profilFisioterapis,
+              onProfilUpdated: _loadProfil,
+            ),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        );
+        break;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.scaffoldBg,
-        body: Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
-        ),
-      );
-    }
-
-    // Navbar 4 item: Dashboard(0), Jadwal(1), Pasien(2), Profil(3)
-    // pages[] hanya 3: Jadwal ditangani Navigator.push
-    final List<Widget> pages = [
-      FisioterapisHomeTab(profil: _profilFisioterapis),
-      FisioterapisPasienTab(profil: _profilFisioterapis),
-      FisioterapisProfilTab(
-        profil: _profilFisioterapis,
-        onProfilUpdated: _loadProfil,
-      ),
-    ];
-
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
-      body: pages[_currentIndex],
+      body: FisioterapisHomeTab(profil: _profilFisioterapis),
       bottomNavigationBar: FisioterapisBottomNavbar(
-        currentIndex: _navbarIndex,
-        onTap: (index) {
-          if (index == 1) {
-            // Jadwal → halaman terpisah
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const JadwalPraktikScreen(),
-              ),
-            );
-          } else {
-            // Remap navbar index ke pages index:
-            // navbar 0 → pages[0] (Dashboard)
-            // navbar 2 → pages[1] (Pasien)
-            // navbar 3 → pages[2] (Profil)
-            final pageIndex = index < 1 ? index : index - 1;
-            setState(() => _currentIndex = pageIndex);
-          }
-        },
+        currentIndex: 0,
+        onTap: _onNavTap,
       ),
     );
-  }
-
-  // Konversi pages index balik ke navbar index untuk highlight yang benar
-  int get _navbarIndex {
-    if (_currentIndex == 0) return 0;
-    return _currentIndex + 1; // pages[1]=Pasien→navbar 2, pages[2]=Profil→navbar 3
   }
 }

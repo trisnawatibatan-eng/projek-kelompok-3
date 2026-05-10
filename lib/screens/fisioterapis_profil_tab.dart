@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
+import '../widgets/fisioterapis_bottom_navbar.dart';
 import 'login_screen.dart';
 import 'fisioterapis_edit_profil_screen.dart';
 import 'kelola_layanan_screen.dart';
+import 'fisioterapis_dashboard_screen.dart';
+import 'fisioterapis_jadwal_praktik.dart';
+import 'fisioterapis_pasien_tab.dart';
 
 class FisioterapisProfilTab extends StatefulWidget {
   final Map<String, dynamic>? profil;
@@ -18,7 +22,6 @@ class FisioterapisProfilTab extends StatefulWidget {
 class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
   final _supabase = Supabase.instance.client;
 
-  // ✅ Getter sesuai kolom schema
   String get _namaLengkap => widget.profil?['nama_lengkap'] ?? 'Fisioterapis';
   String get _email => widget.profil?['email'] ?? '-';
   String get _telepon => widget.profil?['nomor_telepon'] ?? '-';
@@ -30,11 +33,9 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
   String get _sertifikasi => widget.profil?['sertifikasi'] ?? '-';
   String get _fotoProfilUrl => widget.profil?['foto_profil_url'] ?? '';
 
-  // ✅ status_verifikasi ada di schema
   String get _statusVerifikasi =>
       widget.profil?['status_verifikasi'] ?? 'pending';
 
-  // ✅ Warna dan label badge status verifikasi
   Color get _statusColor {
     switch (_statusVerifikasi) {
       case 'verified':
@@ -73,14 +74,60 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
-    return _namaLengkap.substring(0, _namaLengkap.length >= 2 ? 2 : 1)
+    return _namaLengkap
+        .substring(0, _namaLengkap.length >= 2 ? 2 : 1)
         .toUpperCase();
+  }
+
+  void _onNavTap(int index) {
+    switch (index) {
+      case 0:
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => FisioterapisDashboardScreen(
+              profilCache: widget.profil,
+            ),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        );
+        break;
+      case 1:
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => const JadwalPraktikScreen(),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        );
+        break;
+      case 2:
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => FisioterapisPasienTab(
+              profil: widget.profil,
+            ),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        );
+        break;
+      case 3:
+        break;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
+      bottomNavigationBar: FisioterapisBottomNavbar(
+        currentIndex: 3,
+        onTap: _onNavTap,
+      ),
       body: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: () async => widget.onProfilUpdated?.call(),
@@ -156,7 +203,6 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                   children: [
                     Row(
                       children: [
-                        // ✅ Tampilkan foto profil jika ada, fallback ke inisial
                         Container(
                           width: 56,
                           height: 56,
@@ -200,7 +246,6 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                                 ),
                               ),
                               const SizedBox(height: 5),
-                              // ✅ Badge status verifikasi dari schema
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 3),
@@ -325,7 +370,6 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
     );
   }
 
-  // ✅ Card baru untuk info profesional dari schema
   Widget _buildProfesionalCard() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -361,8 +405,8 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
               color: const Color(0xFFE6FAF8),
               borderRadius: BorderRadius.circular(10),
             ),
-            child:
-                const Icon(Icons.person_outline, color: AppColors.primary, size: 18),
+            child: const Icon(Icons.person_outline,
+                color: AppColors.primary, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -452,8 +496,7 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
         'color': const Color(0xFFF59E0B),
         'onTap': () => Navigator.push(
               context,
-              MaterialPageRoute(
-                  builder: (_) => const KelolLayananScreen()),
+              MaterialPageRoute(builder: (_) => const KelolLayananScreen()),
             ),
       },
       {
@@ -511,10 +554,7 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                 ),
               ),
               if (index < items.length - 1)
-                Divider(
-                    height: 1,
-                    indent: 64,
-                    color: AppColors.borderColor),
+                Divider(height: 1, indent: 64, color: AppColors.borderColor),
             ],
           );
         }),
