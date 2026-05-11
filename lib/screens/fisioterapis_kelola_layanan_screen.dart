@@ -1,17 +1,21 @@
+// fisioterapis_kelola_layanan_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
 
-class KelolLayananScreen extends StatefulWidget {
-  const KelolLayananScreen({super.key});
+class FisioterapisKelolaLayananScreen extends StatefulWidget {
+  const FisioterapisKelolaLayananScreen({super.key});
 
   @override
-  State<KelolLayananScreen> createState() => _KelolLayananScreenState();
+  State<FisioterapisKelolaLayananScreen> createState() =>
+      _FisioterapisKelolaLayananScreenState();
 }
 
-class _KelolLayananScreenState extends State<KelolLayananScreen>
+class _FisioterapisKelolaLayananScreenState
+    extends State<FisioterapisKelolaLayananScreen>
     with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
   final _hargaKunjunganCtrl = TextEditingController();
@@ -19,9 +23,10 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
   late AnimationController _saveAnimCtrl;
   late Animation<double> _saveScaleAnim;
 
-  List<_LayananFisio> _layananList = [];
-  String? _fisioterapisId;       // uuid dari tabel fisioterapis
-  String? _hargaKunjunganId;     // uuid row harga_kunjungan (untuk upsert)
+  List<_ServiceItem> _serviceList = [];
+  String? _fisioterapisId;
+  String? _fisioterapisNama;
+  String? _hargaKunjunganId;
   bool _isLoading = true;
   bool _isSaving = false;
   String? _errorMsg;
@@ -60,45 +65,47 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) throw Exception('User belum login');
 
-      // 1. Ambil fisioterapis_id berdasarkan user_id
+      // 1. Ambil data fisioterapis (id + nama)
       final profil = await _supabase
           .from('fisioterapis')
-          .select('id')
+          .select('id, nama_lengkap')
           .eq('user_id', userId)
           .single();
 
       _fisioterapisId = profil['id'] as String;
+      _fisioterapisNama = profil['nama_lengkap'] as String? ?? 'Fisioterapis';
 
-      // 2. Load harga kunjungan (boleh tidak ada dulu)
-      final hargaRows = await _supabase
+      // 2. Load harga kunjungan dari tabel harga_kunjungan
+      final hargaRow = await _supabase
           .from('harga_kunjungan')
           .select('id, harga')
           .eq('fisioterapis_id', _fisioterapisId!)
           .maybeSingle();
 
-      if (hargaRows != null) {
-        _hargaKunjunganId = hargaRows['id'] as String;
+      if (hargaRow != null) {
+        _hargaKunjunganId = hargaRow['id'] as String;
         _hargaKunjunganCtrl.text =
-            (hargaRows['harga'] as num).toStringAsFixed(0);
+            (hargaRow['harga'] as num).toStringAsFixed(0);
       } else {
-        _hargaKunjunganCtrl.text = '150000';
+        _hargaKunjunganCtrl.text = '';
       }
 
-      // 3. Load daftar layanan, urut sesuai kolom urutan
-      final layananRows = await _supabase
-          .from('layanan_fisioterapis')
-          .select('id, nama_layanan, emoji, harga, urutan')
+      // 3. Load daftar layanan dari tabel services
+      final servicesRows = await _supabase
+          .from('services')
+          .select('id, nama_layanan, harga, deskripsi, durasi_menit, is_active')
           .eq('fisioterapis_id', _fisioterapisId!)
           .eq('is_active', true)
-          .order('urutan', ascending: true);
+          .order('created_at', ascending: true);
 
       setState(() {
-        _layananList = (layananRows as List)
-            .map((r) => _LayananFisio(
+        _serviceList = (servicesRows as List)
+            .map((r) => _ServiceItem(
                   id: r['id'] as String,
-                  nama: r['nama_layanan'] as String,
-                  emoji: r['emoji'] as String? ?? '💊',
+                  namaLayanan: r['nama_layanan'] as String,
                   harga: (r['harga'] as num).toDouble(),
+                  deskripsi: r['deskripsi'] as String?,
+                  durasiMenit: r['durasi_menit'] as int?,
                   isNew: false,
                 ))
             .toList();
@@ -116,22 +123,19 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
 
   Future<void> _simpanPerubahan() async {
     if (_fisioterapisId == null) return;
-
     setState(() => _isSaving = true);
 
     try {
-      // ── A. Upsert harga kunjungan ──
+      // ── A. Upsert harga kunjungan ke tabel harga_kunjungan ──
       final hargaVal =
           double.tryParse(_hargaKunjunganCtrl.text.trim()) ?? 0;
 
       if (_hargaKunjunganId != null) {
-        // Sudah ada → update
         await _supabase
             .from('harga_kunjungan')
             .update({'harga': hargaVal})
             .eq('id', _hargaKunjunganId!);
       } else {
-        // Belum ada → insert dan simpan id-nya
         final inserted = await _supabase
             .from('harga_kunjungan')
             .insert({
@@ -143,58 +147,53 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
         _hargaKunjunganId = inserted['id'] as String;
       }
 
-      // ── B. Upsert layanan ──
-      // Pisahkan layanan baru vs yang sudah ada
-      final layananBaru =
-          _layananList.where((l) => l.isNew).toList();
-      final layananLama =
-          _layananList.where((l) => !l.isNew).toList();
+      // ── B. Insert layanan baru ke tabel services ──
+      final layananBaru = _serviceList.where((l) => l.isNew).toList();
+      final layananLama = _serviceList.where((l) => !l.isNew).toList();
 
-      // Insert layanan baru
       if (layananBaru.isNotEmpty) {
         final insertPayload = layananBaru
-            .asMap()
-            .entries
-            .map((e) => {
+            .map((l) => {
                   'fisioterapis_id': _fisioterapisId,
-                  'nama_layanan': e.value.nama,
-                  'emoji': e.value.emoji,
-                  'harga': e.value.harga,
-                  'urutan': layananLama.length + e.key + 1,
+                  'nama_layanan': l.namaLayanan,
+                  'harga': l.harga,
+                  if (l.deskripsi != null) 'deskripsi': l.deskripsi,
+                  if (l.durasiMenit != null) 'durasi_menit': l.durasiMenit,
+                  'is_active': true,
                 })
             .toList();
 
         final inserted = await _supabase
-            .from('layanan_fisioterapis')
+            .from('services')
             .insert(insertPayload)
-            .select('id, nama_layanan, emoji, harga, urutan');
+            .select('id, nama_layanan, harga, deskripsi, durasi_menit');
 
-        // Ganti item isNew dengan data dari DB (dapat id asli)
+        // Ganti isNew item dengan data dari DB
         for (final row in inserted as List) {
-          final idx = _layananList.indexWhere(
-              (l) => l.isNew && l.nama == row['nama_layanan']);
+          final idx = _serviceList.indexWhere(
+              (l) => l.isNew && l.namaLayanan == row['nama_layanan']);
           if (idx != -1) {
-            _layananList[idx] = _LayananFisio(
+            _serviceList[idx] = _ServiceItem(
               id: row['id'] as String,
-              nama: row['nama_layanan'] as String,
-              emoji: row['emoji'] as String? ?? '💊',
+              namaLayanan: row['nama_layanan'] as String,
               harga: (row['harga'] as num).toDouble(),
+              deskripsi: row['deskripsi'] as String?,
+              durasiMenit: row['durasi_menit'] as int?,
               isNew: false,
             );
           }
         }
       }
 
-      // Update layanan lama yang mungkin harganya berubah
-      for (int i = 0; i < layananLama.length; i++) {
-        final l = layananLama[i];
+      // ── C. Update layanan lama yang harganya berubah ──
+      for (final l in layananLama) {
         await _supabase
-            .from('layanan_fisioterapis')
+            .from('services')
             .update({
+              'nama_layanan': l.namaLayanan,
               'harga': l.harga,
-              'nama_layanan': l.nama,
-              'emoji': l.emoji,
-              'urutan': i + 1,
+              if (l.deskripsi != null) 'deskripsi': l.deskripsi,
+              if (l.durasiMenit != null) 'durasi_menit': l.durasiMenit,
             })
             .eq('id', l.id);
       }
@@ -213,31 +212,26 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
 
   // ─── Supabase: Hapus ─────────────────────────────────────────────────────────
 
-  Future<void> _hapusLayanan(_LayananFisio layanan) async {
-    if (layanan.isNew) {
-      // Belum tersimpan di DB, cukup hapus dari list lokal
-      setState(
-          () => _layananList.removeWhere((l) => l.id == layanan.id));
+  Future<void> _hapusLayanan(_ServiceItem item) async {
+    if (item.isNew) {
+      setState(() => _serviceList.removeWhere((l) => l.id == item.id));
       _showSnackbar('Layanan dihapus');
       return;
     }
-
     try {
       // Soft delete: set is_active = false
       await _supabase
-          .from('layanan_fisioterapis')
+          .from('services')
           .update({'is_active': false})
-          .eq('id', layanan.id);
-
-      setState(
-          () => _layananList.removeWhere((l) => l.id == layanan.id));
+          .eq('id', item.id);
+      setState(() => _serviceList.removeWhere((l) => l.id == item.id));
       _showSnackbar('Layanan dihapus');
     } catch (e) {
       _showSnackbar('Gagal menghapus: ${e.toString()}', isError: true);
     }
   }
 
-  // ─── Helpers ────────────────────────────────────────────────────────────────
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   String _formatRupiah(double val) {
     final s = val.toStringAsFixed(0);
@@ -249,6 +243,15 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
       count++;
     }
     return buffer.toString().split('').reversed.join('');
+  }
+
+  /// Ambil 2 inisial dari nama lengkap
+  String _getInitials(String nama) {
+    final parts = nama.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return nama.isNotEmpty ? nama[0].toUpperCase() : 'F';
   }
 
   void _showSnackbar(String msg, {bool isError = false}) {
@@ -279,46 +282,46 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
     );
   }
 
-  // ─── Actions ────────────────────────────────────────────────────────────────
+  // ─── Actions ─────────────────────────────────────────────────────────────────
 
-  void _editLayanan(_LayananFisio layanan) {
-    final ctrl =
-        TextEditingController(text: layanan.harga.toStringAsFixed(0));
+  void _editLayanan(_ServiceItem item) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _EditLayananSheet(
-        layanan: layanan,
-        ctrl: ctrl,
-        onSave: (newHarga) =>
-            setState(() => layanan.harga = newHarga),
+        item: item,
+        onSave: (newNama, newHarga) => setState(() {
+          item.namaLayanan = newNama;
+          item.harga = newHarga;
+        }),
       ),
     );
   }
 
-  void _showDeleteConfirm(_LayananFisio layanan) {
+  void _showDeleteConfirm(_ServiceItem item) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Hapus Layanan?',
             style: GoogleFonts.inter(
                 fontSize: 15, fontWeight: FontWeight.w700)),
-        content: Text('Yakin ingin menghapus "${layanan.nama}"?',
+        content: Text('Yakin ingin menghapus "${item.namaLayanan}"?',
             style: GoogleFonts.inter(
                 fontSize: 13, color: AppColors.secondaryText)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('Batal',
-                style: GoogleFonts.inter(color: AppColors.lightText)),
+                style:
+                    GoogleFonts.inter(color: AppColors.lightText)),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _hapusLayanan(layanan);
+              _hapusLayanan(item);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.errorRed,
@@ -328,7 +331,8 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
                   borderRadius: BorderRadius.circular(8)),
             ),
             child: Text('Hapus',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                style:
+                    GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -343,23 +347,20 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
       builder: (_) => _TambahLayananSheet(
         onSave: (nama, harga) {
           setState(() {
-            _layananList.add(_LayananFisio(
-              // ID sementara, akan diganti setelah disimpan ke DB
+            _serviceList.add(_ServiceItem(
               id: 'new_${DateTime.now().millisecondsSinceEpoch}',
-              nama: nama,
-              emoji: '💊',
+              namaLayanan: nama,
               harga: harga,
               isNew: true,
             ));
           });
-          _showSnackbar(
-              'Layanan ditambahkan — tekan Simpan untuk menyimpan ke server');
+          _showSnackbar('Layanan ditambahkan — tekan Simpan untuk menyimpan');
         },
       ),
     );
   }
 
-  // ─── Build ──────────────────────────────────────────────────────────────────
+  // ─── Build ───────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -377,8 +378,7 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      );
+          child: CircularProgressIndicator(color: AppColors.primary));
     }
 
     if (_errorMsg != null) {
@@ -400,7 +400,8 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
                 onPressed: _loadData,
                 icon: const Icon(Icons.refresh, size: 16),
                 label: Text('Coba Lagi',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                    style:
+                        GoogleFonts.inter(fontWeight: FontWeight.w600)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -420,19 +421,19 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
       onRefresh: _loadData,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHargaKunjunganCard(),
             const SizedBox(height: 20),
-            _buildSectionLabel(
-                'DAFTAR LAYANAN', '${_layananList.length} layanan'),
+            _buildSectionLabel('DAFTAR LAYANAN'),
             const SizedBox(height: 10),
-            ..._layananList.map((l) => _buildLayananTile(l)),
+            ..._serviceList.map((l) => _buildLayananTile(l)),
             const SizedBox(height: 8),
             _buildTambahButton(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             _buildSimpanButton(),
             const SizedBox(height: 30),
           ],
@@ -441,7 +442,7 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
     );
   }
 
-  // ─── Header ─────────────────────────────────────────────────────────────────
+  // ─── Header ──────────────────────────────────────────────────────────────────
 
   Widget _buildHeader() {
     return Container(
@@ -454,65 +455,91 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
       ),
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(10),
+        child: Column(
+          children: [
+            // Row atas: back button + judul
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.arrow_back_ios_new,
+                          color: Colors.white, size: 16),
+                    ),
                   ),
-                  child: const Icon(Icons.arrow_back_ios_new,
-                      color: Colors.white, size: 16),
-                ),
+                  const SizedBox(width: 14),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Kelola Layanan',
+                          style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700)),
+                      Text('Edit Harga Layanan',
+                          style: GoogleFonts.inter(
+                              color: Colors.white70, fontSize: 11)),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Kelola Layanan',
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        )),
-                    Text('Edit Harga Layanan',
-                        style: GoogleFonts.inter(
-                            color: Colors.white70, fontSize: 11)),
-                  ],
-                ),
-              ),
-              // Badge jumlah layanan
-              Container(
+            ),
+
+            // Card nama fisioterapis
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 5),
+                    horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: Colors.white24),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.medical_services_outlined,
-                        color: Colors.white, size: 12),
-                    const SizedBox(width: 4),
-                    Text('Fisiocare',
+                    // Avatar inisial
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Center(
+                        child: Text(
+                          _getInitials(_fisioterapisNama ?? 'F'),
+                          style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _fisioterapisNama ?? 'Fisioterapis',
                         style: GoogleFonts.inter(
                             color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600)),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -531,51 +558,31 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE6FAF8),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.home_outlined,
-                    color: AppColors.primary, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('FISIK KUNJUNGAN',
-                      style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.lightText,
-                          letterSpacing: 0.5)),
-                  Text('Harga biaya kunjungan ke rumah',
-                      style: GoogleFonts.inter(
-                          fontSize: 11,
-                          color: AppColors.secondaryText)),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
+          Text('EDIT HARGA KUNJUNGAN',
+              style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.lightText,
+                  letterSpacing: 0.5)),
+          const SizedBox(height: 12),
+          Text('Harga kunjungan *',
+              style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.secondaryText)),
+          const SizedBox(height: 8),
           TextFormField(
             controller: _hargaKunjunganCtrl,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             style: GoogleFonts.inter(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
                 color: AppColors.primaryText),
             decoration: InputDecoration(
-              prefixText: 'Rp  ',
-              prefixStyle: GoogleFonts.inter(
-                  color: AppColors.secondaryText,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500),
+              hintText: 'Rp 50.000',
+              hintStyle: GoogleFonts.inter(
+                  color: AppColors.lightText, fontSize: 13),
               filled: true,
               fillColor: AppColors.scaffoldBg,
               contentPadding: const EdgeInsets.symmetric(
@@ -596,75 +603,87 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
 
   // ─── Section Label ───────────────────────────────────────────────────────────
 
-  Widget _buildSectionLabel(String title, String badge) {
+  Widget _buildSectionLabel(String title) {
     return Row(
       children: [
+        const Icon(Icons.star_border_rounded,
+            size: 14, color: AppColors.lightText),
+        const SizedBox(width: 6),
         Text(title,
             style: GoogleFonts.inter(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 color: AppColors.lightText,
                 letterSpacing: 0.5)),
-        const Spacer(),
-        Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-          decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20)),
-          child: Text(badge,
-              style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600)),
-        ),
       ],
     );
   }
 
   // ─── Layanan Tile ────────────────────────────────────────────────────────────
 
-  Widget _buildLayananTile(_LayananFisio layanan) {
+  Widget _buildLayananTile(_ServiceItem item) {
+    // Icon berdasarkan nama layanan
+    IconData iconData = Icons.medical_services_outlined;
+    Color iconColor = const Color(0xFF6C8EBD);
+    Color iconBg = const Color(0xFFEDF2FB);
+
+    final nama = item.namaLayanan.toLowerCase();
+    if (nama.contains('stroke') || nama.contains('saraf')) {
+      iconData = Icons.psychology_outlined;
+      iconColor = const Color(0xFF9B59B6);
+      iconBg = const Color(0xFFF5EEF8);
+    } else if (nama.contains('fraktur') || nama.contains('tulang')) {
+      iconData = Icons.accessibility_new_outlined;
+      iconColor = const Color(0xFF5D6D7E);
+      iconBg = const Color(0xFFF0F3F4);
+    } else if (nama.contains('nyeri') || nama.contains('sendi')) {
+      iconData = Icons.self_improvement_outlined;
+      iconColor = const Color(0xFFE67E22);
+      iconBg = const Color(0xFFFEF9E7);
+    } else if (nama.contains('anak') || nama.contains('pediatri')) {
+      iconData = Icons.child_care_outlined;
+      iconColor = const Color(0xFF27AE60);
+      iconBg = const Color(0xFFEAF7EE);
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          // Layanan baru (belum disimpan) diberi border berbeda
-          color: layanan.isNew
+          color: item.isNew
               ? AppColors.primary.withOpacity(0.4)
               : AppColors.borderColor,
         ),
       ),
       child: Padding(
         padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
+            // Ikon layanan
             Container(
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFFE6FAF8),
+                color: iconBg,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Center(
-                  child: Text(layanan.emoji,
-                      style: const TextStyle(fontSize: 20))),
+              child: Icon(iconData, color: iconColor, size: 20),
             ),
             const SizedBox(width: 12),
+            // Nama layanan
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(layanan.nama,
+                  Text(item.namaLayanan,
                       style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryText)),
-                  // Label "Baru" untuk layanan yang belum disimpan
-                  if (layanan.isNew)
+                  if (item.isNew)
                     Text('Belum disimpan',
                         style: GoogleFonts.inter(
                             fontSize: 10,
@@ -673,20 +692,22 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
                 ],
               ),
             ),
+            // Harga
             Text('Rp',
                 style: GoogleFonts.inter(
                     fontSize: 11, color: AppColors.lightText)),
             const SizedBox(width: 4),
             Text(
-              _formatRupiah(layanan.harga),
+              _formatRupiah(item.harga),
               style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: AppColors.primaryText),
             ),
             const SizedBox(width: 10),
+            // Tombol Edit
             GestureDetector(
-              onTap: () => _editLayanan(layanan),
+              onTap: () => _editLayanan(item),
               child: Container(
                 width: 32,
                 height: 32,
@@ -696,20 +717,6 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
                 ),
                 child: const Icon(Icons.edit_outlined,
                     color: AppColors.primary, size: 16),
-              ),
-            ),
-            const SizedBox(width: 6),
-            GestureDetector(
-              onTap: () => _showDeleteConfirm(layanan),
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: AppColors.errorRed.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(Icons.delete_outline,
-                    color: AppColors.errorRed, size: 16),
               ),
             ),
           ],
@@ -725,22 +732,35 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
       onTap: _tambahLayananBaru,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 13),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.primary, width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.primary.withOpacity(0.5),
+            width: 1.5,
+            // Simulasi dashed dengan border biasa
+            // Untuk dashed border sesungguhnya gunakan package 'dashed_border'
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.add_circle_outline,
-                color: AppColors.primary, size: 20),
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.primary, width: 1.5),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(Icons.add,
+                  color: AppColors.primary, size: 14),
+            ),
             const SizedBox(width: 8),
-            Text('+ Tambah Layanan Baru',
+            Text('Tambah Layanan Baru',
                 style: GoogleFonts.inter(
                     color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     fontSize: 13)),
           ],
         ),
@@ -764,7 +784,7 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
         onTapCancel: () => _saveAnimCtrl.reverse(),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 15),
+          padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: _isSaving
@@ -803,7 +823,7 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
                 style: GoogleFonts.inter(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
-                    fontSize: 14),
+                    fontSize: 15),
               ),
             ],
           ),
@@ -815,36 +835,55 @@ class _KelolLayananScreenState extends State<KelolLayananScreen>
 
 // ─── Model ────────────────────────────────────────────────────────────────────
 
-class _LayananFisio {
+class _ServiceItem {
   final String id;
-  final String nama;
-  final String emoji;
+  String namaLayanan;
   double harga;
-
-  /// true = belum pernah disimpan ke Supabase
+  String? deskripsi;
+  int? durasiMenit;
   final bool isNew;
 
-  _LayananFisio({
+  _ServiceItem({
     required this.id,
-    required this.nama,
-    required this.emoji,
+    required this.namaLayanan,
     required this.harga,
+    this.deskripsi,
+    this.durasiMenit,
     this.isNew = false,
   });
 }
 
 // ─── Edit Layanan Sheet ───────────────────────────────────────────────────────
 
-class _EditLayananSheet extends StatelessWidget {
-  final _LayananFisio layanan;
-  final TextEditingController ctrl;
-  final ValueChanged<double> onSave;
+class _EditLayananSheet extends StatefulWidget {
+  final _ServiceItem item;
+  final Function(String nama, double harga) onSave;
 
-  const _EditLayananSheet({
-    required this.layanan,
-    required this.ctrl,
-    required this.onSave,
-  });
+  const _EditLayananSheet({required this.item, required this.onSave});
+
+  @override
+  State<_EditLayananSheet> createState() => _EditLayananSheetState();
+}
+
+class _EditLayananSheetState extends State<_EditLayananSheet> {
+  late TextEditingController _namaCtrl;
+  late TextEditingController _hargaCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _namaCtrl =
+        TextEditingController(text: widget.item.namaLayanan);
+    _hargaCtrl =
+        TextEditingController(text: widget.item.harga.toStringAsFixed(0));
+  }
+
+  @override
+  void dispose() {
+    _namaCtrl.dispose();
+    _hargaCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -857,40 +896,42 @@ class _EditLayananSheet extends StatelessWidget {
         right: 20,
       ),
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(20)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20)),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(layanan.emoji,
-                  style: const TextStyle(fontSize: 24)),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Edit Harga',
-                        style: GoogleFonts.inter(
-                            fontSize: 10,
-                            color: AppColors.lightText)),
-                    Text(layanan.nama,
-                        style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700)),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          Text('Edit Layanan',
+              style: GoogleFonts.inter(
+                  fontSize: 15, fontWeight: FontWeight.w700)),
           const SizedBox(height: 16),
+          Text('Nama Layanan',
+              style: GoogleFonts.inter(
+                  fontSize: 12, color: AppColors.secondaryText)),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _namaCtrl,
+            style: GoogleFonts.inter(fontSize: 14),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: AppColors.scaffoldBg,
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(
+                      color: AppColors.primary, width: 1.5)),
+            ),
+          ),
+          const SizedBox(height: 12),
           Text('Harga Layanan',
               style: GoogleFonts.inter(
                   fontSize: 12, color: AppColors.secondaryText)),
           const SizedBox(height: 8),
           TextFormField(
-            controller: ctrl,
+            controller: _hargaCtrl,
             autofocus: true,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -934,8 +975,8 @@ class _EditLayananSheet extends StatelessWidget {
               Expanded(
                 child: ElevatedButton(
                   onPressed: () {
-                    final val = double.tryParse(ctrl.text) ?? 0;
-                    onSave(val);
+                    final val = double.tryParse(_hargaCtrl.text) ?? 0;
+                    widget.onSave(_namaCtrl.text.trim(), val);
                     Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(
@@ -994,7 +1035,8 @@ class _TambahLayananSheetState extends State<_TambahLayananSheet> {
         right: 20,
       ),
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(20)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20)),
       child: Form(
         key: _formKey,
         child: Column(
@@ -1012,9 +1054,8 @@ class _TambahLayananSheetState extends State<_TambahLayananSheet> {
             TextFormField(
               controller: _namaCtrl,
               autofocus: true,
-              validator: (v) => (v == null || v.trim().isEmpty)
-                  ? 'Nama wajib diisi'
-                  : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null,
               style: GoogleFonts.inter(fontSize: 14),
               decoration: InputDecoration(
                 hintText: 'Contoh: Terapi Kaki',
@@ -1044,9 +1085,8 @@ class _TambahLayananSheetState extends State<_TambahLayananSheet> {
               controller: _hargaCtrl,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              validator: (v) => (v == null || v.trim().isEmpty)
-                  ? 'Harga wajib diisi'
-                  : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null,
               style: GoogleFonts.inter(
                   fontSize: 14, fontWeight: FontWeight.w600),
               decoration: InputDecoration(

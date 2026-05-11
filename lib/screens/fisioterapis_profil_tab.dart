@@ -5,7 +5,7 @@ import '../theme.dart';
 import '../widgets/fisioterapis_bottom_navbar.dart';
 import 'login_screen.dart';
 import 'fisioterapis_edit_profil_screen.dart';
-import 'kelola_layanan_screen.dart';
+import 'fisioterapis_kelola_layanan_screen.dart';
 import 'fisioterapis_dashboard_screen.dart';
 import 'fisioterapis_jadwal_praktik.dart';
 import 'fisioterapis_pasien_tab.dart';
@@ -496,7 +496,8 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
         'color': const Color(0xFFF59E0B),
         'onTap': () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const KelolLayananScreen()),
+              MaterialPageRoute(
+                  builder: (_) => FisioterapisKelolaLayananScreen()),
             ),
       },
       {
@@ -522,8 +523,8 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                 onTap: item['onTap'] as VoidCallback,
                 borderRadius: BorderRadius.circular(14),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   child: Row(
                     children: [
                       Container(
@@ -621,22 +622,14 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
       ),
       child: Column(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              'assets/images/logo.jpeg',
+              width: 44,
+              height: 44,
+              fit: BoxFit.cover,
             ),
-            child: const Center(
-                child: Text('💚', style: TextStyle(fontSize: 22))),
           ),
           const SizedBox(height: 8),
           Text('Fisiocare',
