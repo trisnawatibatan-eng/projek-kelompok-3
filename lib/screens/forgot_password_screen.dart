@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
-import 'forgot_password_email_screen.dart'; // Import screen tujuan
+import 'forgot_password_email_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -11,30 +12,62 @@ class ForgotPasswordScreen extends StatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  // Logic Steps: 1 = Verifikasi Kode, 2 = Password Baru
-  // Step 0 (Input Email) sekarang langsung navigate ke ForgotPasswordEmailScreen
-  int _currentStep = 0;
-
   final _emailController = TextEditingController();
-  final _codeController = TextEditingController();
-  final _newPassController = TextEditingController();
-  final _confirmPassController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
-    _codeController.dispose();
-    _newPassController.dispose();
-    _confirmPassController.dispose();
     super.dispose();
   }
 
-  // Navigasi ke ForgotPasswordEmailScreen
-  void _goToEmailScreen() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const ForgotPasswordEmailScreen(),
+  Future<void> _onLanjutkan() async {
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty) {
+      _showSnackbar('Masukkan email terlebih dahulu.');
+      return;
+    }
+
+    if (!RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      _showSnackbar('Format email tidak valid.');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Kirim OTP ke email via Supabase
+      await Supabase.instance.client.auth.signInWithOtp(
+        email: email,
+        shouldCreateUser: false, // Hanya untuk user yang sudah terdaftar
+      );
+
+      if (!mounted) return;
+
+      // Navigasi ke screen verifikasi kode OTP
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ForgotPasswordEmailScreen(email: email),
+        ),
+      );
+    } on AuthException catch (e) {
+      _showSnackbar(e.message);
+    } catch (e) {
+      _showSnackbar('Terjadi kesalahan. Coba lagi.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: GoogleFonts.inter()),
+        backgroundColor: const Color(0xFF00BBA7),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -69,9 +102,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
-                  child: SingleChildScrollView(
-                    child: _buildCurrentForm(),
-                  ),
+                  child: SingleChildScrollView(child: _buildForm()),
                 ),
               ),
             ],
@@ -81,7 +112,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  // --- HEADER LOGO ---
   Widget _buildHeaderLogo() {
     return Column(
       children: [
@@ -94,10 +124,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(14),
-            child: Image.asset(
-              'assets/images/logo.jpeg',
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset('assets/images/logo.jpeg', fit: BoxFit.cover),
           ),
         ),
         const SizedBox(height: 12),
@@ -117,137 +144,102 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  // --- LOGIC SWITCHER FORM ---
-  Widget _buildCurrentForm() {
-    switch (_currentStep) {
-      case 0:
-        return _buildEmailStep();
-      case 1:
-        return _buildVerificationStep();
-      case 2:
-        return _buildNewPasswordStep();
-      default:
-        return _buildEmailStep();
-    }
-  }
-
-  // --- STEP 1: LUPA PASSWORD ---
-  Widget _buildEmailStep() {
+  Widget _buildForm() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildBackButton(),
-        Center(child: _buildTitle("Lupa Password?")),
-        const SizedBox(height: 8),
-        Center(child: _buildSubtitle("Masukkan email Anda untuk menerima link reset password")),
-        const SizedBox(height: 24),
-        _buildLabel("Email"),
-        _buildTextField(_emailController, "nama@email.com", Icons.email_outlined),
-        const SizedBox(height: 32),
-        // Tombol Lanjutkan → navigate ke ForgotPasswordEmailScreen
-        _buildPrimaryButton("Lanjutkan", _goToEmailScreen),
-        const SizedBox(height: 20),
-        _buildFooterLink(),
-      ],
-    );
-  }
-
-  // --- STEP 2: LIHAT EMAIL ---
-  Widget _buildVerificationStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 20),
-        Center(child: _buildTitle("Lihat Email Anda")),
-        const SizedBox(height: 8),
-        Center(child: _buildSubtitle("Kami mengirimkan kode ke email Anda. Masukkan kode tersebut untuk mengkonfirmasi akun Anda")),
-        const SizedBox(height: 24),
-        _buildLabel("Kode"),
-        _buildTextField(_codeController, "Masukkan kode", null),
-        const SizedBox(height: 32),
-        _buildPrimaryButton("Lanjutkan", () => setState(() => _currentStep = 2)),
-      ],
-    );
-  }
-
-  // --- STEP 3: PASSWORD BARU ---
-  Widget _buildNewPasswordStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 20),
-        Center(child: _buildTitle("Buat Kata sandi Baru")),
-        const SizedBox(height: 8),
-        Center(child: _buildSubtitle("Buat kata sandi dengan minimal 8 karakter")),
-        const SizedBox(height: 24),
-        _buildLabel("Kata Sandi Baru"),
-        _buildTextField(_newPassController, "Masukkan Sandi Baru", Icons.lock_outline, isPassword: true),
-        const SizedBox(height: 16),
-        _buildLabel("Konfirmasi Kata Sandi Baru"),
-        _buildTextField(_confirmPassController, "Konfirmasi Sandi Baru", Icons.lock_outline, isPassword: true),
-        const SizedBox(height: 32),
-        _buildPrimaryButton("Simpan", () => Navigator.pop(context)),
-      ],
-    );
-  }
-
-  // --- REUSABLE COMPONENTS ---
-
-  Widget _buildBackButton() {
-    return TextButton.icon(
-      onPressed: () => Navigator.pop(context),
-      icon: const Icon(Icons.arrow_back_ios, size: 14, color: Color(0xFF00BBA7)),
-      label: Text("Kembali ke Login", style: GoogleFonts.inter(color: const Color(0xFF00BBA7), fontSize: 13)),
-    );
-  }
-
-  Widget _buildTitle(String text) => Text(text, style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.bold));
-
-  Widget _buildSubtitle(String text) => Text(text, textAlign: TextAlign.center, style: GoogleFonts.inter(color: Colors.grey, fontSize: 14, height: 1.5));
-
-  Widget _buildLabel(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(text, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14)),
-      );
-
-  Widget _buildTextField(TextEditingController controller, String hint, IconData? icon, {bool isPassword = false}) {
-    return TextField(
-      controller: controller,
-      obscureText: isPassword,
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: icon != null ? Icon(icon, size: 20, color: const Color(0xFF00BBA7)) : null,
-        filled: true,
-        fillColor: const Color(0xFFF9FAFB),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-      ),
-    );
-  }
-
-  Widget _buildPrimaryButton(String label, VoidCallback onPressed) {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF00BBA7),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          elevation: 0,
+        TextButton.icon(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios, size: 14, color: Color(0xFF00BBA7)),
+          label: Text(
+            'Kembali ke Login',
+            style: GoogleFonts.inter(color: const Color(0xFF00BBA7), fontSize: 13),
+          ),
         ),
-        child: Text(label, style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
-
-  Widget _buildFooterLink() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text("Ingat password Anda? ", style: GoogleFonts.inter(color: Colors.grey, fontSize: 14)),
-        GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Text("Masuk di sini", style: GoogleFonts.inter(color: const Color(0xFF00BBA7), fontWeight: FontWeight.bold, fontSize: 14)),
+        Center(
+          child: Text(
+            'Lupa Password?',
+            style: GoogleFonts.inter(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Text(
+            'Masukkan email Anda untuk menerima kode OTP reset password',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(color: Colors.grey, fontSize: 14, height: 1.5),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Email',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black87),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          decoration: InputDecoration(
+            hintText: 'nama@email.com',
+            hintStyle: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 14),
+            prefixIcon: const Icon(Icons.email_outlined, size: 20, color: Color(0xFF00BBA7)),
+            filled: true,
+            fillColor: const Color(0xFFF9FAFB),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
+        const SizedBox(height: 32),
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : _onLanjutkan,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00BBA7),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                  )
+                : Text(
+                    'Lanjutkan',
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Ingat password Anda? ', style: GoogleFonts.inter(color: Colors.grey, fontSize: 14)),
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Text(
+                'Masuk di sini',
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF00BBA7),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

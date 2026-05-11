@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ForgotPasswordPasswordBaruScreen extends StatefulWidget {
   const ForgotPasswordPasswordBaruScreen({super.key});
@@ -15,6 +16,7 @@ class _ForgotPasswordPasswordBaruScreenState
   final _konfirmasiController = TextEditingController();
   bool _showPassword = false;
   bool _showKonfirmasi = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -23,7 +25,7 @@ class _ForgotPasswordPasswordBaruScreenState
     super.dispose();
   }
 
-  void _onLanjutkan() {
+  Future<void> _onLanjutkan() async {
     final password = _passwordController.text.trim();
     final konfirmasi = _konfirmasiController.text.trim();
 
@@ -42,8 +44,40 @@ class _ForgotPasswordPasswordBaruScreenState
       return;
     }
 
-    // TODO: Kirim ke API reset password
-    _showSnackbar('Kata sandi berhasil diubah!');
+    setState(() => _isLoading = true);
+
+    try {
+      // Update password baru via Supabase
+      // Session sudah aktif setelah verifyOTP berhasil di screen sebelumnya
+      final response = await Supabase.instance.client.auth.updateUser(
+        UserAttributes(password: password),
+      );
+
+      if (!mounted) return;
+
+      if (response.user != null) {
+        _showSnackbar('Kata sandi berhasil diubah!');
+
+        // Tunggu sebentar agar snackbar terlihat, lalu kembali ke login
+        await Future.delayed(const Duration(seconds: 1));
+        if (!mounted) return;
+
+        // Logout session reset & kembali ke halaman login
+        await Supabase.instance.client.auth.signOut();
+        if (!mounted) return;
+
+        // Pop semua screen sampai ke root (halaman login)
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      } else {
+        _showSnackbar('Gagal memperbarui kata sandi. Coba lagi.');
+      }
+    } on AuthException catch (e) {
+      _showSnackbar(e.message);
+    } catch (e) {
+      _showSnackbar('Terjadi kesalahan. Coba lagi.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   void _showSnackbar(String message) {
@@ -86,11 +120,8 @@ class _ForgotPasswordPasswordBaruScreenState
                       topRight: Radius.circular(30),
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 30),
-                  child: SingleChildScrollView(
-                    child: _buildForm(),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+                  child: SingleChildScrollView(child: _buildForm()),
                 ),
               ),
             ],
@@ -112,10 +143,7 @@ class _ForgotPasswordPasswordBaruScreenState
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(14),
-            child: Image.asset(
-              'assets/images/logo.jpeg',
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset('assets/images/logo.jpeg', fit: BoxFit.cover),
           ),
         ),
         const SizedBox(height: 12),
@@ -129,8 +157,7 @@ class _ForgotPasswordPasswordBaruScreenState
         ),
         Text(
           'Homecare Fisioterapi',
-          style: GoogleFonts.inter(
-              color: const Color(0xFFCBFBF1), fontSize: 14),
+          style: GoogleFonts.inter(color: const Color(0xFFCBFBF1), fontSize: 14),
         ),
       ],
     );
@@ -155,11 +182,7 @@ class _ForgotPasswordPasswordBaruScreenState
           child: Text(
             'Buat kata sandi dengan minimal 8 karakter',
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              color: Colors.grey,
-              fontSize: 14,
-              height: 1.5,
-            ),
+            style: GoogleFonts.inter(color: Colors.grey, fontSize: 14, height: 1.5),
           ),
         ),
         const SizedBox(height: 30),
@@ -179,24 +202,21 @@ class _ForgotPasswordPasswordBaruScreenState
           obscureText: !_showPassword,
           decoration: InputDecoration(
             hintText: 'Masukan Sandi Baru',
-            hintStyle:
-                GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 14),
+            hintStyle: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 14),
             filled: true,
             fillColor: const Color(0xFFF9FAFB),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             suffixIcon: IconButton(
               icon: Icon(
                 _showPassword ? Icons.visibility : Icons.visibility_off,
                 color: Colors.grey.shade400,
                 size: 20,
               ),
-              onPressed: () =>
-                  setState(() => _showPassword = !_showPassword),
+              onPressed: () => setState(() => _showPassword = !_showPassword),
             ),
           ),
         ),
@@ -218,51 +238,51 @@ class _ForgotPasswordPasswordBaruScreenState
           obscureText: !_showKonfirmasi,
           decoration: InputDecoration(
             hintText: 'Konfirmasi Sandi Baru',
-            hintStyle:
-                GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 14),
+            hintStyle: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 14),
             filled: true,
             fillColor: const Color(0xFFF9FAFB),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             suffixIcon: IconButton(
               icon: Icon(
                 _showKonfirmasi ? Icons.visibility : Icons.visibility_off,
                 color: Colors.grey.shade400,
                 size: 20,
               ),
-              onPressed: () =>
-                  setState(() => _showKonfirmasi = !_showKonfirmasi),
+              onPressed: () => setState(() => _showKonfirmasi = !_showKonfirmasi),
             ),
           ),
         ),
 
         const SizedBox(height: 32),
 
-        // Tombol Lanjutkan
         SizedBox(
           width: double.infinity,
           height: 50,
           child: ElevatedButton(
-            onPressed: _onLanjutkan,
+            onPressed: _isLoading ? null : _onLanjutkan,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00BBA7),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 0,
             ),
-            child: Text(
-              'Lanjutkan',
-              style: GoogleFonts.inter(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            child: _isLoading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                  )
+                : Text(
+                    'Lanjutkan',
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
           ),
         ),
       ],
