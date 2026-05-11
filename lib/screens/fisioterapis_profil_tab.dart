@@ -21,20 +21,62 @@ class FisioterapisProfilTab extends StatefulWidget {
 
 class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
   final _supabase = Supabase.instance.client;
+  Map<String, dynamic>? _profilLoaded;
+  bool _isLoading = false;
 
-  String get _namaLengkap => widget.profil?['nama_lengkap'] ?? 'Fisioterapis';
-  String get _email => widget.profil?['email'] ?? '-';
-  String get _telepon => widget.profil?['nomor_telepon'] ?? '-';
-  String get _alamat => widget.profil?['alamat'] ?? '-';
-  String get _pengalaman => widget.profil?['pengalaman_kerja'] ?? '-';
-  String get _pendidikan => widget.profil?['pendidikan_terakhir'] ?? '-';
-  String get _str => widget.profil?['nomor_str_sipa'] ?? '-';
-  String get _biografi => widget.profil?['biografi'] ?? '-';
-  String get _sertifikasi => widget.profil?['sertifikasi'] ?? '-';
-  String get _fotoProfilUrl => widget.profil?['foto_profil_url'] ?? '';
+  @override
+  void initState() {
+    super.initState();
+    // Jika profil dari parent ada, gunakan itu
+    if (widget.profil != null) {
+      _profilLoaded = widget.profil;
+    } else {
+      // Jika tidak ada, load dari Supabase
+      _loadProfilFromSupabase();
+    }
+  }
+
+  Future<void> _loadProfilFromSupabase() async {
+    setState(() => _isLoading = true);
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
+      final data = await _supabase
+          .from('fisioterapis')
+          .select()
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (mounted) {
+        setState(() {
+          _profilLoaded = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Map<String, dynamic>? get _profil => widget.profil ?? _profilLoaded;
+
+  String get _namaLengkap => _profil?['nama_lengkap'] ?? 'Fisioterapis';
+  String get _email => _profil?['email'] ?? '-';
+  String get _telepon => _profil?['nomor_telepon'] ?? '-';
+  String get _alamat => _profil?['alamat'] ?? '-';
+  String get _pengalaman => _profil?['pengalaman_kerja'] ?? '-';
+  String get _pendidikan => _profil?['pendidikan_terakhir'] ?? '-';
+  String get _str => _profil?['nomor_str_sipa'] ?? '-';
+  String get _biografi => _profil?['biografi'] ?? '-';
+  String get _sertifikasi => _profil?['sertifikasi'] ?? '-';
+  String get _fotoProfilUrl => _profil?['foto_profil_url'] ?? '';
 
   String get _statusVerifikasi =>
-      widget.profil?['status_verifikasi'] ?? 'pending';
+      _profil?['status_verifikasi'] ?? 'pending';
 
   Color get _statusColor {
     switch (_statusVerifikasi) {
@@ -86,7 +128,7 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
           context,
           PageRouteBuilder(
             pageBuilder: (_, __, ___) => FisioterapisDashboardScreen(
-              profilCache: widget.profil,
+              profilCache: _profil,
             ),
             transitionDuration: Duration.zero,
             reverseTransitionDuration: Duration.zero,
@@ -108,7 +150,7 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
           context,
           PageRouteBuilder(
             pageBuilder: (_, __, ___) => FisioterapisPasienTab(
-              profil: widget.profil,
+              profil: _profil,
             ),
             transitionDuration: Duration.zero,
             reverseTransitionDuration: Duration.zero,
@@ -128,42 +170,49 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
         currentIndex: 3,
         onTap: _onNavTap,
       ),
-      body: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: () async => widget.onProfilUpdated?.call(),
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            children: [
-              _buildProfileHeader(),
-              Padding(
-                padding: const EdgeInsets.all(16),
+      body: _isLoading && _profil == null
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            )
+          : RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: () async {
+                await _loadProfilFromSupabase();
+                widget.onProfilUpdated?.call();
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildSectionTitle('Informasi Kontak'),
-                    const SizedBox(height: 10),
-                    _buildContactCard(),
-                    const SizedBox(height: 20),
-                    _buildSectionTitle('Informasi Profesional'),
-                    const SizedBox(height: 10),
-                    _buildProfesionalCard(),
-                    const SizedBox(height: 20),
-                    _buildSectionTitle('Akun & Profil'),
-                    const SizedBox(height: 10),
-                    _buildMenuCard(context),
-                    const SizedBox(height: 20),
-                    _buildLogoutButton(context),
-                    const SizedBox(height: 20),
-                    _buildFooter(),
-                    const SizedBox(height: 16),
+                    _buildProfileHeader(),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionTitle('Informasi Kontak'),
+                          const SizedBox(height: 10),
+                          _buildContactCard(),
+                          const SizedBox(height: 20),
+                          _buildSectionTitle('Informasi Profesional'),
+                          const SizedBox(height: 10),
+                          _buildProfesionalCard(),
+                          const SizedBox(height: 20),
+                          _buildSectionTitle('Akun & Profil'),
+                          const SizedBox(height: 10),
+                          _buildMenuCard(context),
+                          const SizedBox(height: 20),
+                          _buildLogoutButton(context),
+                          const SizedBox(height: 20),
+                          _buildFooter(),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 

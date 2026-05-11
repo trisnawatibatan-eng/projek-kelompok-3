@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
+import 'fisioterapis_tambah_layanan_screen.dart';
 
 class FisioterapisKelolaLayananScreen extends StatefulWidget {
   const FisioterapisKelolaLayananScreen({super.key});
@@ -219,10 +220,10 @@ class _FisioterapisKelolaLayananScreenState
       return;
     }
     try {
-      // Soft delete: set is_active = false
+      // Hard delete: hapus langsung dari database
       await _supabase
           .from('services')
-          .update({'is_active': false})
+          .delete()
           .eq('id', item.id);
       setState(() => _serviceList.removeWhere((l) => l.id == item.id));
       _showSnackbar('Layanan dihapus');
@@ -291,10 +292,13 @@ class _FisioterapisKelolaLayananScreenState
       backgroundColor: Colors.transparent,
       builder: (_) => _EditLayananSheet(
         item: item,
-        onSave: (newNama, newHarga) => setState(() {
+        onSave: (newNama, newHarga, newDeskripsi, newDurasi) => setState(() {
           item.namaLayanan = newNama;
           item.harga = newHarga;
+          item.deskripsi = newDeskripsi;
+          item.durasiMenit = newDurasi;
         }),
+        onDelete: () => _hapusLayanan(item),
       ),
     );
   }
@@ -340,24 +344,22 @@ class _FisioterapisKelolaLayananScreenState
   }
 
   void _tambahLayananBaru() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _TambahLayananSheet(
-        onSave: (nama, harga) {
-          setState(() {
-            _serviceList.add(_ServiceItem(
-              id: 'new_${DateTime.now().millisecondsSinceEpoch}',
-              namaLayanan: nama,
-              harga: harga,
-              isNew: true,
-            ));
-          });
-          _showSnackbar('Layanan ditambahkan — tekan Simpan untuk menyimpan');
-        },
+    if (_fisioterapisId == null || _fisioterapisNama == null) return;
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FisioterapisTambahLayananScreen(
+          fisioterapisId: _fisioterapisId!,
+          fisioterapisNama: _fisioterapisNama!,
+        ),
       ),
-    );
+    ).then((result) {
+      // Refresh data jika berhasil menambahkan layanan
+      if (result == true) {
+        _loadData();
+      }
+    });
   }
 
   // ─── Build ───────────────────────────────────────────────────────────────────
@@ -683,6 +685,20 @@ class _FisioterapisKelolaLayananScreenState
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryText)),
+                  if (item.deskripsi != null && item.deskripsi!.isNotEmpty)
+                    Text(item.deskripsi!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: AppColors.lightText,
+                            fontWeight: FontWeight.w400)),
+                  if (item.durasiMenit != null)
+                    Text('${item.durasiMenit} menit',
+                        style: GoogleFonts.inter(
+                            fontSize: 10,
+                            color: AppColors.lightText,
+                            fontWeight: FontWeight.w400)),
                   if (item.isNew)
                     Text('Belum disimpan',
                         style: GoogleFonts.inter(
@@ -704,7 +720,7 @@ class _FisioterapisKelolaLayananScreenState
                   fontWeight: FontWeight.w700,
                   color: AppColors.primaryText),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             // Tombol Edit
             GestureDetector(
               onTap: () => _editLayanan(item),
@@ -717,6 +733,21 @@ class _FisioterapisKelolaLayananScreenState
                 ),
                 child: const Icon(Icons.edit_outlined,
                     color: AppColors.primary, size: 16),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Tombol Hapus
+            GestureDetector(
+              onTap: () => _showDeleteConfirm(item),
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.errorRed.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.delete_outline,
+                    color: AppColors.errorRed, size: 16),
               ),
             ),
           ],
@@ -857,9 +888,15 @@ class _ServiceItem {
 
 class _EditLayananSheet extends StatefulWidget {
   final _ServiceItem item;
-  final Function(String nama, double harga) onSave;
+  final Function(String nama, double harga, String? deskripsi, int? durasi)
+      onSave;
+  final VoidCallback onDelete;
 
-  const _EditLayananSheet({required this.item, required this.onSave});
+  const _EditLayananSheet({
+    required this.item,
+    required this.onSave,
+    required this.onDelete,
+  });
 
   @override
   State<_EditLayananSheet> createState() => _EditLayananSheetState();
@@ -868,6 +905,8 @@ class _EditLayananSheet extends StatefulWidget {
 class _EditLayananSheetState extends State<_EditLayananSheet> {
   late TextEditingController _namaCtrl;
   late TextEditingController _hargaCtrl;
+  late TextEditingController _deskripsiCtrl;
+  late TextEditingController _durasiCtrl;
 
   @override
   void initState() {
@@ -876,12 +915,18 @@ class _EditLayananSheetState extends State<_EditLayananSheet> {
         TextEditingController(text: widget.item.namaLayanan);
     _hargaCtrl =
         TextEditingController(text: widget.item.harga.toStringAsFixed(0));
+    _deskripsiCtrl =
+        TextEditingController(text: widget.item.deskripsi ?? '');
+    _durasiCtrl = TextEditingController(
+        text: widget.item.durasiMenit?.toString() ?? '');
   }
 
   @override
   void dispose() {
     _namaCtrl.dispose();
     _hargaCtrl.dispose();
+    _deskripsiCtrl.dispose();
+    _durasiCtrl.dispose();
     super.dispose();
   }
 
@@ -898,102 +943,227 @@ class _EditLayananSheetState extends State<_EditLayananSheet> {
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20)),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Edit Layanan',
-              style: GoogleFonts.inter(
-                  fontSize: 15, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 16),
-          Text('Nama Layanan',
-              style: GoogleFonts.inter(
-                  fontSize: 12, color: AppColors.secondaryText)),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _namaCtrl,
-            style: GoogleFonts.inter(fontSize: 14),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: AppColors.scaffoldBg,
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none),
-              focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                      color: AppColors.primary, width: 1.5)),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text('Harga Layanan',
-              style: GoogleFonts.inter(
-                  fontSize: 12, color: AppColors.secondaryText)),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _hargaCtrl,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: GoogleFonts.inter(
-                fontSize: 15, fontWeight: FontWeight.w600),
-            decoration: InputDecoration(
-              prefixText: 'Rp  ',
-              prefixStyle: GoogleFonts.inter(
-                  color: AppColors.secondaryText, fontSize: 14),
-              filled: true,
-              fillColor: AppColors.scaffoldBg,
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none),
-              focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                      color: AppColors.primary, width: 1.5)),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: AppColors.borderColor),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: Text('Batal',
-                      style: GoogleFonts.inter(
-                          color: AppColors.lightText,
-                          fontWeight: FontWeight.w600)),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    final val = double.tryParse(_hargaCtrl.text) ?? 0;
-                    widget.onSave(_namaCtrl.text.trim(), val);
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Edit Layanan',
+                    style: GoogleFonts.inter(
+                        fontSize: 15, fontWeight: FontWeight.w700)),
+                GestureDetector(
+                  onTap: () {
                     Navigator.pop(context);
+                    _showDeleteConfirm();
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 12),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppColors.errorRed.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.delete_outline,
+                        color: AppColors.errorRed, size: 16),
                   ),
-                  child: Text('Simpan',
-                      style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w700)),
                 ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('Nama Layanan *',
+                style: GoogleFonts.inter(
+                    fontSize: 12, color: AppColors.secondaryText)),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _namaCtrl,
+              autofocus: true,
+              style: GoogleFonts.inter(fontSize: 14),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AppColors.scaffoldBg,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                        color: AppColors.primary, width: 1.5)),
               ),
-            ],
+            ),
+            const SizedBox(height: 12),
+            Text('Deskripsi',
+                style: GoogleFonts.inter(
+                    fontSize: 12, color: AppColors.secondaryText)),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _deskripsiCtrl,
+              maxLines: 3,
+              style: GoogleFonts.inter(fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'Jelaskan detail layanan...',
+                hintStyle: GoogleFonts.inter(
+                    color: AppColors.lightText, fontSize: 12),
+                filled: true,
+                fillColor: AppColors.scaffoldBg,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                        color: AppColors.primary, width: 1.5)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text('Harga Layanan *',
+                style: GoogleFonts.inter(
+                    fontSize: 12, color: AppColors.secondaryText)),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _hargaCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: GoogleFonts.inter(
+                  fontSize: 15, fontWeight: FontWeight.w600),
+              decoration: InputDecoration(
+                prefixText: 'Rp  ',
+                prefixStyle: GoogleFonts.inter(
+                    color: AppColors.secondaryText, fontSize: 14),
+                filled: true,
+                fillColor: AppColors.scaffoldBg,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                        color: AppColors.primary, width: 1.5)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text('Durasi Layanan (Menit)',
+                style: GoogleFonts.inter(
+                    fontSize: 12, color: AppColors.secondaryText)),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _durasiCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: GoogleFonts.inter(
+                  fontSize: 14, fontWeight: FontWeight.w500),
+              decoration: InputDecoration(
+                hintText: '60',
+                hintStyle: GoogleFonts.inter(
+                    color: AppColors.lightText, fontSize: 12),
+                suffixText: 'menit',
+                suffixStyle: GoogleFonts.inter(
+                    color: AppColors.secondaryText, fontSize: 11),
+                filled: true,
+                fillColor: AppColors.scaffoldBg,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                        color: AppColors.primary, width: 1.5)),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: AppColors.borderColor),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text('Batal',
+                        style: GoogleFonts.inter(
+                            color: AppColors.lightText,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final nama = _namaCtrl.text.trim();
+                      final harga = double.tryParse(_hargaCtrl.text) ?? 0;
+                      final deskripsi = _deskripsiCtrl.text.trim().isEmpty
+                          ? null
+                          : _deskripsiCtrl.text.trim();
+                      final durasi = _durasiCtrl.text.trim().isEmpty
+                          ? null
+                          : int.tryParse(_durasiCtrl.text.trim());
+
+                      if (nama.isNotEmpty && harga > 0) {
+                        widget.onSave(nama, harga, deskripsi, durasi);
+                        Navigator.pop(context);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text('Simpan',
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirm() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Hapus Layanan?',
+            style: GoogleFonts.inter(
+                fontSize: 15, fontWeight: FontWeight.w700)),
+        content: Text('Yakin ingin menghapus layanan ini?',
+            style: GoogleFonts.inter(
+                fontSize: 13, color: AppColors.secondaryText)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Batal',
+                style: GoogleFonts.inter(color: AppColors.lightText)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              widget.onDelete();
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.errorRed,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text('Hapus',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ),
         ],
       ),
