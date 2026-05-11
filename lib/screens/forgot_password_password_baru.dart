@@ -1,44 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../theme.dart';
-import 'forgot_password_password_baru.dart'; // ✅ Import screen baru
 
-class ForgotPasswordEmailScreen extends StatefulWidget {
-  const ForgotPasswordEmailScreen({super.key});
+class ForgotPasswordPasswordBaruScreen extends StatefulWidget {
+  const ForgotPasswordPasswordBaruScreen({super.key});
 
   @override
-  State<ForgotPasswordEmailScreen> createState() => _ForgotPasswordEmailScreenState();
+  State<ForgotPasswordPasswordBaruScreen> createState() =>
+      _ForgotPasswordPasswordBaruScreenState();
 }
 
-class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
-  final _codeController = TextEditingController();
+class _ForgotPasswordPasswordBaruScreenState
+    extends State<ForgotPasswordPasswordBaruScreen> {
+  final _passwordController = TextEditingController();
+  final _konfirmasiController = TextEditingController();
+  bool _showPassword = false;
+  bool _showKonfirmasi = false;
 
   @override
   void dispose() {
-    _codeController.dispose();
+    _passwordController.dispose();
+    _konfirmasiController.dispose();
     super.dispose();
   }
 
   void _onLanjutkan() {
-    final kode = _codeController.text.trim();
+    final password = _passwordController.text.trim();
+    final konfirmasi = _konfirmasiController.text.trim();
 
-    if (kode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Masukkan kode terlebih dahulu.', style: GoogleFonts.inter()),
-          backgroundColor: const Color(0xFF00BBA7),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
+    if (password.isEmpty || konfirmasi.isEmpty) {
+      _showSnackbar('Semua kolom harus diisi.');
       return;
     }
 
-    // ✅ Navigasi ke screen buat password baru
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const ForgotPasswordPasswordBaruScreen(),
+    if (password.length < 8) {
+      _showSnackbar('Kata sandi minimal 8 karakter.');
+      return;
+    }
+
+    if (password != konfirmasi) {
+      _showSnackbar('Kata sandi dan konfirmasi tidak sama.');
+      return;
+    }
+
+    // TODO: Kirim ke API reset password
+    _showSnackbar('Kata sandi berhasil diubah!');
+  }
+
+  void _showSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: GoogleFonts.inter()),
+        backgroundColor: const Color(0xFF00BBA7),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -72,7 +86,8 @@ class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
                       topRight: Radius.circular(30),
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24, vertical: 30),
                   child: SingleChildScrollView(
                     child: _buildForm(),
                   ),
@@ -114,7 +129,8 @@ class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
         ),
         Text(
           'Homecare Fisioterapi',
-          style: GoogleFonts.inter(color: const Color(0xFFCBFBF1), fontSize: 14),
+          style: GoogleFonts.inter(
+              color: const Color(0xFFCBFBF1), fontSize: 14),
         ),
       ],
     );
@@ -126,7 +142,7 @@ class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
       children: [
         Center(
           child: Text(
-            'Lihat Email Anda',
+            'Buat Kata sandi Baru',
             style: GoogleFonts.inter(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -137,7 +153,7 @@ class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
         const SizedBox(height: 12),
         Center(
           child: Text(
-            'Lihat email Anda. Kami mengirimkan kode ke email Anda. Masukkan kode tersebut untuk mengkonfirmasi akun Anda',
+            'Buat kata sandi dengan minimal 8 karakter',
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               color: Colors.grey,
@@ -147,8 +163,10 @@ class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
           ),
         ),
         const SizedBox(height: 30),
+
+        // Field Kata Sandi Baru
         Text(
-          'Kode',
+          'Kata Sandi Baru',
           style: GoogleFonts.inter(
             fontWeight: FontWeight.w600,
             fontSize: 14,
@@ -157,21 +175,74 @@ class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
         ),
         const SizedBox(height: 8),
         TextField(
-          controller: _codeController,
-          keyboardType: TextInputType.number,
+          controller: _passwordController,
+          obscureText: !_showPassword,
           decoration: InputDecoration(
-            hintText: 'Masukkan kode',
-            hintStyle: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 14),
+            hintText: 'Masukan Sandi Baru',
+            hintStyle:
+                GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 14),
             filled: true,
             fillColor: const Color(0xFFF9FAFB),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _showPassword ? Icons.visibility : Icons.visibility_off,
+                color: Colors.grey.shade400,
+                size: 20,
+              ),
+              onPressed: () =>
+                  setState(() => _showPassword = !_showPassword),
+            ),
           ),
         ),
+
+        const SizedBox(height: 16),
+
+        // Field Konfirmasi Kata Sandi Baru
+        Text(
+          'Konfirmasi Kata Sandi Baru',
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _konfirmasiController,
+          obscureText: !_showKonfirmasi,
+          decoration: InputDecoration(
+            hintText: 'Konfirmasi Sandi Baru',
+            hintStyle:
+                GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 14),
+            filled: true,
+            fillColor: const Color(0xFFF9FAFB),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _showKonfirmasi ? Icons.visibility : Icons.visibility_off,
+                color: Colors.grey.shade400,
+                size: 20,
+              ),
+              onPressed: () =>
+                  setState(() => _showKonfirmasi = !_showKonfirmasi),
+            ),
+          ),
+        ),
+
         const SizedBox(height: 32),
+
+        // Tombol Lanjutkan
         SizedBox(
           width: double.infinity,
           height: 50,
