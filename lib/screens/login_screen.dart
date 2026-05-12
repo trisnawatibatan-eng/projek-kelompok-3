@@ -406,64 +406,10 @@ class _LoginScreenState extends State<LoginScreen> {
             WidgetSpan(
               child: GestureDetector(
                 onTap: () {
-                  showModalBottomSheet(
-                    context: context,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(16),
-                      ),
-                    ),
-                    builder: (_) => Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Daftar Sebagai',
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          ListTile(
-                            leading: const Icon(
-                              Icons.person,
-                              color: Color(0xFF00BBA7),
-                            ),
-                            title: Text('Pasien', style: GoogleFonts.inter()),
-                            onTap: () {
-                              Navigator.pop(context);
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const RegisterScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                          ListTile(
-                            leading: const Icon(
-                              Icons.medical_services,
-                              color: Color(0xFF00BBA7),
-                            ),
-                            title: Text(
-                              'Fisioterapis',
-                              style: GoogleFonts.inter(),
-                            ),
-                            onTap: () {
-                              Navigator.pop(context);
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const RegisterFisioterapisScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const RegisterScreen(),
                     ),
                   );
                 },
