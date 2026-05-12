@@ -1,9 +1,13 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/booking_model.dart';
-import '../repositories/booking_repository.dart';
+
+// =============================================================================
+// SCREEN
+// =============================================================================
 
 class FisioterapiBookingScreen extends StatefulWidget {
   const FisioterapiBookingScreen({super.key});
@@ -14,7 +18,7 @@ class FisioterapiBookingScreen extends StatefulWidget {
 }
 
 class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
-  final _repo = BookingRepository();
+  final _supabase = Supabase.instance.client;
   late Future<List<BookingModel>> _future;
 
   @override
@@ -25,8 +29,68 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
 
   void _load() {
     setState(() {
-      _future = _repo.fetchBookings(status: 'pending');
+      _future = _fetchBookings();
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Supabase queries
+  // ---------------------------------------------------------------------------
+
+  /// Ambil fisioterapis_id dari user yang sedang login
+  Future<String> _getFisioterapisId() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('User belum login');
+
+    final response = await _supabase
+        .from('fisioterapis')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+
+    return response['id'] as String;
+  }
+
+  /// SELECT bookings.*, patients(full_name, phone)
+  /// FROM bookings
+  /// WHERE fisioterapis_id = <id> AND status = 'pending'
+  /// ORDER BY scheduled_date ASC, scheduled_time ASC
+  Future<List<BookingModel>> _fetchBookings() async {
+    final fisioterapisId = await _getFisioterapisId();
+
+    final response = await _supabase
+        .from('bookings')
+        .select('*, patients(full_name, phone)')
+        .eq('fisioterapis_id', fisioterapisId)
+        .eq('status', 'pending')
+        .order('scheduled_date', ascending: true)
+        .order('scheduled_time', ascending: true);
+
+    return (response as List)
+        .map((e) => BookingModel.fromMap(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// UPDATE bookings SET status = 'confirmed' WHERE id = <bookingId>
+  Future<void> _confirmBooking(String bookingId) async {
+    await _supabase
+        .from('bookings')
+        .update({
+          'status': 'confirmed',
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', bookingId);
+  }
+
+  /// UPDATE bookings SET status = 'cancelled' WHERE id = <bookingId>
+  Future<void> _cancelBooking(String bookingId) async {
+    await _supabase
+        .from('bookings')
+        .update({
+          'status': 'cancelled',
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', bookingId);
   }
 
   // ---------------------------------------------------------------------------
@@ -35,7 +99,7 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
 
   Future<void> _handleConfirm(String bookingId) async {
     try {
-      await _repo.confirmBooking(bookingId);
+      await _confirmBooking(bookingId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -75,7 +139,7 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
     if (konfirmasi != true) return;
 
     try {
-      await _repo.cancelBooking(bookingId);
+      await _cancelBooking(bookingId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Booking ditolak')),
@@ -140,8 +204,9 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
                     ElevatedButton(
                       onPressed: _load,
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00BBA7),
-                          foregroundColor: Colors.white),
+                        backgroundColor: const Color(0xFF00BBA7),
+                        foregroundColor: Colors.white,
+                      ),
                       child: const Text('Coba Lagi'),
                     ),
                   ],
@@ -245,13 +310,12 @@ class _FisioterapiBookingCard extends StatelessWidget {
                     children: [
                       Text(
                         booking.patientFullName ?? 'Pasien',
-                        style:
-                            GoogleFonts.inter(fontWeight: FontWeight.bold),
+                        style: GoogleFonts.inter(fontWeight: FontWeight.bold),
                       ),
                       Text(
                         booking.serviceType,
-                        style: GoogleFonts.inter(
-                            fontSize: 12, color: Colors.grey),
+                        style:
+                            GoogleFonts.inter(fontSize: 12, color: Colors.grey),
                       ),
                     ],
                   ),
@@ -338,7 +402,7 @@ class _StatusChip extends StatelessWidget {
       'confirmed' => (
           const Color(0xFFE8F8F6),
           const Color(0xFF00BBA7),
-          'Dikonfirmasi'
+          'Dikonfirmasi',
         ),
       'on_going' => (Colors.blue.shade50, Colors.blue, 'Berlangsung'),
       'completed' => (Colors.green.shade50, Colors.green, 'Selesai'),

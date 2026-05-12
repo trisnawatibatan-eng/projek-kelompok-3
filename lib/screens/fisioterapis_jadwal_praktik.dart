@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'fisioterapis_booking_screen.dart';
 import 'fisioterapis_jadwal_kalender_screen.dart';
 import 'fisioterapis_atur_jadwal_screen.dart';
@@ -8,29 +11,54 @@ import 'fisioterapis_dashboard_screen.dart';
 import 'fisioterapis_pasien_tab.dart';
 import 'fisioterapis_profil_tab.dart';
 
-enum StatusJadwal { belumMulai, berlangsung, selesai }
+// =============================================================================
+// MODEL
+// =============================================================================
 
 class JadwalItem {
+  final String bookingId;
   final String jamMulai;
   final String jamSelesai;
   final String namaPasien;
-  final String jenisTermi;
+  final String jenisTerapi;
   final String alamat;
   final String telepon;
-  final String pertemuan;
-  StatusJadwal status;
+  String status; // 'pending' | 'confirmed' | 'on_going' | 'completed' | 'cancelled'
 
   JadwalItem({
+    required this.bookingId,
     required this.jamMulai,
     required this.jamSelesai,
     required this.namaPasien,
-    required this.jenisTermi,
+    required this.jenisTerapi,
     required this.alamat,
     required this.telepon,
-    required this.pertemuan,
     required this.status,
   });
+
+  factory JadwalItem.fromMap(Map<String, dynamic> map) {
+    // scheduled_time: "HH:mm:ss" → ambil jam mulai, jam selesai +1 jam (estimasi)
+    final rawTime = (map['scheduled_time'] as String).substring(0, 5);
+    final parts = rawTime.split(':');
+    final endHour = (int.parse(parts[0]) + 1).toString().padLeft(2, '0');
+    final jamSelesai = '$endHour:${parts[1]}';
+
+    return JadwalItem(
+      bookingId: map['id'] as String,
+      jamMulai: rawTime,
+      jamSelesai: jamSelesai,
+      namaPasien: (map['patients'] as Map?)?['full_name'] as String? ?? 'Pasien',
+      jenisTerapi: map['service_type'] as String,
+      alamat: map['address'] as String? ?? '-',
+      telepon: (map['patients'] as Map?)?['phone'] as String? ?? '-',
+      status: map['status'] as String,
+    );
+  }
 }
+
+// =============================================================================
+// SCREEN
+// =============================================================================
 
 class JadwalPraktikScreen extends StatefulWidget {
   const JadwalPraktikScreen({super.key});
@@ -40,78 +68,142 @@ class JadwalPraktikScreen extends StatefulWidget {
 }
 
 class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
+  final _supabase = Supabase.instance.client;
   final int _currentNavIndex = 1;
 
-  DateTime selectedDate = DateTime(2026, 3, 30);
+  DateTime selectedDate = DateTime.now();
+  late Future<List<JadwalItem>> _jadwalFuture;
+  late Future<int> _countHariIniFuture;
+  late Future<int> _countBulanIniFuture;
 
-  final List<JadwalItem> jadwalList = [
-    JadwalItem(
-      jamMulai: '08:00',
-      jamSelesai: '09:00',
-      namaPasien: 'Budi Santoso',
-      jenisTermi: 'Terapi Stroke',
-      alamat: 'Jl. Merdeka No. 123, Jakarta Pusat',
-      telepon: '+62 813 3456 7890',
-      pertemuan: 'Pertemuan ke-3 dari 12',
-      status: StatusJadwal.belumMulai,
-    ),
-    JadwalItem(
-      jamMulai: '09:30',
-      jamSelesai: '10:30',
-      namaPasien: 'Siti Aminah',
-      jenisTermi: 'Terapi Nyeri Punggung',
-      alamat: 'Jl. Sudirman No. 45, Jakarta Pusat',
-      telepon: '+62 813 4567 8901',
-      pertemuan: 'Pertemuan pertama',
-      status: StatusJadwal.berlangsung,
-    ),
-    JadwalItem(
-      jamMulai: '09:00',
-      jamSelesai: '10:30',
-      namaPasien: 'Siti Aminah',
-      jenisTermi: 'Terapi Nyeri Punggung',
-      alamat: 'Jl. Sudirman No. 45, Jakarta Pusat',
-      telepon: '+62 813 4567 8901',
-      pertemuan: 'Pertemuan pertama',
-      status: StatusJadwal.selesai,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  void _load() {
+    setState(() {
+      _jadwalFuture = _fetchJadwal(selectedDate);
+      _countHariIniFuture = _countBookingHariIni();
+      _countBulanIniFuture = _countBookingBulanIni();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Supabase queries
+  // ---------------------------------------------------------------------------
+
+  Future<String> _getFisioterapisId() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('User belum login');
+    final res = await _supabase
+        .from('fisioterapis')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+    return res['id'] as String;
+  }
+
+  /// SELECT bookings.*, patients(full_name, phone)
+  /// WHERE fisioterapis_id = ? AND scheduled_date = ? AND status IN (confirmed, on_going, completed)
+  /// ORDER BY scheduled_time ASC
+  Future<List<JadwalItem>> _fetchJadwal(DateTime date) async {
+    final fisioterapisId = await _getFisioterapisId();
+    final dateStr = DateFormat('yyyy-MM-dd').format(date);
+
+    final response = await _supabase
+        .from('bookings')
+        .select('*, patients(full_name, phone)')
+        .eq('fisioterapis_id', fisioterapisId)
+        .eq('scheduled_date', dateStr)
+        .inFilter('status', ['confirmed', 'on_going', 'completed'])
+        .order('scheduled_time', ascending: true);
+
+    return (response as List)
+        .map((e) => JadwalItem.fromMap(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Hitung booking hari ini (confirmed + on_going)
+  Future<int> _countBookingHariIni() async {
+    final fisioterapisId = await _getFisioterapisId();
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    final response = await _supabase
+        .from('bookings')
+        .select('id')
+        .eq('fisioterapis_id', fisioterapisId)
+        .eq('scheduled_date', today)
+        .inFilter('status', ['confirmed', 'on_going']);
+
+    return (response as List).length;
+  }
+
+  /// Hitung booking bulan ini (confirmed + on_going + completed)
+  Future<int> _countBookingBulanIni() async {
+    final fisioterapisId = await _getFisioterapisId();
+    final now = DateTime.now();
+    final firstDay = DateFormat('yyyy-MM-dd').format(DateTime(now.year, now.month, 1));
+    final lastDay = DateFormat('yyyy-MM-dd').format(DateTime(now.year, now.month + 1, 0));
+
+    final response = await _supabase
+        .from('bookings')
+        .select('id')
+        .eq('fisioterapis_id', fisioterapisId)
+        .gte('scheduled_date', firstDay)
+        .lte('scheduled_date', lastDay)
+        .inFilter('status', ['confirmed', 'on_going', 'completed']);
+
+    return (response as List).length;
+  }
+
+  /// UPDATE bookings SET status = 'on_going' WHERE id = ?
+  Future<void> _mulaiSesi(String bookingId) async {
+    await _supabase
+        .from('bookings')
+        .update({'status': 'on_going', 'updated_at': DateTime.now().toIso8601String()})
+        .eq('id', bookingId);
+  }
+
+  /// UPDATE bookings SET status = 'completed' WHERE id = ?
+  Future<void> _selesaikanSesi(String bookingId) async {
+    await _supabase
+        .from('bookings')
+        .update({'status': 'completed', 'updated_at': DateTime.now().toIso8601String()})
+        .eq('id', bookingId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
 
   String _formatDate(DateTime date) {
-    const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-    const months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-    ];
-    return '${days[date.weekday - 1]}, ${date.day} ${months[date.month - 1]} ${date.year}';
+    return DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(date);
   }
 
   void _onNavTap(int index) {
     if (index == _currentNavIndex) return;
-
-    Widget targetScreen;
-    switch (index) {
-      case 0:
-        targetScreen = const FisioterapisDashboardScreen();
-        break;
-      case 1:
-        targetScreen = const JadwalPraktikScreen();
-        break;
-      case 2:
-        targetScreen = const FisioterapisPasienTab();
-        break;
-      case 3:
-        targetScreen = const FisioterapisProfilTab();
-        break;
-      default:
-        return;
-    }
-
+    final screens = [
+      const FisioterapisDashboardScreen(),
+      const JadwalPraktikScreen(),
+      const FisioterapisPasienTab(),
+      const FisioterapisProfilTab(),
+    ];
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => targetScreen),
+      MaterialPageRoute(builder: (_) => screens[index]),
     );
   }
+
+  void _changeDate(DateTime newDate) {
+    selectedDate = newDate;
+    _load();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -121,18 +213,13 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
         backgroundColor: const Color(0xFF00BBA7),
         foregroundColor: Colors.white,
         elevation: 0,
-        leading: const BackButton(),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Jadwal Praktik',
-              style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            Text(
-              'Kelola jadwal Terapi',
-              style: GoogleFonts.inter(fontSize: 12, color: Colors.white70),
-            ),
+            Text('Jadwal Praktik',
+                style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text('Kelola jadwal Terapi',
+                style: GoogleFonts.inter(fontSize: 12, color: Colors.white70)),
           ],
         ),
         actions: [
@@ -141,22 +228,14 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
             icon: const Icon(Icons.settings_outlined, size: 20),
           ),
           GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  // ✅ Langsung pakai AturJadwalScreen dari import
-                  builder: (context) => const AturJadwalScreen(),
-                ),
-              );
-            },
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AturJadwalScreen()),
+            ),
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.only(right: 16),
-                child: Text(
-                  'Atur Jadwal',
-                  style: GoogleFonts.inter(fontSize: 12),
-                ),
+                child: Text('Atur Jadwal', style: GoogleFonts.inter(fontSize: 12)),
               ),
             ),
           ),
@@ -168,20 +247,17 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
       ),
       body: Column(
         children: [
+          // ── Header: tombol booking + stat card ──────────────────────────────
           Container(
             color: const Color(0xFF00BBA7),
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
             child: Column(
               children: [
                 GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => FisioterapiBookingScreen(),
-                      ),
-                    );
-                  },
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const FisioterapiBookingScreen()),
+                  ),
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -210,18 +286,24 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: _StatCard(
-                        label: 'Hari Ini',
-                        value: '2',
-                        icon: Icons.calendar_today,
+                      child: FutureBuilder<int>(
+                        future: _countHariIniFuture,
+                        builder: (_, snap) => _StatCard(
+                          label: 'Hari Ini',
+                          value: snap.data?.toString() ?? '-',
+                          icon: Icons.calendar_today,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: _StatCard(
-                        label: 'Total Pasien Bulan Ini',
-                        value: '20',
-                        icon: Icons.people_outline,
+                      child: FutureBuilder<int>(
+                        future: _countBulanIniFuture,
+                        builder: (_, snap) => _StatCard(
+                          label: 'Total Pasien Bulan Ini',
+                          value: snap.data?.toString() ?? '-',
+                          icon: Icons.people_outline,
+                        ),
                       ),
                     ),
                   ],
@@ -229,15 +311,13 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
               ],
             ),
           ),
+
+          // ── Navigasi tanggal ─────────────────────────────────────────────
           GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const JadwalKalenderScreen(),
-                ),
-              );
-            },
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const JadwalKalenderScreen()),
+            ),
             child: Container(
               color: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -246,9 +326,8 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.chevron_left, color: Colors.grey),
-                    onPressed: () => setState(() =>
-                        selectedDate =
-                            selectedDate.subtract(const Duration(days: 1))),
+                    onPressed: () =>
+                        _changeDate(selectedDate.subtract(const Duration(days: 1))),
                   ),
                   Column(
                     children: [
@@ -268,50 +347,93 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.chevron_right, color: Colors.grey),
-                    onPressed: () => setState(() =>
-                        selectedDate =
-                            selectedDate.add(const Duration(days: 1))),
+                    onPressed: () =>
+                        _changeDate(selectedDate.add(const Duration(days: 1))),
                   ),
                 ],
               ),
             ),
           ),
+
+          // ── Label tanggal ─────────────────────────────────────────────────
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(
               'Jadwal ${_formatDate(selectedDate)}',
-              style: GoogleFonts.inter(
-                  fontWeight: FontWeight.bold, fontSize: 14),
+              style:
+                  GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14),
             ),
           ),
+
+          // ── List jadwal ───────────────────────────────────────────────────
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: jadwalList.length,
-              itemBuilder: (context, index) {
-                final item = jadwalList[index];
-                return _JadwalCard(
-                  item: item,
-                  onPressed: item.status == StatusJadwal.selesai
-                      ? null
-                      : () async {
-                          if (item.status == StatusJadwal.belumMulai) {
-                            setState(
-                                () => item.status = StatusJadwal.berlangsung);
-                          }
-                          final completed = await Navigator.push<bool?>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  _SelesaikanFormScreen(item: item),
-                            ),
-                          );
-                          if (completed == true) {
-                            setState(
-                                () => item.status = StatusJadwal.selesai);
-                          }
-                        },
+            child: FutureBuilder<List<JadwalItem>>(
+              future: _jadwalFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF00BBA7)),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Error: ${snapshot.error}',
+                        style: GoogleFonts.inter(fontSize: 13)),
+                  );
+                }
+
+                final list = snapshot.data ?? [];
+
+                if (list.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.event_busy,
+                            size: 56, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text('Tidak ada jadwal pada tanggal ini',
+                            style:
+                                GoogleFonts.inter(color: Colors.grey, fontSize: 13)),
+                      ],
+                    ),
+                  );
+                }
+
+                return RefreshIndicator(
+                  color: const Color(0xFF00BBA7),
+                  onRefresh: () async => _load(),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: list.length,
+                    itemBuilder: (context, index) {
+                      final item = list[index];
+                      return _JadwalCard(
+                        item: item,
+                        onPressed: item.status == 'completed'
+                            ? null
+                            : () async {
+                                if (item.status == 'confirmed') {
+                                  await _mulaiSesi(item.bookingId);
+                                  setState(() => item.status = 'on_going');
+                                }
+                                if (!mounted) return;
+                                final completed = await Navigator.push<bool?>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        _SelesaikanFormScreen(item: item),
+                                  ),
+                                );
+                                if (completed == true) {
+                                  await _selesaikanSesi(item.bookingId);
+                                  _load();
+                                }
+                              },
+                      );
+                    },
+                  ),
                 );
               },
             ),
@@ -322,15 +444,16 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
   }
 }
 
-// ─── Widget pendukung ─────────────────────────────────────────────────────────
+// =============================================================================
+// STAT CARD
+// =============================================================================
 
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
 
-  const _StatCard(
-      {required this.label, required this.value, required this.icon});
+  const _StatCard({required this.label, required this.value, required this.icon});
 
   @override
   Widget build(BuildContext context) {
@@ -343,8 +466,8 @@ class _StatCard extends StatelessWidget {
       child: Row(
         children: [
           Text(value,
-              style: GoogleFonts.inter(
-                  fontSize: 24, fontWeight: FontWeight.bold)),
+              style:
+                  GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(label,
@@ -358,6 +481,10 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+// =============================================================================
+// JADWAL CARD
+// =============================================================================
+
 class _JadwalCard extends StatelessWidget {
   final JadwalItem item;
   final VoidCallback? onPressed;
@@ -366,8 +493,8 @@ class _JadwalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    bool isBerlangsung = item.status == StatusJadwal.berlangsung;
-    bool isSelesai = item.status == StatusJadwal.selesai;
+    final isBerlangsung = item.status == 'on_going';
+    final isSelesai = item.status == 'completed';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -430,7 +557,7 @@ class _JadwalCard extends StatelessWidget {
                           Text(item.namaPasien,
                               style: GoogleFonts.inter(
                                   fontWeight: FontWeight.bold, fontSize: 14)),
-                          Text(item.jenisTermi,
+                          Text(item.jenisTerapi,
                               style: GoogleFonts.inter(
                                   fontSize: 12, color: Colors.black54)),
                         ],
@@ -441,7 +568,6 @@ class _JadwalCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 _iconInfo(Icons.location_on_outlined, item.alamat),
                 _iconInfo(Icons.phone_outlined, item.telepon),
-                _iconInfo(Icons.repeat, item.pertemuan),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -459,10 +585,10 @@ class _JadwalCard extends StatelessWidget {
                       child: ElevatedButton(
                         onPressed: onPressed,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: item.status == StatusJadwal.selesai
+                          backgroundColor: isSelesai
                               ? Colors.grey.shade200
                               : const Color(0xFF00BBA7),
-                          foregroundColor: item.status == StatusJadwal.selesai
+                          foregroundColor: isSelesai
                               ? Colors.black54
                               : Colors.white,
                           elevation: 0,
@@ -470,18 +596,17 @@ class _JadwalCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8)),
                         ),
                         child: Text(
-                          item.status == StatusJadwal.belumMulai
+                          item.status == 'confirmed'
                               ? 'Mulai'
                               : isBerlangsung
                                   ? 'Selesaikan'
                                   : 'Selesai',
-                          style:
-                              GoogleFonts.inter(fontWeight: FontWeight.bold),
+                          style: GoogleFonts.inter(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
                   ],
-                )
+                ),
               ],
             ),
           ),
@@ -499,17 +624,19 @@ class _JadwalCard extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
               child: Text(text,
-                  style: GoogleFonts.inter(
-                      fontSize: 12, color: Colors.black54))),
+                  style: GoogleFonts.inter(fontSize: 12, color: Colors.black54))),
         ],
       ),
     );
   }
 }
 
+// =============================================================================
+// FORM SELESAIKAN
+// =============================================================================
+
 class _SelesaikanFormScreen extends StatelessWidget {
   final JadwalItem item;
-
   const _SelesaikanFormScreen({required this.item});
 
   @override
@@ -517,9 +644,9 @@ class _SelesaikanFormScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF00BBA7),
+        foregroundColor: Colors.white,
         title: Text('Form Selesaikan',
-            style: GoogleFonts.inter(
-                fontWeight: FontWeight.bold, fontSize: 16)),
+            style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16)),
         elevation: 0,
       ),
       body: Padding(
@@ -549,13 +676,12 @@ class _SelesaikanFormScreen extends StatelessWidget {
                   Text(item.namaPasien,
                       style: GoogleFonts.inter(
                           fontSize: 14, fontWeight: FontWeight.bold)),
-                  Text(item.jenisTermi,
+                  Text(item.jenisTerapi,
                       style: GoogleFonts.inter(
                           fontSize: 12, color: Colors.black54)),
                   const SizedBox(height: 12),
                   _detailRow(Icons.location_on_outlined, item.alamat),
                   _detailRow(Icons.phone_outlined, item.telepon),
-                  _detailRow(Icons.repeat, item.pertemuan),
                 ],
               ),
             ),
@@ -594,18 +720,22 @@ class _SelesaikanFormScreen extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    ElevatedButton(
-                      onPressed: () => _confirmCompletion(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00BBA7),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Text('Selesaikan',
-                            style: GoogleFonts.inter(
-                                fontWeight: FontWeight.bold, fontSize: 14)),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => _confirmCompletion(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00BBA7),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Text('Selesaikan',
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.bold, fontSize: 14)),
+                        ),
                       ),
                     ),
                   ],
@@ -621,7 +751,7 @@ class _SelesaikanFormScreen extends StatelessWidget {
   void _confirmCompletion(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: Text('Konfirmasi Pembayaran dan Layanan',
             style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
         content: Text(
@@ -629,23 +759,21 @@ class _SelesaikanFormScreen extends StatelessWidget {
             style: GoogleFonts.inter()),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: Text('Belum',
                 style: GoogleFonts.inter(
                     color: Colors.red, fontWeight: FontWeight.bold)),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00BBA7)),
-            child: Text('Sudah',
-                style: GoogleFonts.inter(
-                    color: Colors.white, fontWeight: FontWeight.bold)),
+                backgroundColor: const Color(0xFF00BBA7),
+                foregroundColor: Colors.white),
+            child: Text('Sudah', style: GoogleFonts.inter()),
           ),
         ],
       ),
     );
-
     if (confirmed == true && context.mounted) {
       Navigator.pop(context, true);
     }
