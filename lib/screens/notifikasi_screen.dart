@@ -468,3 +468,4 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
       ),
     );
   }
+}
