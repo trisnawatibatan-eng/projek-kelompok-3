@@ -9,6 +9,7 @@ import 'fisioterapis_kelola_layanan_screen.dart';
 import 'fisioterapis_dashboard_screen.dart';
 import 'fisioterapis_jadwal_praktik.dart';
 import 'fisioterapis_pasien_tab.dart';
+import 'fisioterapis_review_rating_screen.dart';
 
 class FisioterapisProfilTab extends StatefulWidget {
   final Map<String, dynamic>? profil;
@@ -23,6 +24,9 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
   final _supabase = Supabase.instance.client;
   Map<String, dynamic>? _profilLoaded;
   bool _isLoading = false;
+  double _averageRating = 0.0;
+  int _totalReviews = 0;
+  String? _fisioterapisId;
 
   @override
   void initState() {
@@ -54,11 +58,45 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
       if (mounted) {
         setState(() {
           _profilLoaded = data;
+          _fisioterapisId = data?['id'];
           _isLoading = false;
         });
+        // Load rating data after profile is loaded
+        if (_fisioterapisId != null) {
+          await _loadRatingData();
+        }
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadRatingData() async {
+    try {
+      final fisioId = _fisioterapisId;
+      if (fisioId == null) return;
+
+      final reviews = await _supabase
+          .from('reviews')
+          .select('rating')
+          .eq('fisioterapis_id', fisioId);
+
+      if (mounted) {
+        setState(() {
+          _totalReviews = reviews.length;
+          if (reviews.isNotEmpty) {
+            final totalRating = reviews.fold<int>(
+              0,
+              (sum, review) => sum + (review['rating'] as int),
+            );
+            _averageRating = totalRating / reviews.length;
+          } else {
+            _averageRating = 0.0;
+          }
+        });
+      }
+    } catch (e) {
+      // Silent fail for rating data
     }
   }
 
@@ -346,6 +384,19 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => FisioterapisReviewRatingScreen(
+                            fisioterapisId: _fisioterapisId,
+                          ),
+                        ),
+                      ).then((_) => _loadRatingData()),
+                      borderRadius: BorderRadius.circular(10),
+                      child: _buildRatingStatItem(),
+                    ),
                   ],
                 ),
               ),
@@ -386,6 +437,57 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRatingStatItem() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFFCD34D)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.star_rounded, size: 16, color: const Color(0xFFF59E0B)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Rating',
+                    style: GoogleFonts.inter(
+                        fontSize: 9, color: AppColors.lightText)),
+                Row(
+                  children: [
+                    Text(
+                      _totalReviews > 0
+                          ? _averageRating.toStringAsFixed(1)
+                          : '-',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFFF59E0B),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '($_totalReviews)',
+                      style: GoogleFonts.inter(
+                        fontSize: 9,
+                        color: AppColors.lightText,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.arrow_forward_ios,
+              size: 14, color: AppColors.lightText),
         ],
       ),
     );
