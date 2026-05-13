@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
 import 'notifikasi_screen.dart';
+import 'fisioterapis_booking_screen.dart';
 
 class FisioterapisHomeTab extends StatefulWidget {
   final Map<String, dynamic>? profil;
@@ -14,6 +15,10 @@ class FisioterapisHomeTab extends StatefulWidget {
 
 class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
   final _supabase = Supabase.instance.client;
+
+  // ── State untuk jumlah booking pending ──
+  int _pendingBookingCount = 0;
+  bool _isLoadingBooking = false;
 
   String get _namaLengkap =>
       widget.profil?['nama_lengkap'] ?? 'Fisioterapis';
@@ -41,6 +46,69 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
     if (hour >= 15 && hour < 18) return 'Selamat sore,';
     return 'Selamat malam,';
   }
+
+  // ── Lifecycle ────────────────────────────────────────────────
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPendingBookingCount();
+  }
+
+  // ── Supabase: ambil jumlah booking pending ───────────────────
+
+  Future<void> _loadPendingBookingCount() async {
+    if (_isLoadingBooking) return;
+    setState(() => _isLoadingBooking = true);
+
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Ambil fisioterapis_id
+      final profil = await _supabase
+          .from('fisioterapis')
+          .select('id')
+          .eq('user_id', userId)
+          .single();
+
+      final fisioterapisId = profil['id'] as String;
+
+      // Hitung booking dengan status 'pending'
+      final response = await _supabase
+          .from('bookings')
+          .select('id')
+          .eq('fisioterapis_id', fisioterapisId)
+          .eq('status', 'pending');
+
+      if (mounted) {
+        setState(() {
+          _pendingBookingCount = (response as List).length;
+        });
+      }
+    } catch (e) {
+      // Gagal load — tetap tampilkan 0, tidak crash
+      debugPrint('Error loading pending booking count: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingBooking = false);
+    }
+  }
+
+  // ── Navigasi ke booking screen & refresh setelah kembali ────
+
+  Future<void> _navigateToBookingScreen(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FisioterapiBookingScreen(),
+      ),
+    );
+    // Refresh count setelah kembali dari screen booking
+    // (user mungkin sudah konfirmasi/tolak beberapa booking)
+    _loadPendingBookingCount();
+  }
+
+  // ── Edukasi (data statis) ─────────────────────────────────────
 
   static const List<Map<String, dynamic>> _edukasiList = [
     {
@@ -84,7 +152,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _buildHeader(context)),
-          SliverToBoxAdapter(child: _buildActionCards()),
+          SliverToBoxAdapter(child: _buildActionCards(context)), // ← kirim context
           SliverToBoxAdapter(child: _buildPasienHariIni()),
           SliverToBoxAdapter(child: _buildEdukasi()),
           const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
@@ -249,32 +317,51 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
 
   // ── Action Cards ─────────────────────────────────────────────
 
-  Widget _buildActionCards() {
+  Widget _buildActionCards(BuildContext context) {
+    // Label permintaan booking: dinamis dari _pendingBookingCount
+    final bookingTitle = _isLoadingBooking
+        ? 'Memuat...'
+        : _pendingBookingCount == 0
+            ? 'Permintaan Booking'
+            : '$_pendingBookingCount Permintaan Booking';
+
+    final bookingSubtitle = _pendingBookingCount > 0
+        ? 'Menunggu konfirmasi Anda'
+        : 'Tidak ada permintaan baru';
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Column(
         children: [
-          // Permintaan Booking
-          _buildActionCard(
-            icon: Icons.calendar_today_outlined,
-            iconBg: const Color(0xFFEFF6FF),
-            iconColor: const Color(0xFF3B82F6),
-            title: '3 Permintaan Booking',
-            subtitle: 'Menunggu konfirmasi Anda',
-            badgeCount: 3,
-            badgeColor: const Color(0xFFEF4444),
+          // Permintaan Booking — navigasi ke FisioterapiBookingScreen
+          GestureDetector(
+            onTap: () => _navigateToBookingScreen(context),
+            child: _buildActionCard(
+              icon: Icons.calendar_today_outlined,
+              iconBg: const Color(0xFFEFF6FF),
+              iconColor: const Color(0xFF3B82F6),
+              title: bookingTitle,
+              subtitle: bookingSubtitle,
+              badgeCount: _pendingBookingCount,
+              badgeColor: const Color(0xFFEF4444),
+            ),
           ),
           const SizedBox(height: 10),
           // Riwayat Pembayaran
-          _buildActionCard(
-            icon: Icons.account_balance_wallet_outlined,
-            iconBg: const Color(0xFFF0FDF4),
-            iconColor: const Color(0xFF10B981),
-            title: 'Riwayat Pembayaran',
-            subtitle: null,
-            badgeCount: 0,
-            badgeColor: Colors.transparent,
-            prefixText: 'Rp',
+          GestureDetector(
+            onTap: () {
+              // TODO: navigasi ke halaman riwayat pembayaran
+            },
+            child: _buildActionCard(
+              icon: Icons.account_balance_wallet_outlined,
+              iconBg: const Color(0xFFF0FDF4),
+              iconColor: const Color(0xFF10B981),
+              title: 'Riwayat Pembayaran',
+              subtitle: null,
+              badgeCount: 0,
+              badgeColor: Colors.transparent,
+              prefixText: 'Rp',
+            ),
           ),
         ],
       ),
