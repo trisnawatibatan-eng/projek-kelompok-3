@@ -10,6 +10,7 @@ import 'fisioterapis_dashboard_screen.dart';
 import 'fisioterapis_jadwal_praktik.dart';
 import 'fisioterapis_pasien_tab.dart';
 import 'fisioterapis_review_rating_screen.dart';
+import 'change_password_screen.dart'; // ← tambahan import
 
 class FisioterapisProfilTab extends StatefulWidget {
   final Map<String, dynamic>? profil;
@@ -31,11 +32,9 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
   @override
   void initState() {
     super.initState();
-    // Jika profil dari parent ada, gunakan itu
     if (widget.profil != null) {
       _profilLoaded = widget.profil;
     } else {
-      // Jika tidak ada, load dari Supabase
       _loadProfilFromSupabase();
     }
   }
@@ -61,7 +60,6 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
           _fisioterapisId = data?['id'];
           _isLoading = false;
         });
-        // Load rating data after profile is loaded
         if (_fisioterapisId != null) {
           await _loadRatingData();
         }
@@ -96,7 +94,7 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
         });
       }
     } catch (e) {
-      // Silent fail for rating data
+      // Silent fail
     }
   }
 
@@ -113,8 +111,7 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
   String get _sertifikasi => _profil?['sertifikasi'] ?? '-';
   String get _fotoProfilUrl => _profil?['foto_profil_url'] ?? '';
 
-  String get _statusVerifikasi =>
-      _profil?['status_verifikasi'] ?? 'pending';
+  String get _statusVerifikasi => _profil?['status_verifikasi'] ?? 'pending';
 
   Color get _statusColor {
     switch (_statusVerifikasi) {
@@ -165,9 +162,8 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
-            pageBuilder: (_, __, ___) => FisioterapisDashboardScreen(
-              profilCache: _profil,
-            ),
+            pageBuilder: (_, __, ___) =>
+                FisioterapisDashboardScreen(profilCache: _profil),
             transitionDuration: Duration.zero,
             reverseTransitionDuration: Duration.zero,
           ),
@@ -187,9 +183,8 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
-            pageBuilder: (_, __, ___) => FisioterapisPasienTab(
-              profil: _profil,
-            ),
+            pageBuilder: (_, __, ___) =>
+                FisioterapisPasienTab(profil: _profil),
             transitionDuration: Duration.zero,
             reverseTransitionDuration: Duration.zero,
           ),
@@ -486,8 +481,7 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
               ],
             ),
           ),
-          Icon(Icons.arrow_forward_ios,
-              size: 14, color: AppColors.lightText),
+          Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.lightText),
         ],
       ),
     );
@@ -653,9 +647,13 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
       },
       {
         'icon': Icons.lock_outline,
-        'label': 'Ubah Password',
+        'label': 'Ubah Password',           // ← label sudah benar
         'color': const Color(0xFF6366F1),
-        'onTap': () {},
+        'onTap': () => Navigator.push(       // ← disambungkan ke ChangePasswordScreen
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const ChangePasswordScreen()),
+            ),
       },
     ];
 
@@ -674,8 +672,8 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                 onTap: item['onTap'] as VoidCallback,
                 borderRadius: BorderRadius.circular(14),
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 14),
                   child: Row(
                     children: [
                       Container(
@@ -706,7 +704,10 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                 ),
               ),
               if (index < items.length - 1)
-                Divider(height: 1, indent: 64, color: AppColors.borderColor),
+                Divider(
+                    height: 1,
+                    indent: 64,
+                    color: AppColors.borderColor),
             ],
           );
         }),

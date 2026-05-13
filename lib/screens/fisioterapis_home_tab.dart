@@ -16,18 +16,25 @@ class FisioterapisHomeTab extends StatefulWidget {
 class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
   final _supabase = Supabase.instance.client;
 
-  // ── State untuk jumlah booking pending ──
+  // ── State booking pending ────────────────────────────────────
   int _pendingBookingCount = 0;
   bool _isLoadingBooking = false;
 
-  String get _namaLengkap =>
-      widget.profil?['nama_lengkap'] ?? 'Fisioterapis';
+  // ── State notifikasi belum dibaca ────────────────────────────
+  int _unreadNotifCount = 0;
+  RealtimeChannel? _notifChannel;
 
-  String get _gelar =>
-      widget.profil?['gelar'] ?? 'S.Tr.Kes';
+  // ── State pasien hari ini ────────────────────────────────────
+  int _pasienSelesai = 0;
+  int _pasienBerlangsung = 0;
+  int _pasienMendatang = 0;
+  int _totalPasienHariIni = 0;
+  bool _isLoadingPasien = false;
 
-  String get _fotoProfilUrl =>
-      widget.profil?['foto_profil_url'] ?? '';
+  // ── Getters profil ───────────────────────────────────────────
+  String get _namaLengkap => widget.profil?['nama_lengkap'] ?? 'Fisioterapis';
+  String get _gelar => widget.profil?['gelar'] ?? 'S.Tr.Kes';
+  String get _fotoProfilUrl => widget.profil?['foto_profil_url'] ?? '';
 
   String get _inisial {
     final parts = _namaLengkap.trim().split(' ');
@@ -53,19 +60,26 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
   void initState() {
     super.initState();
     _loadPendingBookingCount();
+    _loadPasienHariIni();
+    _loadUnreadNotifCount();
+    _subscribeNotifRealtime();
   }
 
-  // ── Supabase: ambil jumlah booking pending ───────────────────
+  @override
+  void dispose() {
+    _notifChannel?.unsubscribe();
+    super.dispose();
+  }
+
+  // ── Supabase: jumlah booking pending ────────────────────────
 
   Future<void> _loadPendingBookingCount() async {
     if (_isLoadingBooking) return;
     setState(() => _isLoadingBooking = true);
-
     try {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) return;
 
-      // Ambil fisioterapis_id
       final profil = await _supabase
           .from('fisioterapis')
           .select('id')
@@ -74,7 +88,6 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
 
       final fisioterapisId = profil['id'] as String;
 
-      // Hitung booking dengan status 'pending'
       final response = await _supabase
           .from('bookings')
           .select('id')
@@ -87,28 +100,134 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
         });
       }
     } catch (e) {
-      // Gagal load — tetap tampilkan 0, tidak crash
       debugPrint('Error loading pending booking count: $e');
     } finally {
       if (mounted) setState(() => _isLoadingBooking = false);
     }
   }
 
-  // ── Navigasi ke booking screen & refresh setelah kembali ────
+  // ── Supabase: pasien hari ini ────────────────────────────────
+
+  Future<void> _loadPasienHariIni() async {
+    if (_isLoadingPasien) return;
+    setState(() => _isLoadingPasien = true);
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      final profil = await _supabase
+          .from('fisioterapis')
+          .select('id')
+          .eq('user_id', userId)
+          .single();
+
+      final fisioterapisId = profil['id'] as String;
+      final today = DateTime.now();
+      final todayStr =
+          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+
+      final response = await _supabase
+          .from('bookings')
+          .select('status')
+          .eq('fisioterapis_id', fisioterapisId)
+          .eq('scheduled_date', todayStr)
+          .inFilter('status', ['completed', 'on_going', 'confirmed']);
+
+      if (mounted) {
+        final list = response as List;
+        setState(() {
+          _pasienSelesai =
+              list.where((b) => b['status'] == 'completed').length;
+          _pasienBerlangsung =
+              list.where((b) => b['status'] == 'on_going').length;
+          _pasienMendatang =
+              list.where((b) => b['status'] == 'confirmed').length;
+          _totalPasienHariIni = list.length;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading pasien hari ini: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingPasien = false);
+    }
+  }
+
+  // ── Supabase: jumlah notifikasi belum dibaca ─────────────────
+
+  Future<void> _loadUnreadNotifCount() async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      final response = await _supabase
+          .from('notifications')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('is_read', false);
+
+      if (mounted) {
+        setState(() {
+          _unreadNotifCount = (response as List).length;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading unread notif count: $e');
+    }
+  }
+
+  // ── Realtime: notifikasi ─────────────────────────────────────
+
+  void _subscribeNotifRealtime() {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    _notifChannel = _supabase
+        .channel('notifications_badge_$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (_) => _loadUnreadNotifCount(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (_) => _loadUnreadNotifCount(),
+        )
+        .subscribe();
+  }
+
+  // ── Navigasi ─────────────────────────────────────────────────
+
+  Future<void> _navigateToNotifikasiScreen(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NotifikasiScreen()),
+    );
+    _loadUnreadNotifCount();
+  }
 
   Future<void> _navigateToBookingScreen(BuildContext context) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => FisioterapiBookingScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => FisioterapiBookingScreen()),
     );
-    // Refresh count setelah kembali dari screen booking
-    // (user mungkin sudah konfirmasi/tolak beberapa booking)
     _loadPendingBookingCount();
+    _loadPasienHariIni(); // refresh juga setelah kembali dari booking
   }
 
-  // ── Edukasi (data statis) ─────────────────────────────────────
+  // ── Edukasi (data statis) ────────────────────────────────────
 
   static const List<Map<String, dynamic>> _edukasiList = [
     {
@@ -152,7 +271,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _buildHeader(context)),
-          SliverToBoxAdapter(child: _buildActionCards(context)), // ← kirim context
+          SliverToBoxAdapter(child: _buildActionCards(context)),
           SliverToBoxAdapter(child: _buildPasienHariIni()),
           SliverToBoxAdapter(child: _buildEdukasi()),
           const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
@@ -161,7 +280,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
     );
   }
 
-  // ── Header ──────────────────────────────────────────────────
+  // ── Header ───────────────────────────────────────────────────
 
   Widget _buildHeader(BuildContext context) {
     return Container(
@@ -247,18 +366,14 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
             children: [
               _buildHeaderIconButton(
                 icon: Icons.chat_bubble_outline,
-                badgeCount: 2,
+                badgeCount: 0,
                 onTap: () {},
               ),
               const SizedBox(width: 8),
               _buildHeaderIconButton(
                 icon: Icons.notifications_outlined,
-                badgeCount: 3,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const NotifikasiScreen()),
-                ),
+                badgeCount: _unreadNotifCount,
+                onTap: () => _navigateToNotifikasiScreen(context),
               ),
             ],
           ),
@@ -275,6 +390,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
     return GestureDetector(
       onTap: onTap,
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
           Container(
             width: 38,
@@ -282,25 +398,24 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.18),
               borderRadius: BorderRadius.circular(10),
-              border:
-                  Border.all(color: Colors.white.withOpacity(0.25)),
+              border: Border.all(color: Colors.white.withOpacity(0.25)),
             ),
             child: Icon(icon, color: Colors.white, size: 18),
           ),
           if (badgeCount > 0)
             Positioned(
-              right: 4,
-              top: 4,
+              right: -4,
+              top: -4,
               child: Container(
-                width: 16,
-                height: 16,
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 3),
                 decoration: const BoxDecoration(
                   color: Color(0xFFEF4444),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
                   child: Text(
-                    '$badgeCount',
+                    badgeCount > 99 ? '99+' : '$badgeCount',
                     style: GoogleFonts.inter(
                       color: Colors.white,
                       fontSize: 9,
@@ -318,7 +433,6 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
   // ── Action Cards ─────────────────────────────────────────────
 
   Widget _buildActionCards(BuildContext context) {
-    // Label permintaan booking: dinamis dari _pendingBookingCount
     final bookingTitle = _isLoadingBooking
         ? 'Memuat...'
         : _pendingBookingCount == 0
@@ -333,7 +447,6 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Column(
         children: [
-          // Permintaan Booking — navigasi ke FisioterapiBookingScreen
           GestureDetector(
             onTap: () => _navigateToBookingScreen(context),
             child: _buildActionCard(
@@ -347,7 +460,6 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
             ),
           ),
           const SizedBox(height: 10),
-          // Riwayat Pembayaran
           GestureDetector(
             onTap: () {
               // TODO: navigasi ke halaman riwayat pembayaran
@@ -393,7 +505,6 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
       ),
       child: Row(
         children: [
-          // Icon atau prefix text
           Container(
             width: 42,
             height: 42,
@@ -465,7 +576,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
     );
   }
 
-  // ── Pasien Hari Ini ──────────────────────────────────────────
+  // ── Pasien Hari Ini (dinamis) ────────────────────────────────
 
   Widget _buildPasienHariIni() {
     return Padding(
@@ -485,7 +596,6 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
         ),
         child: Column(
           children: [
-            // Header row
             Row(
               children: [
                 Text(
@@ -497,57 +607,75 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
                   ),
                 ),
                 const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '6 Pasien',
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+                _isLoadingPasien
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '$_totalPasienHariIni Pasien',
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
               ],
             ),
             const SizedBox(height: 20),
-            // Stat row
-            Row(
-              children: [
-                Expanded(
-                  child: _buildPasienStat(
-                    icon: Icons.check_circle_outline,
-                    iconColor: const Color(0xFF10B981),
-                    iconBg: const Color(0xFFD1FAE5),
-                    value: '2',
-                    label: 'Selesai',
+            _isLoadingPasien
+                ? const SizedBox(
+                    height: 60,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: _buildPasienStat(
+                          icon: Icons.check_circle_outline,
+                          iconColor: const Color(0xFF10B981),
+                          iconBg: const Color(0xFFD1FAE5),
+                          value: '$_pasienSelesai',
+                          label: 'Selesai',
+                        ),
+                      ),
+                      Expanded(
+                        child: _buildPasienStat(
+                          icon: Icons.play_circle_outline,
+                          iconColor: const Color(0xFFF59E0B),
+                          iconBg: const Color(0xFFFEF3C7),
+                          value: '$_pasienBerlangsung',
+                          label: 'Berlangsung',
+                        ),
+                      ),
+                      Expanded(
+                        child: _buildPasienStat(
+                          icon: Icons.schedule_outlined,
+                          iconColor: const Color(0xFF3B82F6),
+                          iconBg: const Color(0xFFEFF6FF),
+                          value: '$_pasienMendatang',
+                          label: 'Mendatang',
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                Expanded(
-                  child: _buildPasienStat(
-                    icon: Icons.play_circle_outline,
-                    iconColor: const Color(0xFFF59E0B),
-                    iconBg: const Color(0xFFFEF3C7),
-                    value: '1',
-                    label: 'Berlangsung',
-                  ),
-                ),
-                Expanded(
-                  child: _buildPasienStat(
-                    icon: Icons.schedule_outlined,
-                    iconColor: const Color(0xFF3B82F6),
-                    iconBg: const Color(0xFFEFF6FF),
-                    value: '3',
-                    label: 'Mendatang',
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -566,10 +694,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
         Container(
           width: 44,
           height: 44,
-          decoration: BoxDecoration(
-            color: iconBg,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
           child: Icon(icon, color: iconColor, size: 22),
         ),
         const SizedBox(height: 8),
@@ -582,11 +707,9 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          label,
-          style: GoogleFonts.inter(
-              fontSize: 11, color: AppColors.secondaryText),
-        ),
+        Text(label,
+            style: GoogleFonts.inter(
+                fontSize: 11, color: AppColors.secondaryText)),
       ],
     );
   }
@@ -598,7 +721,6 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
       child: Column(
         children: [
-          // Header
           Row(
             children: [
               Text(
@@ -615,8 +737,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
                 onTap: () {},
                 child: Row(
                   children: [
-                    const Icon(Icons.add,
-                        size: 14, color: AppColors.primary),
+                    const Icon(Icons.add, size: 14, color: AppColors.primary),
                     const SizedBox(width: 2),
                     Text(
                       'Tambah',
@@ -632,7 +753,6 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
             ],
           ),
           const SizedBox(height: 12),
-          // List
           ..._edukasiList.map((item) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _buildEdukasiCard(item),
@@ -658,19 +778,16 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
       ),
       child: Row(
         children: [
-          // Thumbnail emoji
           Container(
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: (item['kategoriBg'] as Color),
+              color: item['kategoriBg'] as Color,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
-              child: Text(
-                item['emoji'],
-                style: const TextStyle(fontSize: 26),
-              ),
+              child: Text(item['emoji'],
+                  style: const TextStyle(fontSize: 26)),
             ),
           ),
           const SizedBox(width: 12),
@@ -678,10 +795,9 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Badge kategori
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 7, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
                     color: item['kategoriBg'] as Color,
                     borderRadius: BorderRadius.circular(4),
@@ -708,11 +824,9 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  item['tanggal'],
-                  style: GoogleFonts.inter(
-                      fontSize: 10, color: AppColors.lightText),
-                ),
+                Text(item['tanggal'],
+                    style: GoogleFonts.inter(
+                        fontSize: 10, color: AppColors.lightText)),
               ],
             ),
           ),
