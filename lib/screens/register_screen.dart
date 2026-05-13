@@ -18,6 +18,60 @@ const _label = Color(0xFF757575);
 const _bg = Color(0xFFF5F5F5);
 
 // ============================================================
+//  CUSTOM INPUT FORMATTERS
+// ============================================================
+
+/// Hanya huruf (A-Z, a-z) dan spasi
+class _LettersOnlyFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final filtered =
+        newValue.text.replaceAll(RegExp(r'[^a-zA-Z\s]'), '');
+    return newValue.copyWith(
+      text: filtered,
+      selection: TextSelection.collapsed(offset: filtered.length),
+    );
+  }
+}
+
+/// Hanya kalimat: huruf, angka, spasi, dan tanda baca umum
+class _SentenceOnlyFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    // Izinkan huruf, angka, spasi, dan tanda baca: , . ! ? - ( ) / ;
+    final filtered =
+        newValue.text.replaceAll(RegExp(r'[^a-zA-Z0-9\s\.,!\?\-()/;]'), '');
+    return newValue.copyWith(
+      text: filtered,
+      selection: TextSelection.collapsed(offset: filtered.length),
+    );
+  }
+}
+
+/// Nomor telepon Indonesia: hanya angka, maksimal 13 digit
+class _PhoneIndonesiaFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    String filtered = newValue.text;
+    filtered = filtered.replaceAll(RegExp(r'[^\d+]'), '');
+    if (filtered.contains('+')) {
+      filtered = '+' + filtered.replaceAll('+', '');
+    }
+    int maxLen = filtered.startsWith('+') ? 14 : 13;
+    if (filtered.length > maxLen) {
+      filtered = filtered.substring(0, maxLen);
+    }
+    return newValue.copyWith(
+      text: filtered,
+      selection: TextSelection.collapsed(offset: filtered.length),
+    );
+  }
+}
+
+// ============================================================
 //  REGISTER SCREEN
 // ============================================================
 class RegisterScreen extends StatefulWidget {
@@ -39,7 +93,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _postalC = TextEditingController();
   final _weightC = TextEditingController();
   final _heightC = TextEditingController();
-  final _bloodTypeC = TextEditingController();
   final _allergyC = TextEditingController();
   final _historyC = TextEditingController();
   final _passwordC = TextEditingController();
@@ -55,14 +108,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _provinceLabel, _regencyLabel, _districtLabel, _villageLabel;
   String? _gender;
 
+  // Golongan darah dropdown
+  String? _bloodType;
+  final List<String> _bloodTypes = [
+    'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-',
+  ];
+
   bool _obscurePass = true;
   bool _obscureConfirm = true;
   bool _isLoading = false;
+
+  // Password strength state
+  bool _passHasMinLength = false;
+  bool _passHasUppercase = false;
+  bool _passHasNumber = false;
+  bool _passHasSpecial = false;
 
   @override
   void initState() {
     super.initState();
     _loadProvinces();
+    _passwordC.addListener(_checkPasswordStrength);
   }
 
   @override
@@ -75,7 +141,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _postalC.dispose();
     _weightC.dispose();
     _heightC.dispose();
-    _bloodTypeC.dispose();
     _allergyC.dispose();
     _historyC.dispose();
     _passwordC.dispose();
@@ -83,141 +148,232 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
- // ============================================================
-//  LOCATION LOGIC (UPDATED: FULL API)
-// ============================================================
-
-Future<void> _loadProvinces() async {
-  try {
-    final res = await http.get(Uri.parse(
-        'https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json'));
-
-    final data = json.decode(res.body);
-
+  // ============================================================
+  //  PASSWORD STRENGTH CHECKER
+  // ============================================================
+  void _checkPasswordStrength() {
+    final pass = _passwordC.text;
     setState(() {
-      _provinces = data;
+      _passHasMinLength = pass.length >= 8;
+      _passHasUppercase = pass.contains(RegExp(r'[A-Z]'));
+      _passHasNumber = pass.contains(RegExp(r'[0-9]'));
+      _passHasSpecial =
+          pass.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;/`~]'));
     });
-  } catch (e) {
-    print("Error provinces: $e");
   }
-}
 
-Future<void> _loadRegencies(String provinceId) async {
-  try {
-    final res = await http.get(Uri.parse(
-        'https://www.emsifa.com/api-wilayah-indonesia/api/regencies/$provinceId.json'));
+  bool get _isPasswordValid =>
+      _passHasMinLength &&
+      _passHasUppercase &&
+      _passHasNumber &&
+      _passHasSpecial;
 
-    final data = json.decode(res.body);
-
-    setState(() {
-      _regencies = data;
-
-      // reset bawah
-      _regencyId = _regencyLabel = null;
-      _districtId = _districtLabel = null;
-      _villageId = _villageLabel = null;
-      _districts = [];
-      _villages = [];
-    });
-  } catch (e) {
-    print("Error regencies: $e");
+  // ============================================================
+  //  PHONE VALIDATOR
+  // ============================================================
+  String? _validatePhone(String phone) {
+    if (phone.isEmpty) return null;
+    final digitsOnly = phone.replaceAll(RegExp(r'\D'), '');
+    if (phone.startsWith('+62')) {
+      if (!phone.startsWith('+628')) return 'Nomor harus diawali +628 atau 08';
+      if (digitsOnly.length < 10 || digitsOnly.length > 13) {
+        return 'Nomor tidak valid (10-13 digit setelah kode negara)';
+      }
+    } else if (phone.startsWith('08')) {
+      if (digitsOnly.length < 10 || digitsOnly.length > 13) {
+        return 'Nomor harus 10–13 digit (contoh: 081234567890)';
+      }
+    } else {
+      return 'Nomor harus diawali 08 atau +628';
+    }
+    return null;
   }
-}
 
-Future<void> _loadDistricts(String regencyId) async {
-  try {
-    final res = await http.get(Uri.parse(
-        'https://www.emsifa.com/api-wilayah-indonesia/api/districts/$regencyId.json'));
-
-    final data = json.decode(res.body);
-
-    setState(() {
-      _districts = data;
-
-      _districtId = _districtLabel = null;
-      _villageId = _villageLabel = null;
-      _villages = [];
-    });
-  } catch (e) {
-    print("Error districts: $e");
+  // ============================================================
+  //  LOCATION LOGIC
+  // ============================================================
+  Future<void> _loadProvinces() async {
+    try {
+      final res = await http.get(Uri.parse(
+          'https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json'));
+      final data = json.decode(res.body);
+      setState(() => _provinces = data);
+    } catch (e) {
+      debugPrint("Error provinces: $e");
+    }
   }
-}
 
-Future<void> _loadVillages(String districtId) async {
-  try {
-    final res = await http.get(Uri.parse(
-        'https://www.emsifa.com/api-wilayah-indonesia/api/villages/$districtId.json'));
-
-    final data = json.decode(res.body);
-
-    setState(() {
-      _villages = data;
-
-      _villageId = _villageLabel = null;
-    });
-  } catch (e) {
-    print("Error villages: $e");
+  Future<void> _loadRegencies(String provinceId) async {
+    try {
+      final res = await http.get(Uri.parse(
+          'https://www.emsifa.com/api-wilayah-indonesia/api/regencies/$provinceId.json'));
+      final data = json.decode(res.body);
+      setState(() {
+        _regencies = data;
+        _regencyId = _regencyLabel = null;
+        _districtId = _districtLabel = null;
+        _villageId = _villageLabel = null;
+        _districts = [];
+        _villages = [];
+      });
+    } catch (e) {
+      debugPrint("Error regencies: $e");
+    }
   }
-}
+
+  Future<void> _loadDistricts(String regencyId) async {
+    try {
+      final res = await http.get(Uri.parse(
+          'https://www.emsifa.com/api-wilayah-indonesia/api/districts/$regencyId.json'));
+      final data = json.decode(res.body);
+      setState(() {
+        _districts = data;
+        _districtId = _districtLabel = null;
+        _villageId = _villageLabel = null;
+        _villages = [];
+      });
+    } catch (e) {
+      debugPrint("Error districts: $e");
+    }
+  }
+
+  Future<void> _loadVillages(String districtId) async {
+    try {
+      final res = await http.get(Uri.parse(
+          'https://www.emsifa.com/api-wilayah-indonesia/api/villages/$districtId.json'));
+      final data = json.decode(res.body);
+      setState(() {
+        _villages = data;
+        _villageId = _villageLabel = null;
+      });
+    } catch (e) {
+      debugPrint("Error villages: $e");
+    }
+  }
 
   // ============================================================
   //  REGISTER LOGIC
   // ============================================================
   Future<void> _register() async {
-    if (_passwordC.text != _confirmPassC.text) {
-      _showSnack("Password tidak sama!", isError: true);
+    // Validasi nama
+    if (_nameC.text.trim().isEmpty) {
+      _showSnack("Nama lengkap wajib diisi!", isError: true);
       return;
     }
-    if (_passwordC.text.length < 8) {
-      _showSnack("Password minimal 8 karakter!", isError: true);
+    if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(_nameC.text.trim())) {
+      _showSnack("Nama hanya boleh berisi huruf!", isError: true);
+      return;
+    }
+
+    // Validasi email
+    if (_emailC.text.trim().isEmpty) {
+      _showSnack("Email wajib diisi!", isError: true);
+      return;
+    }
+
+    // Validasi telepon
+    if (_phoneC.text.trim().isNotEmpty) {
+      final phoneError = _validatePhone(_phoneC.text.trim());
+      if (phoneError != null) {
+        _showSnack(phoneError, isError: true);
+        return;
+      }
+    }
+
+    // Validasi alamat & lokasi wajib untuk patient_addresses
+    if (_addressC.text.trim().isEmpty) {
+      _showSnack("Alamat lengkap wajib diisi!", isError: true);
+      return;
+    }
+    if (_provinceId == null || _regencyId == null || _districtId == null) {
+      _showSnack("Provinsi, Kab/Kota, dan Kecamatan wajib dipilih!", isError: true);
+      return;
+    }
+
+    // Validasi password
+    if (!_isPasswordValid) {
+      _showSnack("Password tidak memenuhi syarat keamanan!", isError: true);
+      return;
+    }
+    if (_passwordC.text != _confirmPassC.text) {
+      _showSnack("Konfirmasi password tidak sama!", isError: true);
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
+      // 1. Daftar ke Supabase Auth
       final auth = await supabase.auth.signUp(
         email: _emailC.text.trim(),
         password: _passwordC.text,
+        data: {'role': 'patient'},
       );
 
-      final userId = auth.user!.id;
+      final userId = auth.user?.id;
+      if (userId == null) {
+        _showSnack("Gagal mendapatkan user ID!", isError: true);
+        return;
+      }
 
+      // 2. Insert ke tabel patients
       await supabase.from('patients').insert({
         'id': userId,
         'full_name': _nameC.text.trim(),
         'email': _emailC.text.trim(),
-        'phone': _phoneC.text.trim(),
+        'phone': _phoneC.text.trim().isNotEmpty ? _phoneC.text.trim() : null,
         'date_of_birth': _dobC.text.isNotEmpty ? _dobC.text : null,
         'gender': _gender,
         'province_id': _provinceId,
         'regency_id': _regencyId,
         'district_id': _districtId,
         'village_id': _villageId,
-        'postal_code': _postalC.text.trim(),
+        'postal_code':
+            _postalC.text.trim().isNotEmpty ? _postalC.text.trim() : null,
         'full_address': _addressC.text.trim(),
-        'weight_kg': _weightC.text.isNotEmpty
-            ? double.tryParse(_weightC.text)
-            : null,
-        'height_cm': _heightC.text.isNotEmpty
-            ? double.tryParse(_heightC.text)
-            : null,
-        'blood_type': _bloodTypeC.text.trim().isNotEmpty
-            ? _bloodTypeC.text.trim()
-            : null,
-        'allergy': _allergyC.text.trim().isNotEmpty
-            ? _allergyC.text.trim()
-            : null,
-        'medical_history': _historyC.text.trim().isNotEmpty
-            ? _historyC.text.trim()
-            : null,
+        'weight_kg':
+            _weightC.text.isNotEmpty ? double.tryParse(_weightC.text) : null,
+        'height_cm':
+            _heightC.text.isNotEmpty ? double.tryParse(_heightC.text) : null,
+        'blood_type': _bloodType,
+        'allergy':
+            _allergyC.text.trim().isNotEmpty ? _allergyC.text.trim() : null,
+        'medical_history':
+            _historyC.text.trim().isNotEmpty ? _historyC.text.trim() : null,
       });
 
-      _showSnack("Pendaftaran berhasil! Silakan cek email untuk verifikasi.");
+      // 3. Insert ke tabel patient_addresses
+      //    label default 'Rumah', is_primary = true
+      await supabase.from('patient_addresses').insert({
+        'patient_id': userId,
+        'label': 'Rumah',
+        'province_id': _provinceId!,
+        'province_name': _provinceLabel!,
+        'regency_id': _regencyId!,
+        'regency_name': _regencyLabel!,
+        'district_id': _districtId!,
+        'district_name': _districtLabel!,
+        'village_id': _villageId,
+        'village_name': _villageLabel,
+        'postal_code':
+            _postalC.text.trim().isNotEmpty ? _postalC.text.trim() : null,
+        'full_address': _addressC.text.trim(),
+        'is_primary': true,
+      });
+
+      if (mounted) {
+        _showSnack("Pendaftaran berhasil! Silakan cek email untuk verifikasi.");
+        await Future.delayed(const Duration(seconds: 2));
+        Navigator.pop(context);
+      }
+    } on AuthException catch (e) {
+      _showSnack("Auth error: ${e.message}", isError: true);
+    } on PostgrestException catch (e) {
+      _showSnack("Database error: ${e.message}", isError: true);
     } catch (e) {
       _showSnack("Gagal daftar: ${e.toString()}", isError: true);
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -351,6 +507,10 @@ Future<void> _loadVillages(String districtId) async {
                         hint: "Masukkan nama lengkap",
                         required: true,
                         prefixIcon: Icons.person_outline,
+                        inputFormatters: [_LettersOnlyFormatter()],
+                        keyboardType: TextInputType.name,
+                        helperText:
+                            "Hanya huruf, tidak boleh ada angka atau simbol",
                       ),
                       _inputField(
                         controller: _emailC,
@@ -360,14 +520,7 @@ Future<void> _loadVillages(String districtId) async {
                         prefixIcon: Icons.email_outlined,
                         keyboardType: TextInputType.emailAddress,
                       ),
-                      _inputField(
-                        controller: _phoneC,
-                        label: "Nomor Telepon",
-                        hint: "+62 812 3456 7890",
-                        required: true,
-                        prefixIcon: Icons.phone_outlined,
-                        keyboardType: TextInputType.phone,
-                      ),
+                      _phoneField(),
                       _dateField(),
                       _genderDropdown(),
                       _sectionTitle("Alamat"),
@@ -476,6 +629,28 @@ Future<void> _loadVillages(String districtId) async {
                         required: true,
                         maxLines: 3,
                       ),
+                      // Info label alamat
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: _tealLight,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.home_outlined,
+                                size: 14, color: _tealDark),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Alamat ini akan disimpan dengan label "Rumah" dan dapat diubah nanti di profil Anda.',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 11, color: _tealDark),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -484,32 +659,46 @@ Future<void> _loadVillages(String districtId) async {
                     children: [
                       _inputField(
                         controller: _weightC,
-                        label: "Berat Badan",
-                        hint: "Contoh : 72 kg",
+                        label: "Berat Badan (kg)",
+                        hint: "Contoh : 72",
                         keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.]')),
+                        ],
                       ),
                       _inputField(
                         controller: _heightC,
-                        label: "Tinggi Badan",
-                        hint: "Contoh : 170 cm",
+                        label: "Tinggi Badan (cm)",
+                        hint: "Contoh : 170",
                         keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.]')),
+                        ],
                       ),
-                      _inputField(
-                        controller: _bloodTypeC,
-                        label: "Golongan Darah",
-                        hint: "Contoh : O+",
-                      ),
+                      // ── Golongan Darah: dropdown ──
+                      _bloodTypeDropdown(),
+                      // ── Alergi: hanya kalimat ──
                       _inputField(
                         controller: _allergyC,
                         label: "Alergi",
-                        hint: "Contoh :",
+                        hint: "Contoh: Debu, Seafood, Penisilin",
+                        maxLines: 2,
+                        inputFormatters: [_SentenceOnlyFormatter()],
+                        helperText:
+                            "Pisahkan dengan koma jika lebih dari satu",
                       ),
+                      // ── Riwayat Penyakit: hanya kalimat ──
                       _inputField(
                         controller: _historyC,
                         label: "Riwayat Penyakit (Opsional)",
                         hint:
                             "Contoh: Diabetes, Hipertensi, Alergi obat, dll.",
                         maxLines: 3,
+                        inputFormatters: [_SentenceOnlyFormatter()],
+                        helperText:
+                            "Hanya huruf, angka, dan tanda baca umum",
                       ),
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -538,14 +727,16 @@ Future<void> _loadVillages(String districtId) async {
                         onToggle: () =>
                             setState(() => _obscurePass = !_obscurePass),
                       ),
+                      _passwordStrengthIndicator(),
+                      const SizedBox(height: 8),
                       _passwordField(
                         controller: _confirmPassC,
                         label: "Konfirmasi Password",
                         hint: "Masukkan ulang password",
                         required: true,
                         obscure: _obscureConfirm,
-                        onToggle: () =>
-                            setState(() => _obscureConfirm = !_obscureConfirm),
+                        onToggle: () => setState(
+                            () => _obscureConfirm = !_obscureConfirm),
                       ),
                     ],
                   ),
@@ -598,6 +789,153 @@ Future<void> _loadVillages(String districtId) async {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  //  PASSWORD STRENGTH INDICATOR
+  // ============================================================
+  Widget _passwordStrengthIndicator() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _strengthRow(_passHasMinLength, "Minimal 8 karakter"),
+          _strengthRow(_passHasUppercase, "Mengandung huruf kapital (A-Z)"),
+          _strengthRow(_passHasNumber, "Mengandung angka (0-9)"),
+          _strengthRow(
+              _passHasSpecial, "Mengandung karakter spesial (!@#\$%^&*)"),
+        ],
+      ),
+    );
+  }
+
+  Widget _strengthRow(bool passed, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(
+            passed ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 14,
+            color: passed ? _teal : _grey,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: passed ? _tealDark : _grey,
+              fontWeight: passed ? FontWeight.w500 : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  //  PHONE FIELD
+  // ============================================================
+  Widget _phoneField() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(
+            text: TextSpan(
+              text: "Nomor Telepon",
+              style: GoogleFonts.poppins(
+                  fontSize: 13, fontWeight: FontWeight.w500, color: _text),
+              children: const [
+                TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _phoneC,
+            keyboardType: TextInputType.phone,
+            inputFormatters: [_PhoneIndonesiaFormatter()],
+            style: GoogleFonts.poppins(fontSize: 13, color: _text),
+            decoration: InputDecoration(
+              hintText: "08xx atau +628xx",
+              hintStyle: GoogleFonts.poppins(fontSize: 13, color: _grey),
+              prefixIcon:
+                  const Icon(Icons.phone_outlined, size: 18, color: _grey),
+              helperText:
+                  "Format: 08xxxxxxxxxx atau +628xxxxxxxxxx (10–13 digit)",
+              helperStyle: GoogleFonts.poppins(fontSize: 10, color: _grey),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: _border)),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: _border)),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: _teal, width: 1.5)),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  //  BLOOD TYPE DROPDOWN
+  // ============================================================
+  Widget _bloodTypeDropdown() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Golongan Darah",
+              style: GoogleFonts.poppins(
+                  fontSize: 13, fontWeight: FontWeight.w500, color: _text)),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String>(
+            value: _bloodType,
+            hint: Text("Pilih golongan darah",
+                style: GoogleFonts.poppins(fontSize: 13, color: _grey)),
+            items: _bloodTypes
+                .map((bt) => DropdownMenuItem(
+                      value: bt,
+                      child:
+                          Text(bt, style: GoogleFonts.poppins(fontSize: 13)),
+                    ))
+                .toList(),
+            onChanged: (val) => setState(() => _bloodType = val),
+            style: GoogleFonts.poppins(fontSize: 13, color: _text),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.bloodtype_outlined,
+                  size: 18, color: _grey),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: _border)),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: _border)),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: _teal, width: 1.5)),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+            icon: const Icon(Icons.keyboard_arrow_down, color: _teal),
+            dropdownColor: Colors.white,
           ),
         ],
       ),
@@ -699,9 +1037,7 @@ Future<void> _loadVillages(String districtId) async {
           const SizedBox(width: 6),
           Text(title,
               style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: _text)),
+                  fontSize: 13, fontWeight: FontWeight.w600, color: _text)),
         ],
       ),
     );
@@ -720,6 +1056,7 @@ Future<void> _loadVillages(String districtId) async {
     TextInputType? keyboardType,
     int maxLines = 1,
     List<TextInputFormatter>? inputFormatters,
+    String? helperText,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -730,14 +1067,11 @@ Future<void> _loadVillages(String districtId) async {
             text: TextSpan(
               text: label,
               style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: _text),
+                  fontSize: 13, fontWeight: FontWeight.w500, color: _text),
               children: required
                   ? [
                       const TextSpan(
-                          text: ' *',
-                          style: TextStyle(color: Colors.red))
+                          text: ' *', style: TextStyle(color: Colors.red))
                     ]
                   : [],
             ),
@@ -752,13 +1086,14 @@ Future<void> _loadVillages(String districtId) async {
             style: GoogleFonts.poppins(fontSize: 13, color: _text),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle:
-                  GoogleFonts.poppins(fontSize: 13, color: _grey),
+              hintStyle: GoogleFonts.poppins(fontSize: 13, color: _grey),
+              helperText: helperText,
+              helperStyle: GoogleFonts.poppins(fontSize: 10, color: _grey),
               prefixIcon: prefixIcon != null
                   ? Icon(prefixIcon, size: 18, color: _grey)
                   : null,
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 12),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(color: _border)),
@@ -789,7 +1124,7 @@ Future<void> _loadVillages(String districtId) async {
     required VoidCallback onToggle,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -797,14 +1132,11 @@ Future<void> _loadVillages(String districtId) async {
             text: TextSpan(
               text: label,
               style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: _text),
+                  fontSize: 13, fontWeight: FontWeight.w500, color: _text),
               children: required
                   ? [
                       const TextSpan(
-                          text: ' *',
-                          style: TextStyle(color: Colors.red))
+                          text: ' *', style: TextStyle(color: Colors.red))
                     ]
                   : [],
             ),
@@ -816,8 +1148,7 @@ Future<void> _loadVillages(String districtId) async {
             style: GoogleFonts.poppins(fontSize: 13, color: _text),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle:
-                  GoogleFonts.poppins(fontSize: 13, color: _grey),
+              hintStyle: GoogleFonts.poppins(fontSize: 13, color: _grey),
               prefixIcon:
                   const Icon(Icons.lock_outline, size: 18, color: _grey),
               suffixIcon: GestureDetector(
@@ -829,8 +1160,8 @@ Future<void> _loadVillages(String districtId) async {
                     size: 18,
                     color: _grey),
               ),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 12),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(color: _border)),
@@ -860,9 +1191,7 @@ Future<void> _loadVillages(String districtId) async {
         children: [
           Text("Tanggal Lahir",
               style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: _text)),
+                  fontSize: 13, fontWeight: FontWeight.w500, color: _text)),
           const SizedBox(height: 6),
           GestureDetector(
             onTap: _pickDate,
@@ -910,9 +1239,7 @@ Future<void> _loadVillages(String districtId) async {
         children: [
           Text("Jenis Kelamin",
               style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: _text)),
+                  fontSize: 13, fontWeight: FontWeight.w500, color: _text)),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
             value: _gender,
@@ -931,8 +1258,8 @@ Future<void> _loadVillages(String districtId) async {
             onChanged: (val) => setState(() => _gender = val),
             style: GoogleFonts.poppins(fontSize: 13, color: _text),
             decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 12),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(color: _border)),
@@ -972,14 +1299,11 @@ Future<void> _loadVillages(String districtId) async {
             text: TextSpan(
               text: label,
               style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: _text),
+                  fontSize: 13, fontWeight: FontWeight.w500, color: _text),
               children: required
                   ? [
                       const TextSpan(
-                          text: ' *',
-                          style: TextStyle(color: Colors.red))
+                          text: ' *', style: TextStyle(color: Colors.red))
                     ]
                   : [],
             ),
@@ -988,11 +1312,10 @@ Future<void> _loadVillages(String districtId) async {
           GestureDetector(
             onTap: onTap,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
               decoration: BoxDecoration(
-                color: disabled
-                    ? const Color(0xFFF5F5F5)
-                    : Colors.white,
+                color: disabled ? const Color(0xFFF5F5F5) : Colors.white,
                 border: Border.all(color: _border),
                 borderRadius: BorderRadius.circular(10),
               ),

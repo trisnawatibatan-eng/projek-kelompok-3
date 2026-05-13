@@ -43,7 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             'full_name, email, phone, date_of_birth, gender, '
             'province_id, regency_id, district_id, village_id, '
             'postal_code, full_address, weight_kg, height_cm, '
-            'blood_type, allergy, medical_history, created_at',
+            'blood_type, allergy, medical_history, created_at, profile_photo_url',
           )
           .eq('id', user.id)
           .single();
@@ -239,11 +239,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: CircleAvatar(
                   radius: 38,
                   backgroundColor: const Color(0xFF009689),
-                  child: Text(_initials,
-                      style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold)),
+                  backgroundImage: (_patient?['profile_photo_url'] as String?)?.isNotEmpty == true
+                      ? NetworkImage(_patient!['profile_photo_url'])
+                      : null,
+                  child: (_patient?['profile_photo_url'] as String?)?.isEmpty ?? true
+                      ? Text(_initials,
+                          style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold))
+                      : null,
                 ),
               ),
               const SizedBox(height: 12),
@@ -417,16 +422,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           const SizedBox(height: 8),
           GestureDetector(
-            onTap: _goToAddAddress,
+            onTap: _extraAddresses.length >= 2 ? null : _goToAddAddress,
             child: Row(
               children: [
-                const Icon(Icons.add, size: 16, color: Color(0xFF00BBA7)),
+                Icon(
+                  Icons.add,
+                  size: 16,
+                  color: _extraAddresses.length >= 2
+                      ? Colors.grey[400]
+                      : const Color(0xFF00BBA7),
+                ),
                 const SizedBox(width: 4),
-                Text('Tambah Alamat Lain',
-                    style: GoogleFonts.inter(
-                        color: const Color(0xFF00BBA7),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
+                Text(
+                  _extraAddresses.length >= 2
+                      ? 'Batas Maksimal 2 Alamat'
+                      : 'Tambah Alamat Lain',
+                  style: GoogleFonts.inter(
+                      color: _extraAddresses.length >= 2
+                          ? Colors.grey[400]
+                          : const Color(0xFF00BBA7),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                ),
               ],
             ),
           ),

@@ -109,6 +109,12 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
   String get _str => _profil?['nomor_str_sipa'] ?? '-';
   String get _biografi => _profil?['biografi'] ?? '-';
   String get _sertifikasi => _profil?['sertifikasi'] ?? '-';
+  String get _sertifikatUrlsRaw => _profil?['sertifikat_urls'] ?? '';
+
+  List<String> get _sertifikatUrls {
+    if (_sertifikatUrlsRaw.isEmpty) return [];
+    return _sertifikatUrlsRaw.split(',').map((url) => url.trim()).toList();
+  }
   String get _fotoProfilUrl => _profil?['foto_profil_url'] ?? '';
 
   String get _statusVerifikasi => _profil?['status_verifikasi'] ?? 'pending';
@@ -532,6 +538,89 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
               Icons.verified_outlined, 'Sertifikasi', _sertifikasi),
           Divider(height: 1, color: AppColors.borderColor),
           _buildBiografiItem(),
+          if (_sertifikatUrls.isNotEmpty) ...[
+            Divider(height: 1, color: AppColors.borderColor),
+            _buildSertifikatFilesItem(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSertifikatFilesItem() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE6FAF8),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.description_outlined,
+                color: AppColors.primary, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('File Sertifikat (${_sertifikatUrls.length})',
+                    style: GoogleFonts.inter(
+                        fontSize: 10, color: AppColors.lightText)),
+                const SizedBox(height: 6),
+                ..._sertifikatUrls.asMap().entries.map((entry) {
+                  final index = entry.key + 1;
+                  final url = entry.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: GestureDetector(
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Sertifikat $index tersedia'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDFB),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: AppColors.primary.withOpacity(0.2)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.insert_drive_file_outlined,
+                                size: 14, color: AppColors.primary),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Sertifikat $index',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            const Icon(Icons.open_in_new,
+                                size: 12, color: AppColors.primary),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
         ],
       ),
     );

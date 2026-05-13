@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart'; // ← untuk kIsWeb
+import 'dart:io';
 
 // ============================================================
 //  MODEL
@@ -262,6 +265,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isSaving = false;
   PatientModel? _patient;
   List<PatientAddressModel> _addresses = [];
+  File? _profilePhotoFile;
 
   // -- Controllers --
   final _nameController = TextEditingController();
@@ -283,6 +287,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   ];
 
   static const _bloodTypes = ['A', 'A+', 'A-', 'B', 'B+', 'B-', 'AB', 'AB+', 'AB-', 'O', 'O+', 'O-'];
+
+  Future<void> _pickProfilePhoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (picked != null) {
+      setState(() => _profilePhotoFile = File(picked.path));
+    }
+  }
+
+  Future<String?> _uploadProfilePhoto(String userId) async {
+    if (_profilePhotoFile == null) return null;
+    try {
+      await _supabase.storage.from('patients').upload(
+        '$userId/profile_photo.jpg',
+        _profilePhotoFile!,
+        fileOptions: const FileOptions(upsert: true),
+      );
+      return _supabase.storage.from('patients').getPublicUrl('$userId/profile_photo.jpg');
+    } catch (e) {
+      return null;
+    }
+  }
 
   @override
   void initState() {
@@ -384,6 +413,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
 
       await _service.upsertPatient(updated);
+
+      // Upload profile photo if selected
+      if (_profilePhotoFile != null) {
+        final photoUrl = await _uploadProfilePhoto(userId);
+        if (photoUrl != null) {
+          await _supabase.from('patients').update({
+            'profile_photo_url': photoUrl,
+          }).eq('id', userId);
+        }
+      }
 
       setState(() {
         _patient = updated;
@@ -638,27 +677,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              CircleAvatar(
-                radius: 45,
-                backgroundColor: const Color(0xFF009689),
-                child: Text(
-                  initials,
-                  style: GoogleFonts.inter(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
+          GestureDetector(
+            onTap: _pickProfilePhoto,
+            child: Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                CircleAvatar(
+                  radius: 45,
+                  backgroundColor: const Color(0xFF009689),
+                  child: !kIsWeb && _profilePhotoFile != null
+                      ? ClipOval(
+                          child: Image.file(_profilePhotoFile!, fit: BoxFit.cover),
+                        )
+                      : Text(
+                          initials,
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                child: const Icon(Icons.camera_alt, size: 18, color: Color(0xFF00BBA7)),
-              ),
-            ],
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  child: const Icon(Icons.camera_alt, size: 18, color: Color(0xFF00BBA7)),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 10),
           Text(

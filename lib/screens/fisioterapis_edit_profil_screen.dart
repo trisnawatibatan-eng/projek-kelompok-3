@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // ← untuk inputFormatters
+import 'package:flutter/foundation.dart'; // ← untuk kIsWeb
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -38,7 +39,8 @@ class _FisioterapisEditProfilScreenState
   // Files
   File? _fotoProfilFile;
   File? _fotoStrFile;
-  File? _sertifikatFile;
+  List<File> _sertifikatFiles = [];
+  String? _existingFotoProfilUrl;
 
   bool _isLoading = false;
 
@@ -85,6 +87,7 @@ class _FisioterapisEditProfilScreenState
         _pengalamanController.text = data['pengalaman_kerja'] ?? '';
         _pendidikanController.text = data['pendidikan_terakhir'] ?? '';
         _biografiController.text = data['biografi'] ?? '';
+        _existingFotoProfilUrl = data['foto_profil_url'];
 
         // ── Parse sertifikasi: tersimpan sebagai teks dipisah koma ──
         final raw = data['sertifikasi'] as String? ?? '';
@@ -143,23 +146,25 @@ class _FisioterapisEditProfilScreenState
       if (_fotoProfilFile != null) {
         fotoProfilUrl = await _uploadFile(
           _fotoProfilFile!,
-          'fisioterapis-assets',
-          '$userId/foto_profil.jpg',
+          'fisioterapis',
+          '$userId/profile_photo.jpg',
         );
       }
       if (_fotoStrFile != null) {
         fotoStrUrl = await _uploadFile(
           _fotoStrFile!,
-          'fisioterapis-assets',
+          'fisioterapis',
           '$userId/foto_str.jpg',
         );
       }
-      if (_sertifikatFile != null) {
-        sertifikatUrl = await _uploadFile(
-          _sertifikatFile!,
-          'fisioterapis-assets',
-          '$userId/sertifikat.jpg',
+      List<String> sertifikatUrls = [];
+      for (int i = 0; i < _sertifikatFiles.length; i++) {
+        final url = await _uploadFile(
+          _sertifikatFiles[i],
+          'fisioterapis',
+          '$userId/sertifikat_$i.pdf',
         );
+        if (url != null) sertifikatUrls.add(url);
       }
 
       // Sertifikasi disimpan sebagai teks dipisah koma
@@ -178,7 +183,7 @@ class _FisioterapisEditProfilScreenState
         'sertifikasi': sertifikasiValue,
         if (fotoProfilUrl != null) 'foto_profil_url': fotoProfilUrl,
         if (fotoStrUrl != null) 'foto_str_url': fotoStrUrl,
-        if (sertifikatUrl != null) 'sertifikat_url': sertifikatUrl,
+        if (sertifikatUrls.isNotEmpty) 'sertifikat_urls': sertifikatUrls.join(','),
       };
 
       await _supabase
@@ -250,11 +255,26 @@ class _FisioterapisEditProfilScreenState
       setState(() {
         if (isStr) {
           _fotoStrFile = File(picked.path);
-        } else {
-          _sertifikatFile = File(picked.path);
         }
       });
     }
+  }
+
+  Future<void> _pickMultipleSertifikat() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (picked != null) {
+      setState(() {
+        _sertifikatFiles.add(File(picked.path));
+      });
+    }
+  }
+
+  void _removeSertifikatFile(int index) {
+    setState(() => _sertifikatFiles.removeAt(index));
   }
 
   @override
@@ -567,17 +587,27 @@ class _FisioterapisEditProfilScreenState
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 3),
                     ),
-                    child: _fotoProfilFile != null
-                        ? ClipOval(
-                            child: Image.file(_fotoProfilFile!,
-                                fit: BoxFit.cover))
-                        : const Center(
-                            child: Text('SN',
-                                style: TextStyle(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF00BBA7),
-                                ))),
+                    clipBehavior: Clip.antiAlias,
+                    child: !kIsWeb && _fotoProfilFile != null
+                        ? Image.file(_fotoProfilFile!, fit: BoxFit.cover)
+                        : _existingFotoProfilUrl != null &&
+                                (_existingFotoProfilUrl?.isNotEmpty ?? false)
+                            ? Image.network(_existingFotoProfilUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: const Color(0xFF00BBA7),
+                                  child: const Center(
+                                    child: Icon(Icons.person,
+                                        color: Colors.white, size: 40),
+                                  ),
+                                ))
+                            : Container(
+                                color: const Color(0xFF00BBA7),
+                                child: const Center(
+                                  child: Icon(Icons.person,
+                                      color: Colors.white, size: 40),
+                                ),
+                              ),
                   ),
                   Positioned(
                     bottom: 0,
@@ -811,19 +841,128 @@ class _FisioterapisEditProfilScreenState
                   onTap: () => _pickFile(true),
                 ),
                 const SizedBox(height: 14),
-                _buildUploadBox(
-                  label: 'Sertifikat Kompetensi',
-                  required: false,
-                  subtitle:
-                      'Upload sertifikat tambahan (Opsional)\nPNG, JPG atau PDF (Max. 5MB)',
-                  file: _sertifikatFile,
-                  onTap: () => _pickFile(false),
-                ),
+                _buildMultipleSertifikatBox(),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMultipleSertifikatBox() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sertifikat Kompetensi',
+          style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryText),
+        ),
+        const SizedBox(height: 8),
+        // Daftar file sertifikat yang sudah dipilih
+        if (_sertifikatFiles.isNotEmpty) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDFB),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFCCF4EF)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'File yang dipilih (${_sertifikatFiles.length}):',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ..._sertifikatFiles.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final file = entry.value;
+                  final fileName = file.path.split('/').last;
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: AppColors.primary.withOpacity(0.2)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.description_outlined,
+                            size: 16, color: AppColors.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            fileName,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: AppColors.primaryText,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => _removeSertifikatFile(index),
+                          child: const Icon(Icons.close,
+                              size: 16, color: AppColors.lightText),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        // Upload box
+        GestureDetector(
+          onTap: _pickMultipleSertifikat,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.borderColor),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.upload_outlined,
+                    color: AppColors.lightText, size: 28),
+                const SizedBox(height: 6),
+                Text(
+                  'Klik untuk upload sertifikat',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'PDF atau gambar (Max. 5MB)\nTambahkan lebih dari 1 file',
+                  style: GoogleFonts.inter(
+                      fontSize: 9, color: AppColors.lightText),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

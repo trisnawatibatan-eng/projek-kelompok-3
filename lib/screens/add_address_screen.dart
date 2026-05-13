@@ -413,6 +413,12 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   // ── Save Alamat ────────────────────────────────────────
 
   Future<void> _saveAddress() async {
+    // ── Check if maximum addresses (2) has been reached
+    if (_allAddresses.length >= 2) {
+      _showSnack('Anda sudah mencapai batas maksimal 2 alamat.', isError: true);
+      return;
+    }
+    
     final String finalLabel = _labelController.text.trim();
     if (finalLabel.isEmpty) {
       _showSnack('Masukkan tipe alamat.', isError: true);
@@ -1196,7 +1202,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
         Expanded(
           flex: 2,
           child: ElevatedButton(
-            onPressed: _isSaving ? null : _saveAddress,
+            onPressed: (_isSaving || _allAddresses.length >= 2) ? null : _saveAddress,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00BBA7),
               disabledBackgroundColor:
@@ -1213,7 +1219,10 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                     child: CircularProgressIndicator(
                         color: Colors.white, strokeWidth: 2),
                   )
-                : Text('Simpan Alamat',
+                : Text(
+                    _allAddresses.length >= 2
+                        ? 'Batas Maksimal 2 Alamat'
+                        : 'Simpan Alamat',
                     style: GoogleFonts.inter(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
