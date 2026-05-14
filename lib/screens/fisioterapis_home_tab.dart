@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
 import 'notifikasi_screen.dart';
 import 'fisioterapis_booking_screen.dart';
+import 'fisioterapis_chat_screen.dart';
+import 'fisioterapis_payment_history_screen.dart';
 
 class FisioterapisHomeTab extends StatefulWidget {
   final Map<String, dynamic>? profil;
@@ -367,7 +369,10 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
               _buildHeaderIconButton(
                 icon: Icons.chat_bubble_outline,
                 badgeCount: 0,
-                onTap: () {},
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ChatScreen()),
+                ),
               ),
               const SizedBox(width: 8),
               _buildHeaderIconButton(
@@ -461,9 +466,12 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
           ),
           const SizedBox(height: 10),
           GestureDetector(
-            onTap: () {
-              // TODO: navigasi ke halaman riwayat pembayaran
-            },
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const FisioterapisPaymentHistoryScreen(),
+              ),
+            ),
             child: _buildActionCard(
               icon: Icons.account_balance_wallet_outlined,
               iconBg: const Color(0xFFF0FDF4),
