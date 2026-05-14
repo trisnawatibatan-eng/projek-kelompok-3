@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
 import 'notifikasi_screen.dart';
+import 'fisioterapi_chat_screen.dart';
 
 class FisioterapisHomeTab extends StatefulWidget {
   final Map<String, dynamic>? profil;
@@ -180,17 +181,29 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
               _buildHeaderIconButton(
                 icon: Icons.chat_bubble_outline,
                 badgeCount: 2,
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ChatScreen(),
+                    ),
+                  );
+                },
               ),
+
               const SizedBox(width: 8),
+
               _buildHeaderIconButton(
                 icon: Icons.notifications_outlined,
                 badgeCount: 3,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const NotifikasiScreen()),
-                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const NotifikasiScreen(),
+                    ),
+                  );
+                },
               ),
             ],
           ),
