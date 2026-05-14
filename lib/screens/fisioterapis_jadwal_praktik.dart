@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'fisioterapis_booking_screen.dart';
 import 'fisioterapis_jadwal_kalender_screen.dart';
 import 'fisioterapis_atur_jadwal_screen.dart';
+import 'fisioterapis_pasien_detail.dart'; // ← TAMBAH IMPORT INI
 import '../widgets/fisioterapis_bottom_navbar.dart';
 import 'fisioterapis_dashboard_screen.dart';
 import 'fisioterapis_pasien_tab.dart';
@@ -19,6 +20,7 @@ class JadwalItem {
   final String jamMulai;
   final String jamSelesai;
   final String namaPasien;
+  final String patientId; // ← TAMBAH INI
   final String jenisTerapi;
   final String alamat;
   final String telepon;
@@ -29,6 +31,7 @@ class JadwalItem {
     required this.jamMulai,
     required this.jamSelesai,
     required this.namaPasien,
+    required this.patientId, // ← TAMBAH INI
     required this.jenisTerapi,
     required this.alamat,
     required this.telepon,
@@ -44,9 +47,9 @@ class JadwalItem {
       bookingId: map['id'] as String,
       jamMulai: rawTime,
       jamSelesai: '$endHour:${parts[1]}',
-      // ✅ Ambil nama dari relasi patients — butuh RLS policy yang benar
       namaPasien:
           (map['patients'] as Map?)?['full_name'] as String? ?? 'Pasien',
+      patientId: map['patient_id'] as String, // ← TAMBAH INI
       jenisTerapi: map['service_type'] as String,
       alamat: map['address'] as String? ?? '-',
       telepon: (map['patients'] as Map?)?['phone'] as String? ?? '-',
@@ -60,10 +63,7 @@ class JadwalItem {
 // =============================================================================
 
 class JadwalPraktikScreen extends StatefulWidget {
-  /// Jika diisi, screen akan langsung menampilkan jadwal pada tanggal ini.
-  /// Digunakan ketika fisioterapis baru saja menerima booking.
   final DateTime? initialDate;
-
   const JadwalPraktikScreen({super.key, this.initialDate});
 
   @override
@@ -82,7 +82,6 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
   @override
   void initState() {
     super.initState();
-    // ✅ Gunakan initialDate jika ada, fallback ke hari ini
     selectedDate = widget.initialDate ?? DateTime.now();
     _load();
   }
@@ -144,8 +143,8 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
     final now = DateTime.now();
     final firstDay =
         DateFormat('yyyy-MM-dd').format(DateTime(now.year, now.month, 1));
-    final lastDay = DateFormat('yyyy-MM-dd')
-        .format(DateTime(now.year, now.month + 1, 0));
+    final lastDay =
+        DateFormat('yyyy-MM-dd').format(DateTime(now.year, now.month + 1, 0));
     final response = await _supabase
         .from('bookings')
         .select('id')
@@ -238,8 +237,8 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.only(right: 16),
-                child:
-                    Text('Atur Jadwal', style: GoogleFonts.inter(fontSize: 12)),
+                child: Text('Atur Jadwal',
+                    style: GoogleFonts.inter(fontSize: 12)),
               ),
             ),
           ),
@@ -251,7 +250,7 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
       ),
       body: Column(
         children: [
-          // ── Header ───────────────────────────────────────────────────────
+          // ── Header ──────────────────────────────────────────────────────
           Container(
             color: const Color(0xFF00BBA7),
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
@@ -313,7 +312,7 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
             ]),
           ),
 
-          // ── Navigasi tanggal ──────────────────────────────────────────────
+          // ── Navigasi tanggal ─────────────────────────────────────────────
           GestureDetector(
             onTap: () async {
               final picked = await Navigator.push<DateTime>(
@@ -350,15 +349,15 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
                   ]),
                   IconButton(
                     icon: const Icon(Icons.chevron_right, color: Colors.grey),
-                    onPressed: () =>
-                        _changeDate(selectedDate.add(const Duration(days: 1))),
+                    onPressed: () => _changeDate(
+                        selectedDate.add(const Duration(days: 1))),
                   ),
                 ],
               ),
             ),
           ),
 
-          // ── Label tanggal ─────────────────────────────────────────────────
+          // ── Label tanggal ────────────────────────────────────────────────
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -369,7 +368,6 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
                   style: GoogleFonts.inter(
                       fontWeight: FontWeight.bold, fontSize: 14),
                 ),
-                // ✅ Badge "Hari Ini" jika tanggal yang ditampilkan adalah hari ini
                 if (_isSameDay(selectedDate, DateTime.now())) ...[
                   const SizedBox(width: 8),
                   Container(
@@ -391,15 +389,15 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
             ),
           ),
 
-          // ── List jadwal ───────────────────────────────────────────────────
+          // ── List jadwal ──────────────────────────────────────────────────
           Expanded(
             child: FutureBuilder<List<JadwalItem>>(
               future: _jadwalFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                    child:
-                        CircularProgressIndicator(color: Color(0xFF00BBA7)),
+                    child: CircularProgressIndicator(
+                        color: Color(0xFF00BBA7)),
                   );
                 }
                 if (snapshot.hasError) {
@@ -412,14 +410,16 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
                 final list = snapshot.data ?? [];
                 if (list.isEmpty) {
                   return Center(
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.event_busy,
-                          size: 56, color: Colors.grey.shade300),
-                      const SizedBox(height: 12),
-                      Text('Tidak ada jadwal pada tanggal ini',
-                          style: GoogleFonts.inter(
-                              color: Colors.grey, fontSize: 13)),
-                    ]),
+                    child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.event_busy,
+                              size: 56, color: Colors.grey.shade300),
+                          const SizedBox(height: 12),
+                          Text('Tidak ada jadwal pada tanggal ini',
+                              style: GoogleFonts.inter(
+                                  color: Colors.grey, fontSize: 13)),
+                        ]),
                   );
                 }
 
@@ -433,6 +433,7 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
                       final item = list[index];
                       return _JadwalCard(
                         item: item,
+                        // Tombol Mulai / Selesaikan
                         onPressed: item.status == 'completed'
                             ? null
                             : () async {
@@ -441,19 +442,55 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
                                   setState(() => item.status = 'on_going');
                                 }
                                 if (!mounted) return;
+                                // ─────────────────────────────────────────
+                                // Buka form selesaikan, teruskan patientId
+                                // dan bookingId agar bisa langsung ke SOAP
+                                // ─────────────────────────────────────────
                                 final completed =
                                     await Navigator.push<bool?>(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) =>
-                                        _SelesaikanFormScreen(item: item),
+                                    builder: (_) => _SelesaikanFormScreen(
+                                      item: item,
+                                    ),
                                   ),
                                 );
                                 if (completed == true) {
                                   await _selesaikanSesi(item.bookingId);
                                   _load();
+                                  // ─────────────────────────────────────
+                                  // Setelah selesai → langsung ke SOAP
+                                  // ─────────────────────────────────────
+                                  if (!mounted) return;
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          FisioterapisPasienDetail(
+                                        patientId: item.patientId,
+                                        patientName: item.namaPasien,
+                                        fromBookingId:
+                                            item.bookingId, // ← kunci utama
+                                      ),
+                                    ),
+                                  );
+                                  // Refresh ulang setelah kembali dari SOAP
+                                  _load();
                                 }
                               },
+                        // Tombol "Catat SOAP" khusus untuk yang sudah completed
+                        onCatatSoap: item.status == 'completed'
+                            ? () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => FisioterapisPasienDetail(
+                                      patientId: item.patientId,
+                                      patientName: item.namaPasien,
+                                      fromBookingId: item.bookingId,
+                                    ),
+                                  ),
+                                )
+                            : null,
                       );
                     },
                   ),
@@ -490,8 +527,8 @@ class _StatCard extends StatelessWidget {
           color: Colors.white, borderRadius: BorderRadius.circular(12)),
       child: Row(children: [
         Text(value,
-            style:
-                GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.bold)),
+            style: GoogleFonts.inter(
+                fontSize: 24, fontWeight: FontWeight.bold)),
         const SizedBox(width: 8),
         Expanded(
           child: Text(label,
@@ -511,8 +548,13 @@ class _StatCard extends StatelessWidget {
 class _JadwalCard extends StatelessWidget {
   final JadwalItem item;
   final VoidCallback? onPressed;
+  final VoidCallback? onCatatSoap; // ← TAMBAH INI
 
-  const _JadwalCard({required this.item, this.onPressed});
+  const _JadwalCard({
+    required this.item,
+    this.onPressed,
+    this.onCatatSoap, // ← TAMBAH INI
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -537,6 +579,7 @@ class _JadwalCard extends StatelessWidget {
         ],
       ),
       child: Column(children: [
+        // Banner status
         if (isBerlangsung || isSelesai)
           Container(
             width: double.infinity,
@@ -560,6 +603,7 @@ class _JadwalCard extends StatelessWidget {
               ),
             ),
           ),
+
         Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -588,42 +632,64 @@ class _JadwalCard extends StatelessWidget {
               _iconInfo(Icons.location_on_outlined, item.alamat),
               _iconInfo(Icons.phone_outlined, item.telepon),
               const SizedBox(height: 16),
-              Row(children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.chat_bubble_outline,
-                      size: 18, color: Colors.grey),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: onPressed,
+
+              // ── Tombol aksi ──────────────────────────────────────────
+              if (isSelesai) ...[
+                // ── Booking selesai: tampilkan tombol "Catat SOAP" ──
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: onCatatSoap,
+                    icon: const Icon(Icons.edit_note, size: 16),
+                    label: Text(
+                      'Catat SOAP',
+                      style: GoogleFonts.inter(
+                          fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isSelesai
-                          ? Colors.grey.shade200
-                          : const Color(0xFF00BBA7),
-                      foregroundColor:
-                          isSelesai ? Colors.black54 : Colors.white,
+                      backgroundColor: const Color(0xFF00BBA7),
+                      foregroundColor: Colors.white,
                       elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: Text(
-                      item.status == 'confirmed'
-                          ? 'Mulai'
-                          : isBerlangsung
-                              ? 'Selesaikan'
-                              : 'Selesai',
-                      style:
-                          GoogleFonts.inter(fontWeight: FontWeight.bold),
-                    ),
                   ),
                 ),
-              ]),
+              ] else ...[
+                // ── Belum selesai: tombol Chat + Mulai/Selesaikan ──
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.chat_bubble_outline,
+                        size: 18, color: Colors.grey),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: onPressed,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00BBA7),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: Text(
+                        item.status == 'confirmed'
+                            ? 'Mulai'
+                            : 'Selesaikan',
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ]),
+              ],
             ],
           ),
         ),
@@ -659,8 +725,8 @@ class _SelesaikanFormScreen extends StatelessWidget {
         backgroundColor: const Color(0xFF00BBA7),
         foregroundColor: Colors.white,
         title: Text('Form Selesaikan',
-            style:
-                GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16)),
+            style: GoogleFonts.inter(
+                fontWeight: FontWeight.bold, fontSize: 16)),
         elevation: 0,
       ),
       body: Padding(
@@ -668,6 +734,7 @@ class _SelesaikanFormScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Info booking
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -736,6 +803,7 @@ class _SelesaikanFormScreen extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
+                    // ── Tombol Selesaikan ──
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -747,10 +815,12 @@ class _SelesaikanFormScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12)),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 16),
                           child: Text('Selesaikan',
                               style: GoogleFonts.inter(
-                                  fontWeight: FontWeight.bold, fontSize: 14)),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14)),
                         ),
                       ),
                     ),
@@ -791,6 +861,7 @@ class _SelesaikanFormScreen extends StatelessWidget {
         ],
       ),
     );
+    // Kembalikan true ke JadwalPraktikScreen → lanjut ke SOAP otomatis
     if (confirmed == true && context.mounted) {
       Navigator.pop(context, true);
     }

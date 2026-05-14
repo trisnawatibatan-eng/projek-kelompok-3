@@ -15,12 +15,17 @@ class FisioterapisPasienDetail extends StatefulWidget {
   final String? inisial;
   final Color? avatarColor;
 
+  /// Jika dibuka dari halaman booking yang baru selesai,
+  /// isi [fromBookingId] agar form SOAP langsung terhubung ke booking itu.
+  final String? fromBookingId;
+
   const FisioterapisPasienDetail({
     super.key,
     required this.patientId,
     required this.patientName,
     this.inisial,
     this.avatarColor,
+    this.fromBookingId, // ← parameter baru
   });
 
   @override
@@ -32,12 +37,12 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
     with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
   late TabController _tabController;
-
   late Future<Map<String, dynamic>> _futureDetail;
 
   @override
   void initState() {
     super.initState();
+    // Jika dibuka dari booking → langsung buka tab Catatan Medis (index 0)
     _tabController = TabController(length: 2, vsync: this);
     _futureDetail = _fetchDetail();
   }
@@ -51,7 +56,7 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
   void _reload() => setState(() => _futureDetail = _fetchDetail());
 
   // ---------------------------------------------------------------------------
-  // Fetch: profil pasien + semua catatan medis (join booking untuk info sesi)
+  // Fetch: profil pasien + semua catatan medis + hitung nomor sesi
   // ---------------------------------------------------------------------------
   Future<Map<String, dynamic>> _fetchDetail() async {
     // Profil pasien
@@ -61,35 +66,21 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
         .eq('id', widget.patientId)
         .single();
 
-    // Fisioterapis id berdasarkan user login
     final userId = _supabase.auth.currentUser!.id;
-
     final fisioRes = await _supabase
         .from('fisioterapis')
         .select('id')
         .eq('user_id', userId)
         .single();
-
     final fisioterapisId = fisioRes['id'] as String;
 
-    // Ambil booking terbaru pasien untuk mengisi booking_id pada medical_records
-    final latestBookingRes = await _supabase
-        .from('bookings')
-        .select('id')
-        .eq('patient_id', widget.patientId)
-        .eq('fisioterapis_id', fisioterapisId)
-        .order('scheduled_date', ascending: false)
-        .limit(1)
-        .maybeSingle();
-
-    final latestBookingId = latestBookingRes?['id'] as String?;
-
-    // Catatan medis pasien ini
+    // Semua catatan medis pasien ini (urut terbaru dulu)
     final recordsRes = await _supabase
         .from('medical_records')
         .select('''
           *,
           bookings (
+            id,
             scheduled_date,
             scheduled_time,
             service_type
@@ -99,11 +90,70 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
         .eq('fisioterapis_id', fisioterapisId)
         .order('created_at', ascending: false);
 
+    final records = recordsRes as List;
+
+    // ── Tentukan booking_id yang akan dipakai untuk form baru ────────────────
+    // Prioritas: fromBookingId → booking completed terbaru yang BELUM ada record
+    String? targetBookingId = widget.fromBookingId;
+
+    if (targetBookingId == null) {
+      // Cari booking completed terbaru yang belum punya medical_record
+      final existingBookingIds =
+          records.map((r) => (r['bookings'] as Map?)?.containsKey('id') == true
+              ? r['bookings']['id'] as String?
+              : null).whereType<String>().toSet();
+
+      final completedBookings = await _supabase
+          .from('bookings')
+          .select('id, service_type, scheduled_date')
+          .eq('patient_id', widget.patientId)
+          .eq('fisioterapis_id', fisioterapisId)
+          .eq('status', 'completed')
+          .order('scheduled_date', ascending: false);
+
+      for (final b in completedBookings as List) {
+        final bid = b['id'] as String;
+        if (!existingBookingIds.contains(bid)) {
+          targetBookingId = bid;
+          break;
+        }
+      }
+    }
+
+    // ── Hitung nomor sesi per layanan ────────────────────────────────────────
+    // Ambil semua booking completed pasien ini (untuk hitung sesi)
+    final allCompleted = await _supabase
+        .from('bookings')
+        .select('id, service_type, scheduled_date')
+        .eq('patient_id', widget.patientId)
+        .eq('fisioterapis_id', fisioterapisId)
+        .eq('status', 'completed')
+        .order('scheduled_date', ascending: true); // ascending untuk nomor urut
+
+    // Map bookingId → { sessionNumber, serviceType }
+    final Map<String, Map<String, dynamic>> sessionMap = {};
+    final Map<String, int> serviceCounter = {};
+    for (final b in allCompleted as List) {
+      final bid = b['id'] as String;
+      final svc = b['service_type'] as String;
+      serviceCounter[svc] = (serviceCounter[svc] ?? 0) + 1;
+      sessionMap[bid] = {
+        'session_number': serviceCounter[svc],
+        'service_type': svc,
+      };
+    }
+
+    // Catatan medis terbaru
+    final latestRecord =
+        records.isNotEmpty ? records.first as Map<String, dynamic> : null;
+
     return {
       'patient': patientRes as Map<String, dynamic>,
-      'records': recordsRes as List,
+      'records': records,
       'fisioterapis_id': fisioterapisId,
-      'latest_booking_id': latestBookingId,
+      'target_booking_id': targetBookingId,
+      'session_map': sessionMap,   // ← peta nomor sesi per booking
+      'latest_record': latestRecord,
     };
   }
 
@@ -172,13 +222,14 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
             );
           }
 
-          final patient =
-              snapshot.data!['patient'] as Map<String, dynamic>;
-          final records = snapshot.data!['records'] as List;
-          final fisioterapisId =
-              snapshot.data!['fisioterapis_id'] as String;
-          final latestBookingId =
-              snapshot.data!['latest_booking_id'] as String?;
+          final data = snapshot.data!;
+          final patient = data['patient'] as Map<String, dynamic>;
+          final records = data['records'] as List;
+          final fisioterapisId = data['fisioterapis_id'] as String;
+          final targetBookingId = data['target_booking_id'] as String?;
+          final sessionMap =
+              data['session_map'] as Map<String, Map<String, dynamic>>;
+          final latestRecord = data['latest_record'] as Map<String, dynamic>?;
 
           final usia = _hitungUsia(patient['date_of_birth'] as String?);
           final gender = (patient['gender'] as String?) == 'male'
@@ -191,9 +242,14 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
             if (gender != null) gender,
           ].join(' • ');
 
-          // Catatan medis terbaru (untuk tab Catatan Medis)
-          final latestRecord =
-              records.isNotEmpty ? records.first as Map<String, dynamic> : null;
+          // Hitung nomor sesi berikutnya untuk targetBookingId
+          final nextSessionInfo = targetBookingId != null
+              ? sessionMap[targetBookingId]
+              : null;
+          final nextSessionNumber =
+              nextSessionInfo?['session_number'] as int? ?? 1;
+          final nextServiceType =
+              nextSessionInfo?['service_type'] as String? ?? '';
 
           return Scaffold(
             backgroundColor: const Color(0xFFF8F9FA),
@@ -299,6 +355,39 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
                   ),
                 ),
 
+                // ── Banner "Sesi Baru" jika dibuka dari booking ──
+                if (targetBookingId != null)
+                  SliverToBoxAdapter(
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F8F6),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFF00BBA7)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline,
+                              color: Color(0xFF00BBA7), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              nextServiceType.isNotEmpty
+                                  ? 'Sesi $nextSessionNumber layanan "$nextServiceType" siap dicatat'
+                                  : 'Sesi $nextSessionNumber siap dicatat',
+                              style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: const Color(0xFF00897B),
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
                 // ── Tab bar ──
                 SliverPersistentHeader(
                   pinned: true,
@@ -330,12 +419,20 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
                   _CatatanMedisTab(
                     patientId: widget.patientId,
                     fisioterapisId: fisioterapisId,
-                    latestBookingId: latestBookingId,
+                    targetBookingId: targetBookingId,
                     latestRecord: latestRecord,
+                    // Jika dari booking baru → langsung buka form
+                    autoOpenForm: widget.fromBookingId != null &&
+                        targetBookingId != null,
+                    sessionNumber: nextSessionNumber,
+                    serviceType: nextServiceType,
                     onSaved: _reload,
                   ),
                   // Tab 1: Riwayat
-                  _RiwayatTab(records: records),
+                  _RiwayatTab(
+                    records: records,
+                    sessionMap: sessionMap,
+                  ),
                 ],
               ),
             ),
@@ -366,15 +463,21 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
 class _CatatanMedisTab extends StatefulWidget {
   final String patientId;
   final String fisioterapisId;
-  final String? latestBookingId;
+  final String? targetBookingId;
   final Map<String, dynamic>? latestRecord;
+  final bool autoOpenForm;
+  final int sessionNumber;
+  final String serviceType;
   final VoidCallback onSaved;
 
   const _CatatanMedisTab({
     required this.patientId,
     required this.fisioterapisId,
-    required this.latestBookingId,
+    required this.targetBookingId,
     required this.latestRecord,
+    required this.autoOpenForm,
+    required this.sessionNumber,
+    required this.serviceType,
     required this.onSaved,
   });
 
@@ -383,17 +486,26 @@ class _CatatanMedisTab extends StatefulWidget {
 }
 
 class _CatatanMedisTabState extends State<_CatatanMedisTab> {
-  bool _isEditing = false;
+  late bool _isEditing;
+
+  @override
+  void initState() {
+    super.initState();
+    // Jika dibuka dari booking yang baru selesai → langsung tampilkan form
+    _isEditing = widget.autoOpenForm;
+  }
 
   @override
   Widget build(BuildContext context) {
     final record = widget.latestRecord;
+    final hasRecord = record != null;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Header card ──
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(14),
@@ -425,8 +537,28 @@ class _CatatanMedisTabState extends State<_CatatanMedisTab> {
                         fontSize: 14,
                       ),
                     ),
+                    // Badge sesi
+                    if (widget.sessionNumber > 0) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F8F6),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'Sesi ${widget.sessionNumber}',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: const Color(0xFF00BBA7),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
                     const Spacer(),
-                    if (record != null)
+                    if (hasRecord && !_isEditing)
                       GestureDetector(
                         onTap: () => setState(() => _isEditing = true),
                         child: Container(
@@ -460,7 +592,7 @@ class _CatatanMedisTabState extends State<_CatatanMedisTab> {
                       ),
                   ],
                 ),
-                if (record != null) ...[
+                if (hasRecord) ...[
                   const SizedBox(height: 4),
                   Row(
                     children: [
@@ -480,27 +612,72 @@ class _CatatanMedisTabState extends State<_CatatanMedisTab> {
                     ],
                   ),
                 ],
+                // Tombol "Buat Catatan Baru" jika ada booking baru tapi belum ada record
+                if (!hasRecord && !_isEditing && widget.targetBookingId != null) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => setState(() => _isEditing = true),
+                      icon: const Icon(Icons.add, size: 16),
+                      label: Text(
+                        widget.serviceType.isNotEmpty
+                            ? 'Buat Catatan SOAP — Sesi ${widget.sessionNumber} (${widget.serviceType})'
+                            : 'Buat Catatan SOAP — Sesi ${widget.sessionNumber}',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00BBA7),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
 
           const SizedBox(height: 12),
 
-          if (_isEditing || record == null)
+          if (_isEditing || (!hasRecord && widget.targetBookingId != null))
             _CatatanMedisForm(
               patientId: widget.patientId,
               fisioterapisId: widget.fisioterapisId,
-              bookingId: widget.latestBookingId,
-              existingRecord: record,
+              bookingId: widget.targetBookingId,
+              existingRecord: _isEditing && hasRecord ? record : null,
+              sessionNumber: widget.sessionNumber,
+              serviceType: widget.serviceType,
               onCancel: () => setState(() => _isEditing = false),
               onSaved: () {
                 setState(() => _isEditing = false);
-                // Delay onSaved call to avoid setState with async callback
                 Future.microtask(() => widget.onSaved());
               },
             )
+          else if (hasRecord)
+            _CatatanMedisView(record: record)
           else
-            _CatatanMedisView(record: record),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.description_outlined,
+                        size: 48, color: Colors.grey.shade300),
+                    const SizedBox(height: 12),
+                    Text('Belum ada catatan medis',
+                        style: GoogleFonts.inter(
+                            color: Colors.grey, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -508,7 +685,6 @@ class _CatatanMedisTabState extends State<_CatatanMedisTab> {
 
   String _formatDate(String? raw) {
     if (raw == null) return '-';
-
     try {
       final dt = DateTime.parse(raw).toLocal();
       return DateFormat('dd MMMM yyyy', 'id_ID').format(dt);
@@ -631,6 +807,8 @@ class _CatatanMedisForm extends StatefulWidget {
   final String fisioterapisId;
   final String? bookingId;
   final Map<String, dynamic>? existingRecord;
+  final int sessionNumber;
+  final String serviceType;
   final VoidCallback onCancel;
   final VoidCallback onSaved;
 
@@ -639,6 +817,8 @@ class _CatatanMedisForm extends StatefulWidget {
     required this.fisioterapisId,
     required this.bookingId,
     required this.existingRecord,
+    required this.sessionNumber,
+    required this.serviceType,
     required this.onCancel,
     required this.onSaved,
   });
@@ -664,9 +844,7 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
   @override
   void initState() {
     super.initState();
-
     final r = widget.existingRecord;
-
     if (r != null) {
       _subjCtrl.text = r['subjective'] as String? ?? '';
       _objCtrl.text = r['objective'] as String? ?? '';
@@ -675,7 +853,6 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
       _evalCtrl.text = r['evaluasi_terapi'] as String? ?? '';
       _rekomenCtrl.text = r['rekomendasi_latihan'] as String? ?? '';
       _skalaNyeri = r['skala_nyeri'] as int?;
-
       if (r['terapi_berikutnya'] != null) {
         try {
           _terapiBerikutnya =
@@ -688,16 +865,10 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
   @override
   void dispose() {
     for (final c in [
-      _subjCtrl,
-      _objCtrl,
-      _assessCtrl,
-      _planCtrl,
-      _evalCtrl,
-      _rekomenCtrl,
+      _subjCtrl, _objCtrl, _assessCtrl, _planCtrl, _evalCtrl, _rekomenCtrl,
     ]) {
       c.dispose();
     }
-
     super.dispose();
   }
 
@@ -710,17 +881,13 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: Color(0xFF00BBA7),
-          ),
+          colorScheme:
+              const ColorScheme.light(primary: Color(0xFF00BBA7)),
         ),
         child: child!,
       ),
     );
-
-    if (picked != null) {
-      setState(() => _terapiBerikutnya = picked);
-    }
+    if (picked != null) setState(() => _terapiBerikutnya = picked);
   }
 
   Future<void> _save() async {
@@ -730,30 +897,25 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
       );
       return;
     }
-
     if (_skalaNyeri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Skala nyeri harus dipilih')),
       );
       return;
     }
-
     if (widget.existingRecord == null && widget.bookingId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Tidak bisa menyimpan. Pasien belum memiliki booking yang terhubung.',
-          ),
+              'Tidak bisa menyimpan. Pasien belum memiliki booking yang terhubung.'),
         ),
       );
       return;
     }
 
     setState(() => _isSaving = true);
-
     try {
       final now = DateTime.now().toIso8601String();
-
       final payload = <String, dynamic>{
         'patient_id': widget.patientId,
         'fisioterapis_id': widget.fisioterapisId,
@@ -762,7 +924,8 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
             _objCtrl.text.trim().isEmpty ? null : _objCtrl.text.trim(),
         'assessment':
             _assessCtrl.text.trim().isEmpty ? null : _assessCtrl.text.trim(),
-        'plan': _planCtrl.text.trim().isEmpty ? null : _planCtrl.text.trim(),
+        'plan':
+            _planCtrl.text.trim().isEmpty ? null : _planCtrl.text.trim(),
         'evaluasi_terapi':
             _evalCtrl.text.trim().isEmpty ? null : _evalCtrl.text.trim(),
         'skala_nyeri': _skalaNyeri,
@@ -776,7 +939,6 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
       };
 
       final existing = widget.existingRecord;
-
       if (existing != null) {
         await _supabase
             .from('medical_records')
@@ -785,37 +947,65 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
       } else {
         payload['booking_id'] = widget.bookingId;
         payload['created_at'] = now;
-
         await _supabase.from('medical_records').insert(payload);
       }
 
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Catatan medis berhasil disimpan'),
           backgroundColor: Color(0xFF00BBA7),
         ),
       );
-
       widget.onSaved();
     } catch (e) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal menyimpan: $e')),
       );
     } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Header form — tampilkan sesi & layanan
     return Column(
       children: [
+        if (widget.sessionNumber > 0) ...[
+          Container(
+            width: double.infinity,
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F8F6),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF00BBA7)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.medical_services_outlined,
+                    color: Color(0xFF00BBA7), size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    widget.serviceType.isNotEmpty
+                        ? 'Sesi ${widget.sessionNumber} · ${widget.serviceType}'
+                        : 'Sesi ${widget.sessionNumber}',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: const Color(0xFF00897B),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
         _FormField(
           icon: Icons.error_outline,
           iconColor: Colors.red.shade400,
@@ -825,7 +1015,6 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
           controller: _subjCtrl,
           hint: 'Masukkan keluhan pasien',
         ),
-
         _FormField(
           icon: Icons.description_outlined,
           iconColor: Colors.blue.shade400,
@@ -834,7 +1023,6 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
           controller: _objCtrl,
           hint: 'Masukkan data pemeriksaan pasien',
         ),
-
         _FormField(
           icon: Icons.show_chart,
           iconColor: Colors.purple.shade400,
@@ -843,7 +1031,6 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
           controller: _assessCtrl,
           hint: 'Masukkan diagnosa pasien',
         ),
-
         _FormField(
           icon: Icons.description_outlined,
           iconColor: Colors.teal.shade400,
@@ -852,7 +1039,6 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
           controller: _planCtrl,
           hint: 'Masukkan perencanaan tindakan',
         ),
-
         _FormField(
           icon: Icons.trending_up,
           iconColor: Colors.green.shade400,
@@ -862,51 +1048,32 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
           hint: 'Masukkan evaluasi progress pasien',
         ),
 
-        // Skala Nyeri Dropdown
+        // Skala Nyeri
         _cardWrap(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Skala Nyeri',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
-
+              Text('Skala Nyeri',
+                  style: GoogleFonts.inter(
+                      fontWeight: FontWeight.bold, fontSize: 13)),
               const SizedBox(height: 8),
-
               DropdownButtonFormField<int>(
                 value: _skalaNyeri,
                 isExpanded: true,
                 decoration: _inputDecor('Pilih skala nyeri'),
-                hint: Text(
-                  'Pilih skala nyeri',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
-                ),
+                hint: Text('Pilih skala nyeri',
+                    style: GoogleFonts.inter(
+                        fontSize: 12, color: Colors.grey)),
                 items: List.generate(10, (index) {
                   final value = index + 1;
-
                   return DropdownMenuItem<int>(
                     value: value,
-                    child: Text(
-                      '$value/10',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: Colors.black87,
-                      ),
-                    ),
+                    child: Text('$value/10',
+                        style: GoogleFonts.inter(
+                            fontSize: 13, color: Colors.black87)),
                   );
                 }),
-                onChanged: (value) {
-                  setState(() {
-                    _skalaNyeri = value;
-                  });
-                },
+                onChanged: (value) => setState(() => _skalaNyeri = value),
               ),
             ],
           ),
@@ -917,22 +1084,15 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Rekomendasi Latihan',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
-
+              Text('Rekomendasi Latihan',
+                  style: GoogleFonts.inter(
+                      fontWeight: FontWeight.bold, fontSize: 13)),
               const SizedBox(height: 8),
-
               TextField(
                 controller: _rekomenCtrl,
                 maxLines: 3,
                 decoration: _inputDecor(
-                  'Masukkan rekomendasi latihan untuk pasien',
-                ),
+                    'Masukkan rekomendasi latihan untuk pasien'),
               ),
             ],
           ),
@@ -943,44 +1103,29 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8F8F6),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.calendar_month_outlined,
-                      size: 15,
-                      color: Color(0xFF00BBA7),
-                    ),
+              Row(children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F8F6),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-
-                  const SizedBox(width: 8),
-
-                  Text(
-                    'Terapi Berikutnya',
+                  child: const Icon(Icons.calendar_month_outlined,
+                      size: 15, color: Color(0xFF00BBA7)),
+                ),
+                const SizedBox(width: 8),
+                Text('Terapi Berikutnya',
                     style: GoogleFonts.inter(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-
+                        fontWeight: FontWeight.bold, fontSize: 13)),
+              ]),
               const SizedBox(height: 8),
-
               GestureDetector(
                 onTap: _pickDate,
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 14,
-                  ),
+                      horizontal: 12, vertical: 14),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(10),
@@ -1015,31 +1160,23 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
               backgroundColor: const Color(0xFF00BBA7),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+                  borderRadius: BorderRadius.circular(12)),
             ),
             child: _isSaving
                 ? const SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
+                        strokeWidth: 2, color: Colors.white),
                   )
-                : Text(
-                    'Simpan',
+                : Text('Simpan',
                     style: GoogleFonts.inter(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
+                        fontWeight: FontWeight.bold, fontSize: 15)),
           ),
         ),
 
         if (widget.existingRecord != null) ...[
           const SizedBox(height: 10),
-
           SizedBox(
             width: double.infinity,
             height: 50,
@@ -1049,15 +1186,11 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
                 foregroundColor: Colors.black87,
                 side: BorderSide(color: Colors.grey.shade300),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                    borderRadius: BorderRadius.circular(12)),
               ),
-              child: Text(
-                'Batal',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              child: Text('Batal',
+                  style:
+                      GoogleFonts.inter(fontWeight: FontWeight.w500)),
             ),
           ),
         ],
@@ -1077,9 +1210,7 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 6,
-          ),
+              color: Colors.black.withOpacity(0.04), blurRadius: 6)
         ],
       ),
       child: child,
@@ -1089,20 +1220,15 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
   InputDecoration _inputDecor(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.inter(
-        fontSize: 12,
-        color: Colors.grey,
-      ),
+      hintStyle: GoogleFonts.inter(fontSize: 12, color: Colors.grey),
       filled: true,
       fillColor: const Color(0xFFF1F5F9),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide.none,
       ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 12,
-      ),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
     );
   }
 }
@@ -1113,7 +1239,12 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
 
 class _RiwayatTab extends StatelessWidget {
   final List records;
-  const _RiwayatTab({required this.records});
+  final Map<String, Map<String, dynamic>> sessionMap;
+
+  const _RiwayatTab({
+    required this.records,
+    required this.sessionMap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1130,7 +1261,7 @@ class _RiwayatTab extends StatelessWidget {
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: records.length + 1, // +1 for header
+      itemCount: records.length + 1,
       itemBuilder: (context, index) {
         if (index == 0) {
           return Padding(
@@ -1141,14 +1272,25 @@ class _RiwayatTab extends StatelessWidget {
           );
         }
 
-        final record =
-            records[index - 1] as Map<String, dynamic>;
-        final pertemuan = records.length - (index - 1);
-        final booking =
-            record['bookings'] as Map<String, dynamic>?;
+        final record = records[index - 1] as Map<String, dynamic>;
+        final booking = record['bookings'] as Map<String, dynamic>?;
+        final bookingId = booking?['id'] as String?;
+
+        // Ambil nomor sesi dari sessionMap
+        final sessionInfo =
+            bookingId != null ? sessionMap[bookingId] : null;
+        final sessionNumber = sessionInfo?['session_number'] as int?;
+        final serviceType =
+            sessionInfo?['service_type'] as String? ??
+                booking?['service_type'] as String? ?? '';
+
+        // Nomor urut tampilan (terbaru = paling atas)
+        final displayNumber = records.length - (index - 1);
 
         return _RiwayatCard(
-          pertemuanKe: pertemuan,
+          pertemuanKe: displayNumber,
+          sessionNumber: sessionNumber,
+          serviceType: serviceType,
           record: record,
           booking: booking,
         );
@@ -1163,11 +1305,15 @@ class _RiwayatTab extends StatelessWidget {
 
 class _RiwayatCard extends StatelessWidget {
   final int pertemuanKe;
+  final int? sessionNumber;   // nomor sesi per layanan
+  final String serviceType;
   final Map<String, dynamic> record;
   final Map<String, dynamic>? booking;
 
   const _RiwayatCard({
     required this.pertemuanKe,
+    required this.sessionNumber,
+    required this.serviceType,
     required this.record,
     required this.booking,
   });
@@ -1175,7 +1321,8 @@ class _RiwayatCard extends StatelessWidget {
   String _formatTanggal(String? raw) {
     if (raw == null) return '-';
     try {
-      return DateFormat('dd MMMM yyyy', 'id_ID').format(DateTime.parse(raw));
+      return DateFormat('dd MMMM yyyy', 'id_ID')
+          .format(DateTime.parse(raw));
     } catch (_) {
       return raw;
     }
@@ -1242,10 +1389,34 @@ class _RiwayatCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Pertemuan $pertemuanKe',
-                          style: GoogleFonts.inter(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13)),
+                      Row(children: [
+                        Text('Pertemuan $pertemuanKe',
+                            style: GoogleFonts.inter(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13)),
+                        // Badge sesi per layanan
+                        if (sessionNumber != null &&
+                            serviceType.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color:
+                                  const Color(0xFF00BBA7).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              'Sesi $sessionNumber · $serviceType',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                color: const Color(0xFF00BBA7),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ]),
                       if (scheduledDate != null)
                         Row(children: [
                           const Icon(Icons.calendar_today_outlined,
@@ -1267,23 +1438,6 @@ class _RiwayatCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    // TODO: Export PDF
-                  },
-                  icon: const Icon(Icons.download_outlined, size: 14),
-                  label: Text('Edit',
-                      style: GoogleFonts.inter(fontSize: 12)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF00BBA7),
-                    side:
-                        const BorderSide(color: Color(0xFF00BBA7)),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
               ],
             ),
           ),
@@ -1295,7 +1449,6 @@ class _RiwayatCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Keluhan
                 if (record['subjective'] != null) ...[
                   Text('Keluhan:',
                       style: GoogleFonts.inter(
@@ -1307,8 +1460,6 @@ class _RiwayatCard extends StatelessWidget {
                       style: GoogleFonts.inter(fontSize: 12)),
                   const SizedBox(height: 10),
                 ],
-
-                // Data Pemeriksaan
                 if (record['objective'] != null) ...[
                   Text('Data Pemeriksaan',
                       style: GoogleFonts.inter(
@@ -1320,10 +1471,7 @@ class _RiwayatCard extends StatelessWidget {
                       style: GoogleFonts.inter(fontSize: 12)),
                   const SizedBox(height: 10),
                 ],
-
-                // Skala Nyeri + Diagnosa (side by side)
-                if (skala != null ||
-                    record['assessment'] != null)
+                if (skala != null || record['assessment'] != null)
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1360,8 +1508,7 @@ class _RiwayatCard extends StatelessWidget {
                                       fontWeight: FontWeight.w600,
                                       color: Colors.grey.shade700)),
                               const SizedBox(height: 2),
-                              Text(
-                                  record['assessment'] as String,
+                              Text(record['assessment'] as String,
                                   style:
                                       GoogleFonts.inter(fontSize: 12)),
                             ],
@@ -1369,12 +1516,9 @@ class _RiwayatCard extends StatelessWidget {
                         ),
                     ],
                   ),
-
                 if ((skala != null || record['assessment'] != null) &&
                     record['plan'] != null)
                   const SizedBox(height: 10),
-
-                // Perencanaan Tindakan
                 if (record['plan'] != null) ...[
                   Text('Perencanaan Tindakan',
                       style: GoogleFonts.inter(
@@ -1385,8 +1529,6 @@ class _RiwayatCard extends StatelessWidget {
                   Text(record['plan'] as String,
                       style: GoogleFonts.inter(fontSize: 12)),
                 ],
-
-                // Evaluasi Terapi (highlight box)
                 if (record['evaluasi_terapi'] != null) ...[
                   const SizedBox(height: 10),
                   Container(
@@ -1395,8 +1537,8 @@ class _RiwayatCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: const Color(0xFFE8F8F6),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: const Color(0xFFB2EDE7)),
+                      border:
+                          Border.all(color: const Color(0xFFB2EDE7)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1407,8 +1549,7 @@ class _RiwayatCard extends StatelessWidget {
                                 fontWeight: FontWeight.w600,
                                 color: const Color(0xFF00BBA7))),
                         const SizedBox(height: 4),
-                        Text(
-                            record['evaluasi_terapi'] as String,
+                        Text(record['evaluasi_terapi'] as String,
                             style: GoogleFonts.inter(
                                 fontSize: 12,
                                 color: const Color(0xFF00BBA7))),
@@ -1505,7 +1646,8 @@ class _SoapCard extends StatelessWidget {
             Expanded(
               child: Text(title,
                   style: GoogleFonts.inter(
-                      fontWeight: FontWeight.bold, fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
                       color: highlight
                           ? const Color(0xFF00BBA7)
                           : Colors.black87)),
@@ -1515,9 +1657,8 @@ class _SoapCard extends StatelessWidget {
           Text(content,
               style: GoogleFonts.inter(
                   fontSize: 13,
-                  color: highlight
-                      ? const Color(0xFF00BBA7)
-                      : Colors.black87)),
+                  color:
+                      highlight ? const Color(0xFF00BBA7) : Colors.black87)),
         ],
       ),
     );
@@ -1609,8 +1750,7 @@ class _FormField extends StatelessWidget {
             if (required)
               Text(' *',
                   style: GoogleFonts.inter(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold)),
+                      color: Colors.red, fontWeight: FontWeight.bold)),
           ]),
           const SizedBox(height: 8),
           TextField(
@@ -1647,9 +1787,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(
           BuildContext context, double shrinkOffset, bool overlapsContent) =>
-      Container(
-          color: Colors.white,
-          child: tabBar);
+      Container(color: Colors.white, child: tabBar);
 
   @override
   double get maxExtent => tabBar.preferredSize.height;
