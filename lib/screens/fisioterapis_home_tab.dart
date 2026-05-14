@@ -215,7 +215,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
   Future<void> _navigateToNotifikasiScreen(BuildContext context) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const NotifikasiScreen()),
+      MaterialPageRoute(builder: (_) => const NotifikasiPasienScreen()),
     );
     _loadUnreadNotifCount();
   }

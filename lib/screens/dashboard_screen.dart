@@ -204,7 +204,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (_) => const NotifikasiScreen()),
+                      builder: (_) => const NotifikasiPasienScreen()),
                 ),
                 child: Container(
                   padding: const EdgeInsets.all(8),
