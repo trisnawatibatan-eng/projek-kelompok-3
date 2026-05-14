@@ -314,10 +314,17 @@ class _JadwalPraktikScreenState extends State<JadwalPraktikScreen> {
 
           // ── Navigasi tanggal ─────────────────────────────────────────────
           GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const JadwalKalenderScreen()),
-            ),
+            onTap: () async {
+              final picked = await Navigator.push<DateTime>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => JadwalKalenderScreen(initialDate: selectedDate),
+                ),
+              );
+              if (picked != null) {
+                _changeDate(picked);
+              }
+            },
             child: Container(
               color: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 12),

@@ -5,7 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 class JadwalKalenderScreen extends StatefulWidget {
-  const JadwalKalenderScreen({super.key});
+  final DateTime? initialDate;
+  const JadwalKalenderScreen({super.key, this.initialDate});
 
   @override
   State<JadwalKalenderScreen> createState() => _JadwalKalenderScreenState();
@@ -14,8 +15,8 @@ class JadwalKalenderScreen extends StatefulWidget {
 class _JadwalKalenderScreenState extends State<JadwalKalenderScreen> {
   final _supabase = Supabase.instance.client;
 
-  DateTime focusedDay = DateTime.now();
-  DateTime selectedDay = DateTime.now();
+  late DateTime focusedDay;
+  late DateTime selectedDay;
 
   /// Tanggal yang punya booking (dari Supabase)
   Set<DateTime> _bookedDays = {};
@@ -24,6 +25,9 @@ class _JadwalKalenderScreenState extends State<JadwalKalenderScreen> {
   @override
   void initState() {
     super.initState();
+    final init = widget.initialDate ?? DateTime.now();
+    focusedDay = init;
+    selectedDay = init;
     _fetchBookedDays(focusedDay);
   }
 
@@ -130,6 +134,8 @@ class _JadwalKalenderScreenState extends State<JadwalKalenderScreen> {
                       selectedDay = selected;
                       focusedDay = focused;
                     });
+                    // Langsung kembali ke JadwalPraktikScreen dengan tanggal yang dipilih
+                    Navigator.pop(context, selected);
                   },
                   // Saat bulan berganti → fetch ulang data booking bulan baru
                   onPageChanged: (focused) {
@@ -197,8 +203,8 @@ class _JadwalKalenderScreenState extends State<JadwalKalenderScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _legendItem(const Color(0xFF00BBA7), 'Hari Ini'),
-                      _legendItem(const Color(0xFFB8EBD0), 'Ada Jadwal'),
+                      _legendItem(Colors.grey.shade400, 'Hari Ini'),
+                      _legendItem(const Color(0xFF43A047), 'Ada Booking'),
                       _legendItem(Colors.transparent, 'Kosong',
                           border: true),
                     ],
@@ -231,19 +237,35 @@ class _JadwalKalenderScreenState extends State<JadwalKalenderScreen> {
     BoxDecoration decoration;
     Color textColor;
 
-    if (isToday) {
+    if (isToday && isSelected) {
+      // Hari ini + dipilih: abu gelap dengan border
+      decoration = BoxDecoration(
+          color: Colors.grey.shade600,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.grey.shade800, width: 2));
+      textColor = Colors.white;
+    } else if (isToday) {
+      // Hari ini: abu-abu
+      decoration = BoxDecoration(
+          color: Colors.grey.shade400, shape: BoxShape.circle);
+      textColor = Colors.white;
+    } else if (isSelected && hasBooking) {
+      // Dipilih + ada booking: hijau gelap
       decoration = const BoxDecoration(
-          color: Color(0xFF00BBA7), shape: BoxShape.circle);
+          color: Color(0xFF00897B), shape: BoxShape.circle);
       textColor = Colors.white;
     } else if (isSelected) {
+      // Dipilih biasa: teal muda
       decoration = BoxDecoration(
-          color: const Color(0xFF00BBA7).withOpacity(0.15),
-          shape: BoxShape.circle);
-      textColor = Colors.black87;
+          color: const Color(0xFF00BBA7).withOpacity(0.20),
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFF00BBA7), width: 1.5));
+      textColor = const Color(0xFF00BBA7);
     } else if (hasBooking) {
+      // Ada booking: hijau
       decoration = const BoxDecoration(
-          color: Color(0xFFB8EBD0), shape: BoxShape.circle);
-      textColor = Colors.black87;
+          color: Color(0xFF43A047), shape: BoxShape.circle);
+      textColor = Colors.white;
     } else {
       decoration = const BoxDecoration();
       textColor = isOutside ? Colors.grey.shade400 : Colors.black87;
