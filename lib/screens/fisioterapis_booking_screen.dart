@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/booking_model.dart';
+import 'fisioterapis_jadwal_praktik.dart'; // ← navigate setelah terima
 
 // =============================================================================
 // SCREEN
@@ -21,8 +22,8 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
   final _supabase = Supabase.instance.client;
   late Future<List<BookingModel>> _future;
 
-  // Simpan fisioterapis_id & jadwal agar tidak re-fetch tiap aksi
   String? _fisioterapisId;
+  String? _fisioterapisUserId;
   List<Map<String, dynamic>> _jadwal = [];
 
   @override
@@ -32,9 +33,7 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
   }
 
   void _load() {
-    setState(() {
-      _future = _fetchAll();
-    });
+    setState(() => _future = _fetchAll());
   }
 
   // ---------------------------------------------------------------------------
@@ -47,17 +46,18 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
     if (userId == null) throw Exception('User belum login');
     final res = await _supabase
         .from('fisioterapis')
-        .select('id')
+        .select('id, user_id')
         .eq('user_id', userId)
         .single();
     _fisioterapisId = res['id'] as String;
+    _fisioterapisUserId = res['user_id'] as String;
     return _fisioterapisId!;
   }
 
   Future<List<BookingModel>> _fetchAll() async {
     final id = await _getFisioterapisId();
 
-    // Load jadwal fisioterapis (untuk tanggal alternatif)
+    // Load jadwal fisioterapis (untuk tanggal alternatif penolakan)
     final jadwalRes = await _supabase
         .from('jadwal_fisioterapis')
         .select()
@@ -65,7 +65,7 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
         .eq('is_available', true);
     _jadwal = List<Map<String, dynamic>>.from(jadwalRes as List);
 
-    // Load bookings pending
+    // ✅ Join ke patients(full_name, phone) — butuh RLS policy yang benar
     final res = await _supabase
         .from('bookings')
         .select('*, patients(full_name, phone)')
@@ -74,40 +74,160 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
         .order('scheduled_date', ascending: true)
         .order('scheduled_time', ascending: true);
 
+    // Debug — hapus setelah nama pasien sudah muncul dengan benar
+    debugPrint('[BookingScreen] raw: $res');
+
     return (res as List)
         .map((e) => BookingModel.fromMap(e as Map<String, dynamic>))
         .toList();
   }
 
-  Future<void> _confirmBooking(String bookingId) async {
+  // ---------------------------------------------------------------------------
+  // ✅ Terima: update DB → confirmed + notifikasi ke pasien
+  // ---------------------------------------------------------------------------
+
+  Future<void> _confirmBooking(BookingModel booking) async {
+    final now = DateTime.now().toIso8601String();
+
+    // 1. Update status di tabel bookings → confirmed
     await _supabase
         .from('bookings')
-        .update({'status': 'confirmed', 'updated_at': DateTime.now().toIso8601String()})
-        .eq('id', bookingId);
+        .update({'status': 'confirmed', 'updated_at': now})
+        .eq('id', booking.id);
+
+    // 2. Notifikasi ke pasien
+    final jadwalFormatted = DateFormat('EEEE, dd MMMM yyyy', 'id_ID')
+        .format(booking.scheduledDate);
+
+    await _supabase.from('notifications').insert({
+      'user_id': booking.patientId,
+      'judul': 'Booking Dikonfirmasi ✅',
+      'pesan':
+          'Booking Anda pada $jadwalFormatted pukul ${booking.scheduledTime} '
+          'untuk layanan "${booking.serviceType}" telah dikonfirmasi. '
+          'Pastikan Anda hadir tepat waktu.',
+      'type': 'jadwal',
+      'is_read': false,
+    });
   }
 
-  Future<void> _cancelBooking(String bookingId) async {
+  // ---------------------------------------------------------------------------
+  // Tolak: cancelled + notifikasi alasan + jadwal alternatif ke pasien
+  // ---------------------------------------------------------------------------
+
+  Future<void> _cancelBooking({
+    required BookingModel booking,
+    required String alasan,
+    required Map<String, String>? alternatifDipilih,
+  }) async {
+    final now = DateTime.now().toIso8601String();
+    final jadwalFormatted = DateFormat('EEEE, dd MMMM yyyy', 'id_ID')
+        .format(booking.scheduledDate);
+
+    // 1. Update status → cancelled
     await _supabase
         .from('bookings')
-        .update({'status': 'cancelled', 'updated_at': DateTime.now().toIso8601String()})
-        .eq('id', bookingId);
+        .update({'status': 'cancelled', 'updated_at': now})
+        .eq('id', booking.id);
+
+    // 2. Susun pesan ke pasien
+    final buffer = StringBuffer(
+      'Maaf, booking Anda pada $jadwalFormatted pukul ${booking.scheduledTime} '
+      'untuk layanan "${booking.serviceType}" ditolak.\n\n'
+      'Alasan: $alasan',
+    );
+    if (alternatifDipilih != null) {
+      buffer.write(
+        '\n\nFisioterapis menyarankan jadwal alternatif:\n'
+        '📅 ${alternatifDipilih['tanggal']}\n'
+        '🕐 ${alternatifDipilih['jam']}',
+      );
+    }
+
+    // 3. Notifikasi ke pasien
+    await _supabase.from('notifications').insert({
+      'user_id': booking.patientId,
+      'judul': 'Booking Ditolak',
+      'pesan': buffer.toString(),
+      'type': 'booking_cancelled',
+      'is_read': false,
+    });
+
+    // 4. Notifikasi log ke fisioterapis sendiri
+    if (_fisioterapisUserId != null) {
+      await _supabase.from('notifications').insert({
+        'user_id': _fisioterapisUserId,
+        'judul': 'Booking Ditolak',
+        'pesan':
+            'Anda telah menolak booking dari ${booking.patientFullName ?? 'Pasien'} '
+            'pada $jadwalFormatted pukul ${booking.scheduledTime}.',
+        'type': 'booking',
+        'is_read': false,
+      });
+    }
   }
 
   // ---------------------------------------------------------------------------
   // Handlers
   // ---------------------------------------------------------------------------
 
-  Future<void> _handleConfirm(String bookingId) async {
+  Future<void> _handleConfirm(BookingModel booking) async {
+    // Dialog konfirmasi
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Terima Booking',
+            style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+        content: Text(
+          'Konfirmasi booking dari ${booking.patientFullName ?? 'Pasien'} '
+          'pada ${DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(booking.scheduledDate)} '
+          'pukul ${booking.scheduledTime}?',
+          style: GoogleFonts.inter(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Batal',
+                style: GoogleFonts.inter(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00BBA7),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text('Ya, Terima', style: GoogleFonts.inter()),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true || !mounted) return;
+
     try {
-      await _confirmBooking(bookingId);
+      await _confirmBooking(booking);
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Booking berhasil diterima'),
+          content: Text('Booking diterima! Pasien telah diberitahu.'),
           backgroundColor: Color(0xFF00BBA7),
         ),
       );
-      _load();
+
+      // ✅ Langsung ke JadwalPraktikScreen dengan tanggal booking
+      // sehingga jadwal yang baru dikonfirmasi langsung terlihat
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              JadwalPraktikScreen(initialDate: booking.scheduledDate),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -116,7 +236,6 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
     }
   }
 
-  /// Tampilkan bottom sheet tolak booking, lalu proses jika dikonfirmasi
   Future<void> _handleTolak(BookingModel booking) async {
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -125,17 +244,22 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
       builder: (_) => _TolakBookingSheet(
         booking: booking,
         jadwal: _jadwal,
-        onKirim: (alasan) async {
-          await _cancelBooking(booking.id);
-          // TODO: simpan alasan ke tabel notifications / kolom baru jika diperlukan
-          // Contoh: await _supabase.from('notifications').insert({...})
+        onKirim: (alasan, alternatifDipilih) async {
+          await _cancelBooking(
+            booking: booking,
+            alasan: alasan,
+            alternatifDipilih: alternatifDipilih,
+          );
         },
       ),
     );
 
     if (result == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Booking ditolak dan pasien diberitahu')),
+        const SnackBar(
+          content: Text('Booking ditolak. Pasien telah diberitahu.'),
+          backgroundColor: Color(0xFF00BBA7),
+        ),
       );
       _load();
     }
@@ -153,7 +277,8 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
         backgroundColor: const Color(0xFF00BBA7),
         foregroundColor: Colors.white,
         title: Text('Permintaan Booking',
-            style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16)),
+            style:
+                GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16)),
         actions: [
           IconButton(
             onPressed: _load,
@@ -167,7 +292,8 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
-                child: CircularProgressIndicator(color: Color(0xFF00BBA7)));
+              child: CircularProgressIndicator(color: Color(0xFF00BBA7)),
+            );
           }
           if (snapshot.hasError) {
             return Center(
@@ -196,7 +322,8 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
           if (bookings.isEmpty) {
             return Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade400),
+                Icon(Icons.inbox_outlined,
+                    size: 64, color: Colors.grey.shade400),
                 const SizedBox(height: 12),
                 Text('Tidak ada permintaan booking',
                     style: GoogleFonts.inter(color: Colors.grey)),
@@ -214,7 +341,7 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
                 final booking = bookings[index];
                 return _BookingCard(
                   booking: booking,
-                  onTerima: () => _handleConfirm(booking.id),
+                  onTerima: () => _handleConfirm(booking),
                   onTolak: () => _handleTolak(booking),
                 );
               },
@@ -247,6 +374,20 @@ class _BookingCard extends StatelessWidget {
     return '$hari • ${booking.scheduledTime}';
   }
 
+  String get _patientName {
+    final name = booking.patientFullName;
+    if (name != null && name.trim().isNotEmpty) return name.trim();
+    return 'Pasien';
+  }
+
+  String get _initials {
+    final parts = _patientName.split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return _patientName.isNotEmpty ? _patientName[0].toUpperCase() : 'P';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -262,37 +403,36 @@ class _BookingCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: avatar + nama + status
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(children: [
-                CircleAvatar(
-                  backgroundColor: const Color(0xFF00BBA7),
-                  child: Text(
-                    booking.patientInitials,
+              CircleAvatar(
+                backgroundColor: const Color(0xFF00BBA7),
+                child: Text(_initials,
                     style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
+                        color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_patientName,
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.bold, fontSize: 14),
+                        overflow: TextOverflow.ellipsis),
+                    Text(booking.serviceType,
+                        style: GoogleFonts.inter(
+                            fontSize: 12, color: Colors.grey)),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(
-                    booking.patientFullName ?? 'Pasien',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.bold),
-                  ),
-                  Text(booking.serviceType,
-                      style: GoogleFonts.inter(
-                          fontSize: 12, color: Colors.grey)),
-                ]),
-              ]),
+              ),
+              const SizedBox(width: 8),
               _StatusChip(status: booking.status),
             ],
           ),
 
           const Divider(height: 20),
 
-          // Info detail
           _infoRow(Icons.calendar_today, _formatSchedule()),
           if (booking.address != null && booking.address!.isNotEmpty)
             _infoRow(Icons.location_on_outlined, booking.address!),
@@ -308,7 +448,6 @@ class _BookingCard extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // Tombol aksi
           Row(children: [
             Expanded(
               child: OutlinedButton(
@@ -358,7 +497,9 @@ class _BookingCard extends StatelessWidget {
 class _TolakBookingSheet extends StatefulWidget {
   final BookingModel booking;
   final List<Map<String, dynamic>> jadwal;
-  final Future<void> Function(String alasan) onKirim;
+  final Future<void> Function(
+          String alasan, Map<String, String>? alternatifDipilih)
+      onKirim;
 
   const _TolakBookingSheet({
     required this.booking,
@@ -373,45 +514,37 @@ class _TolakBookingSheet extends StatefulWidget {
 class _TolakBookingSheetState extends State<_TolakBookingSheet> {
   final _alasanController = TextEditingController();
   bool _isSubmitting = false;
+  int? _selectedAlternatifIndex;
 
-  // Nama hari Indonesia → urutan
   static const _hariOrder = [
-    'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'
+    'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu',
   ];
 
-  // Weekday number → nama hari
   String _weekdayToHari(int w) => _hariOrder[w - 1];
 
-  // Hitung 3 slot alternatif (H+1 s/d H+14) berdasarkan jadwal fisioterapis
   List<Map<String, String>> _buildAlternatif() {
-    final List<Map<String, String>> result = [];
+    final result = <Map<String, String>>[];
     final base = widget.booking.scheduledDate;
 
-    for (int i = 1; i <= 14 && result.length < 3; i++) {
+    for (int i = 1; i <= 21 && result.length < 5; i++) {
       final candidate = base.add(Duration(days: i));
       final hari = _weekdayToHari(candidate.weekday);
-
-      final jadwalHari = widget.jadwal.firstWhere(
-        (j) => j['hari'] == hari,
-        orElse: () => {},
-      );
+      final jadwalHari = widget.jadwal
+          .firstWhere((j) => j['hari'] == hari, orElse: () => {});
       if (jadwalHari.isEmpty) continue;
 
-      final jamMulai = jadwalHari['jam_mulai'] as String;
-      final parts = jamMulai.split(':');
-      final jamLabel =
-          '${parts[0]}:${parts[1]} WIB';
-
+      final parts = (jadwalHari['jam_mulai'] as String).split(':');
       result.add({
-        'tanggal': DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(candidate),
-        'jam': 'Pukul $jamLabel',
+        'tanggal':
+            DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(candidate),
+        'jam': 'Pukul ${parts[0]}:${parts[1]} WIB',
         'date_raw': DateFormat('yyyy-MM-dd').format(candidate),
       });
     }
     return result;
   }
 
-  Future<void> _submit() async {
+  Future<void> _submit(List<Map<String, String>> alternatif) async {
     if (_alasanController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Alasan penolakan harus diisi')),
@@ -420,7 +553,10 @@ class _TolakBookingSheetState extends State<_TolakBookingSheet> {
     }
     setState(() => _isSubmitting = true);
     try {
-      await widget.onKirim(_alasanController.text.trim());
+      final dipilih = _selectedAlternatifIndex != null
+          ? alternatif[_selectedAlternatifIndex!]
+          : null;
+      await widget.onKirim(_alasanController.text.trim(), dipilih);
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
@@ -441,7 +577,10 @@ class _TolakBookingSheetState extends State<_TolakBookingSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final patientName = widget.booking.patientFullName ?? 'Pasien';
+    final patientName =
+        widget.booking.patientFullName?.trim().isNotEmpty == true
+            ? widget.booking.patientFullName!
+            : 'Pasien';
     final jadwalBooking = DateFormat('EEEE, dd MMMM yyyy', 'id_ID')
         .format(widget.booking.scheduledDate);
     final alternatif = _buildAlternatif();
@@ -451,47 +590,40 @@ class _TolakBookingSheetState extends State<_TolakBookingSheet> {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle bar
             Center(
               child: Container(
                 width: 40,
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2)),
               ),
             ),
-
-            // Judul
             Center(
-              child: Text(
-                'Tolak Booking',
-                style: GoogleFonts.inter(
-                    fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+              child: Text('Tolak Booking',
+                  style: GoogleFonts.inter(
+                      fontSize: 16, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 4),
             Center(
               child: Text(
-                'Berikan alasan penolakan dan tawarkan tanggal alternatif\nkepada $patientName. Informasi ini akan dikirimkan ke pasien.',
+                'Berikan alasan penolakan kepada $patientName.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(fontSize: 12, color: Colors.grey),
               ),
             ),
             const SizedBox(height: 20),
 
-            // Info booking yang ditolak
+            // Info booking
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
@@ -507,21 +639,18 @@ class _TolakBookingSheetState extends State<_TolakBookingSheet> {
                       style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
                   Text(
-                    '$jadwalBooking • ${widget.booking.scheduledTime}',
-                    style: GoogleFonts.inter(
-                        fontSize: 12, color: Colors.grey.shade700),
-                  ),
-                  Text(
-                    widget.booking.serviceType,
-                    style: GoogleFonts.inter(
-                        fontSize: 12, color: Colors.grey.shade700),
-                  ),
+                      '$jadwalBooking • ${widget.booking.scheduledTime}',
+                      style: GoogleFonts.inter(
+                          fontSize: 12, color: Colors.grey.shade700)),
+                  Text(widget.booking.serviceType,
+                      style: GoogleFonts.inter(
+                          fontSize: 12, color: Colors.grey.shade700)),
                 ],
               ),
             ),
             const SizedBox(height: 20),
 
-            // Alasan penolakan
+            // Alasan
             Row(children: [
               Text('Alasan Penolakan',
                   style: GoogleFonts.inter(
@@ -536,7 +665,7 @@ class _TolakBookingSheetState extends State<_TolakBookingSheet> {
               maxLines: 3,
               decoration: InputDecoration(
                 hintText:
-                    'Contoh: Jadwal sudah penuh pada waktu tersebut.\nMohon pilih waktu lain.',
+                    'Contoh: Jadwal sudah penuh. Mohon pilih waktu lain.',
                 hintStyle:
                     GoogleFonts.inter(fontSize: 12, color: Colors.grey),
                 border: OutlineInputBorder(
@@ -547,31 +676,20 @@ class _TolakBookingSheetState extends State<_TolakBookingSheet> {
                     borderSide: BorderSide(color: Colors.grey.shade300)),
                 focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFF00BBA7))),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF00BBA7))),
                 contentPadding: const EdgeInsets.all(12),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Berikan penjelasan yang jelas dan profesional kepada pasien',
-              style: GoogleFonts.inter(fontSize: 11, color: Colors.grey),
-            ),
             const SizedBox(height: 20),
 
-            // Tanggal alternatif
-            Row(children: [
-              Text('Tanggal Alternatif yang Tersedia',
-                  style: GoogleFonts.inter(
-                      fontWeight: FontWeight.bold, fontSize: 13)),
-              Text(' *',
-                  style: GoogleFonts.inter(
-                      color: Colors.red, fontWeight: FontWeight.bold)),
-            ]),
+            // Jadwal alternatif
+            Text('Tawarkan Jadwal Alternatif',
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold, fontSize: 13)),
             const SizedBox(height: 4),
-            Text(
-              'Pilih tanggal dan waktu alternatif yang tersedia untuk memudahkan\npasien memilih jadwal baru',
-              style: GoogleFonts.inter(fontSize: 11, color: Colors.grey),
-            ),
+            Text('Pilih satu jadwal untuk ditawarkan ke pasien (opsional)',
+                style: GoogleFonts.inter(fontSize: 11, color: Colors.grey)),
             const SizedBox(height: 12),
 
             if (alternatif.isEmpty)
@@ -583,25 +701,49 @@ class _TolakBookingSheetState extends State<_TolakBookingSheet> {
                   border: Border.all(color: Colors.orange.shade200),
                 ),
                 child: Text(
-                  'Tidak ada jadwal alternatif dalam 2 minggu ke depan.',
+                  'Tidak ada jadwal alternatif dalam 3 minggu ke depan.',
                   style: GoogleFonts.inter(
                       fontSize: 12, color: Colors.orange.shade800),
                 ),
               )
             else
-              ...alternatif.map((alt) => _AlternatifTile(
+              ...alternatif.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final alt = entry.value;
+                final isSelected = _selectedAlternatifIndex == idx;
+                return GestureDetector(
+                  onTap: () => setState(() =>
+                      _selectedAlternatifIndex = isSelected ? null : idx),
+                  child: _AlternatifTile(
                     tanggal: alt['tanggal']!,
                     jam: alt['jam']!,
-                  )),
+                    isSelected: isSelected,
+                  ),
+                );
+              }),
+
+            if (_selectedAlternatifIndex != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 4),
+                child: Row(children: [
+                  const Icon(Icons.check_circle,
+                      color: Color(0xFF00BBA7), size: 14),
+                  const SizedBox(width: 6),
+                  Text('Jadwal alternatif akan dikirim ke pasien',
+                      style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: const Color(0xFF00BBA7))),
+                ]),
+              ),
 
             const SizedBox(height: 24),
 
-            // Tombol kirim
             SizedBox(
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: _isSubmitting ? null : _submit,
+                onPressed:
+                    _isSubmitting ? null : () => _submit(alternatif),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade400,
                   foregroundColor: Colors.white,
@@ -621,7 +763,6 @@ class _TolakBookingSheetState extends State<_TolakBookingSheet> {
             ),
             const SizedBox(height: 10),
 
-            // Tombol batal
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -634,7 +775,8 @@ class _TolakBookingSheetState extends State<_TolakBookingSheet> {
                       borderRadius: BorderRadius.circular(10)),
                 ),
                 child: Text('Batal',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+                    style:
+                        GoogleFonts.inter(fontWeight: FontWeight.w500)),
               ),
             ),
           ],
@@ -651,43 +793,73 @@ class _TolakBookingSheetState extends State<_TolakBookingSheet> {
 class _AlternatifTile extends StatelessWidget {
   final String tanggal;
   final String jam;
+  final bool isSelected;
 
-  const _AlternatifTile({required this.tanggal, required this.jam});
+  const _AlternatifTile({
+    required this.tanggal,
+    required this.jam,
+    required this.isSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isSelected ? const Color(0xFFE8F8F6) : Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color:
+              isSelected ? const Color(0xFF00BBA7) : Colors.grey.shade200,
+          width: isSelected ? 1.8 : 1.0,
+        ),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withOpacity(0.03), blurRadius: 6),
         ],
       ),
-      child: Row(
-        children: [
-          const Icon(Icons.calendar_month_outlined,
+      child: Row(children: [
+        Icon(Icons.calendar_month_outlined,
+            color: isSelected
+                ? const Color(0xFF00BBA7)
+                : Colors.grey.shade400,
+            size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(tanggal,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: isSelected
+                          ? const Color(0xFF00BBA7)
+                          : Colors.black87,
+                    )),
+                const SizedBox(height: 2),
+                Row(children: [
+                  Icon(Icons.access_time,
+                      size: 12,
+                      color: isSelected
+                          ? const Color(0xFF00BBA7)
+                          : Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(jam,
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: isSelected
+                              ? const Color(0xFF00BBA7)
+                              : Colors.grey)),
+                ]),
+              ]),
+        ),
+        if (isSelected)
+          const Icon(Icons.check_circle,
               color: Color(0xFF00BBA7), size: 20),
-          const SizedBox(width: 12),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(tanggal,
-                style: GoogleFonts.inter(
-                    fontWeight: FontWeight.bold, fontSize: 13)),
-            const SizedBox(height: 2),
-            Row(children: [
-              const Icon(Icons.access_time, size: 12, color: Colors.grey),
-              const SizedBox(width: 4),
-              Text(jam,
-                  style: GoogleFonts.inter(
-                      fontSize: 12, color: Colors.grey)),
-            ]),
-          ]),
-        ],
-      ),
+      ]),
     );
   }
 }
