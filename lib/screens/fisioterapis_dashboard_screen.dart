@@ -95,6 +95,7 @@ class _HomeTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
+<<<<<<< Updated upstream
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _buildHeader(context)),
@@ -625,6 +626,34 @@ class _PasienTab extends StatelessWidget {
               ),
             ),
           );
+=======
+      body: pages[_currentIndex],
+      bottomNavigationBar: FisioterapisBottomNavbar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+          
+          // Jika jadwal, navigate ke jadwal_praktik setelah update index
+          if (index == 1) {
+            Future.delayed(const Duration(milliseconds: 100), () {
+              if (mounted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const JadwalPraktikScreen()),
+                ).then((_) {
+                  // Kembali ke dashboard saat pop dari JadwalPraktikScreen
+                  if (mounted) {
+                    setState(() {
+                      _currentIndex = 0;
+                    });
+                  }
+                });
+              }
+            });
+          }
+>>>>>>> Stashed changes
         },
       ),
     );

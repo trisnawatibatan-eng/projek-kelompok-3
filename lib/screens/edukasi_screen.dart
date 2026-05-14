@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-// Import file detail artikel Anda di sini
 import 'detail_artikel_screen.dart'; 
 
 class EdukasiScreen extends StatelessWidget {
@@ -12,7 +11,7 @@ class EdukasiScreen extends StatelessWidget {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // --- HEADER HIJAU DENGAN TOMBOL BACK ---
+          // --- HEADER HIJAU ---
           Container(
             padding: const EdgeInsets.fromLTRB(10, 50, 20, 20),
             decoration: const BoxDecoration(
@@ -60,21 +59,21 @@ class EdukasiScreen extends StatelessWidget {
                     child: Row(
                       children: [
                         _buildFeaturedCard(
-                          context, // Tambahkan context
+                          context,
                           tag: 'PERNAPASAN',
                           title: 'Teknik Pernapasan untuk Nyeri Punggung',
                           icon: Icons.air,
                           color: Colors.green,
                         ),
                         _buildFeaturedCard(
-                          context, // Tambahkan context
+                          context,
                           tag: 'LUTUT',
                           title: 'Cara Efektif Pemulihan Nyeri Lutut',
                           icon: Icons.accessibility_new,
                           color: Colors.teal,
                         ),
                         _buildFeaturedCard(
-                          context, // Tambahkan context
+                          context,
                           tag: 'POSTUR',
                           title: 'Memperbaiki Posisi Duduk Saat Bekerja',
                           icon: Icons.chair_alt,
@@ -93,7 +92,7 @@ class EdukasiScreen extends StatelessWidget {
                   const SizedBox(height: 15),
                   
                   _buildEdukasiItem(
-                    context, // Tambahkan context
+                    context,
                     icon: Icons.air,
                     color: Colors.green,
                     tag: 'PERNAPASAN',
@@ -101,7 +100,7 @@ class EdukasiScreen extends StatelessWidget {
                     date: '28 Mei 2025',
                   ),
                   _buildEdukasiItem(
-                    context, // Tambahkan context
+                    context,
                     icon: Icons.restaurant,
                     color: Colors.orange,
                     tag: 'NUTRISI',
@@ -109,7 +108,7 @@ class EdukasiScreen extends StatelessWidget {
                     date: '24 Mei 2025',
                   ),
                   _buildEdukasiItem(
-                    context, // Tambahkan context
+                    context,
                     icon: Icons.fitness_center,
                     color: Colors.blue,
                     tag: 'LATIHAN',
@@ -117,7 +116,7 @@ class EdukasiScreen extends StatelessWidget {
                     date: '20 Mei 2025',
                   ),
                   _buildEdukasiItem(
-                    context, // Tambahkan context
+                    context,
                     icon: Icons.psychology,
                     color: Colors.purple,
                     tag: 'MENTAL',
@@ -133,7 +132,6 @@ class EdukasiScreen extends StatelessWidget {
     );
   }
 
-  // --- MODIFIKASI: Tambahkan BuildContext dan InkWell ---
   Widget _buildFeaturedCard(
     BuildContext context, {
     required String tag,
@@ -144,7 +142,7 @@ class EdukasiScreen extends StatelessWidget {
     return Container(
       width: 170,
       margin: const EdgeInsets.only(right: 15),
-      child: InkWell( // Tambahkan InkWell agar bisa diklik
+      child: InkWell(
         onTap: () {
           Navigator.push(
             context,
@@ -216,7 +214,6 @@ class EdukasiScreen extends StatelessWidget {
     );
   }
 
-  // --- MODIFIKASI: Tambahkan BuildContext dan InkWell ---
   Widget _buildEdukasiItem(
     BuildContext context, {
     required IconData icon,
@@ -227,7 +224,7 @@ class EdukasiScreen extends StatelessWidget {
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
-      child: InkWell( // Tambahkan InkWell agar bisa diklik
+      child: InkWell(
         onTap: () {
           Navigator.push(
             context,

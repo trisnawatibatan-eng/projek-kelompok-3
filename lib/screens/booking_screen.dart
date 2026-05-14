@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+<<<<<<< Updated upstream
 // Pastikan path import ini sesuai dengan struktur folder Anda
 import 'package:fisiocare/screens/janji_temu_screen.dart'; 
+=======
+import '../models/booking_request_model.dart';
+import '../models/user_model.dart';
+import '../widgets/bottom_nav_bar.dart';
+import 'booking_confirmation_screen.dart';
+>>>>>>> Stashed changes
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
@@ -18,6 +25,21 @@ class _BookingScreenState extends State<BookingScreen> {
   String? _selectedTherapy;
   String? _selectedPrice;
   int _therapyCost = 0;
+<<<<<<< Updated upstream
+=======
+  final Map<String, int> _therapyPriceMap = {
+    'Terapi Stroke': 300000,
+    'Terapi Fraktur': 280000,
+    'Terapi Skoliosis': 250000,
+    'Terapi Dislokasi': 270000,
+    'Terapi Cedera Olahraga': 300000,
+    'Terapi Nyeri Punggung': 260000,
+    'Terapi Pasca Operasi': 280000,
+    'Terapi Lansia': 275000,
+    'Terapi Osteoarthritis': 270000,
+    'Terapi Anak Berkebutuhan Khusus': 320000,
+  };
+>>>>>>> Stashed changes
   final int _visitCost = 50000;
 
   // Data Form (Step 2)
@@ -32,6 +54,7 @@ class _BookingScreenState extends State<BookingScreen> {
     "Jl. Pekalongan No. 01, Penanggungan, Klojen, Kota Malang",
   ];
 
+<<<<<<< Updated upstream
   // --- FUNGSI MODAL PROFIL (Gambar 2) ---
   void _showFisioProfile(BuildContext context) {
     showModalBottomSheet(
@@ -124,6 +147,31 @@ class _BookingScreenState extends State<BookingScreen> {
         );
       },
     );
+=======
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialTherapy != null) {
+      _selectedTherapy = widget.initialTherapy;
+      _therapyCost =
+          widget.initialCost ?? _therapyPriceMap[widget.initialTherapy!] ?? 0;
+      _selectedPrice = widget.initialPrice ??
+          (_therapyCost > 0
+              ? 'Rp ${NumberFormat('#,###', 'id_ID').format(_therapyCost)}'
+              : null);
+      _currentStep = 2;
+    }
+>>>>>>> Stashed changes
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _noteController.dispose();
+    _newAddressController.dispose();
+    super.dispose();
   }
 
   @override
@@ -146,7 +194,10 @@ class _BookingScreenState extends State<BookingScreen> {
           },
         ),
         title: Text('Pesan Home Care',
-            style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+            style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white)),
       ),
       body: Column(
         children: [
@@ -171,8 +222,10 @@ class _BookingScreenState extends State<BookingScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _stepCircle("1", _currentStep >= 1), _stepLine(_currentStep >= 2),
-          _stepCircle("2", _currentStep >= 2), _stepLine(_currentStep >= 3),
+          _stepCircle("1", _currentStep >= 1),
+          _stepLine(_currentStep >= 2),
+          _stepCircle("2", _currentStep >= 2),
+          _stepLine(_currentStep >= 3),
           _stepCircle("3", _currentStep >= 3),
         ],
       ),
@@ -180,45 +233,238 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Widget _stepCircle(String t, bool a) => Container(
-    width: 28, height: 28,
-    decoration: BoxDecoration(color: a ? const Color(0xFF00897B) : Colors.white24, shape: BoxShape.circle),
-    child: Center(child: Text(t, style: const TextStyle(color: Colors.white, fontSize: 12))),
-  );
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+            color: a ? const Color(0xFF00897B) : Colors.white24,
+            shape: BoxShape.circle),
+        child: Center(
+            child: Text(t,
+                style: const TextStyle(color: Colors.white, fontSize: 12))),
+      );
 
-  Widget _stepLine(bool a) => Container(width: 40, height: 2, color: a ? const Color(0xFF00897B) : Colors.white24);
+  Widget _stepLine(bool a) => Container(
+      width: 40,
+      height: 2,
+      color: a ? const Color(0xFF00897B) : Colors.white24);
+
+  IconData _therapyIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'neurologi':
+        return Icons.psychology;
+      case 'ortopedi':
+        return Icons.medical_services;
+      case 'sport':
+        return Icons.sports_handball;
+      case 'pain management':
+        return Icons.healing;
+      case 'rehabilitasi':
+        return Icons.accessibility_new;
+      case 'geriatria':
+        return Icons.elderly;
+      case 'pediatri':
+        return Icons.child_care;
+      default:
+        return Icons.medical_services_outlined;
+    }
+  }
 
   // --- STEP 1: PILIH TERAPI ---
   Widget _buildTherapySelection() {
     final therapies = [
-      {'name': 'Terapi Stroke', 'price': 'Rp 300.000', 'val': 300000},
-      {'name': 'Terapi Fraktur', 'price': 'Rp 280.000', 'val': 280000},
-      {'name': 'Terapi Skoliosis', 'price': 'Rp 250.000', 'val': 250000},
+      {
+        'name': 'Terapi Stroke',
+        'category': 'Neurologi',
+        'duration': '60 menit',
+        'price': 'Rp 300.000',
+        'val': 300000,
+      },
+      {
+        'name': 'Terapi Fraktur',
+        'category': 'Ortopedi',
+        'duration': '60 menit',
+        'price': 'Rp 280.000',
+        'val': 280000,
+      },
+      {
+        'name': 'Terapi Skoliosis',
+        'category': 'Ortopedi',
+        'duration': '60 menit',
+        'price': 'Rp 250.000',
+        'val': 250000,
+      },
+      {
+        'name': 'Terapi Dislokasi',
+        'category': 'Ortopedi',
+        'duration': '45 menit',
+        'price': 'Rp 270.000',
+        'val': 270000,
+      },
+      {
+        'name': 'Terapi Cedera Olahraga',
+        'category': 'Sport',
+        'duration': '60 menit',
+        'price': 'Rp 300.000',
+        'val': 300000,
+      },
+      {
+        'name': 'Terapi Nyeri Punggung',
+        'category': 'Pain Management',
+        'duration': '50 menit',
+        'price': 'Rp 260.000',
+        'val': 260000,
+      },
+      {
+        'name': 'Terapi Pasca Operasi',
+        'category': 'Rehabilitasi',
+        'duration': '60 menit',
+        'price': 'Rp 280.000',
+        'val': 280000,
+      },
+      {
+        'name': 'Terapi Lansia',
+        'category': 'Geriatri',
+        'duration': '60 menit',
+        'price': 'Rp 275.000',
+        'val': 275000,
+      },
+      {
+        'name': 'Terapi Osteoarthritis',
+        'category': 'Pain Management',
+        'duration': '50 menit',
+        'price': 'Rp 270.000',
+        'val': 270000,
+      },
+      {
+        'name': 'Terapi Anak Berkebutuhan Khusus',
+        'category': 'Pediatri',
+        'duration': '45 menit',
+        'price': 'Rp 320.000',
+        'val': 320000,
+      },
     ];
-    return ListView.builder(
+
+    return ListView(
       padding: const EdgeInsets.all(20),
-      itemCount: therapies.length,
-      itemBuilder: (context, index) => GestureDetector(
-        onTap: () => setState(() {
-          _selectedTherapy = therapies[index]['name'] as String;
-          _selectedPrice = therapies[index]['price'] as String;
-          _therapyCost = therapies[index]['val'] as int;
-          _currentStep = 2;
-        }),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 15),
-          padding: const EdgeInsets.all(15),
+      children: [
+        Container(
+          margin: const EdgeInsets.only(bottom: 20),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            border: Border.all(color: _selectedTherapy == therapies[index]['name'] ? const Color(0xFF00BBA7) : Colors.grey.shade200),
-            borderRadius: BorderRadius.circular(12),
+            color: const Color(0xFFE0F2F1),
+            borderRadius: BorderRadius.circular(14),
           ),
-          child: Row(children: [
-            const Icon(Icons.medical_services_outlined, color: Color(0xFF00BBA7)),
-            const SizedBox(width: 15),
-            Expanded(child: Text(therapies[index]['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold))),
-            Text(therapies[index]['price'] as String, style: const TextStyle(color: Color(0xFF00BBA7), fontWeight: FontWeight.bold)),
-          ]),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Icon(Icons.info_outline, color: Color(0xFF00BBA7)),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Pilih layanan sesuai kebutuhan. Temukan terapi yang tepat untuk membantu pemulihan Anda.',
+                  style: TextStyle(fontSize: 13),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+        ...therapies.map((therapy) {
+          final selected = _selectedTherapy == therapy['name'];
+          return GestureDetector(
+            onTap: () => setState(() {
+              _selectedTherapy = therapy['name'] as String;
+              _selectedPrice = therapy['price'] as String;
+              _therapyCost = therapy['val'] as int;
+              _currentStep = 2;
+            }),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 15),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: selected ? const Color(0xFFE8F6F5) : Colors.white,
+                border: Border.all(
+                    color: selected
+                        ? const Color(0xFF00BBA7)
+                        : Colors.grey.shade200),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  if (!selected)
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3)),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00BBA7).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(_therapyIcon(therapy['category'] as String),
+                            color: const Color(0xFF00BBA7), size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              therapy['name'] as String,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              therapy['category'] as String,
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        therapy['price'] as String,
+                        style: const TextStyle(
+                            color: Color(0xFF00BBA7),
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.access_time,
+                            size: 14, color: Colors.grey),
+                        const SizedBox(width: 6),
+                        Text(
+                          therapy['duration'] as String,
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.black87),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ],
     );
   }
 
@@ -232,24 +478,69 @@ class _BookingScreenState extends State<BookingScreen> {
           _buildSelectedTherapyCard(),
           const SizedBox(height: 20),
           _buildLabel(Icons.location_on, "Alamat"),
-          _isChoosingAddress ? _buildAddressList() : _buildSelectedAddressCard(),
+          _isChoosingAddress
+              ? _buildAddressList()
+              : _buildSelectedAddressCard(),
           const SizedBox(height: 20),
           _buildLabel(Icons.calendar_today, "Tanggal Kunjungan *"),
-          _buildInkInput(_selectedDate == null ? 'pilih tanggal' : DateFormat('dd/MM/yyyy').format(_selectedDate!), Icons.calendar_month, () => _selectDate(context)),
+          _buildFormField(
+            value: _selectedDate == null
+                ? 'dd/mm/yyyy'
+                : DateFormat('dd/MM/yyyy').format(_selectedDate!),
+            hint: 'Pilih tanggal terapi',
+            icon: Icons.calendar_month,
+            onTap: () => _selectDate(context),
+          ),
           const SizedBox(height: 20),
           _buildLabel(Icons.access_time, "Waktu Kunjungan *"),
-          _buildInkInput(_selectedTime == null ? 'pilih jam' : _selectedTime!.format(context), Icons.keyboard_arrow_down, () => _selectTime(context)),
+          _buildFormField(
+            value: _selectedTime == null
+                ? 'Pilih jam terapi'
+                : _selectedTime!.format(context),
+            hint: 'Pilih jam terapi',
+            icon: Icons.keyboard_arrow_down,
+            onTap: () => _selectTime(context),
+          ),
+          const SizedBox(height: 20),
+          _buildLabel(Icons.note_alt, "Catatan Khusus (Opsional)"),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: TextField(
+              controller: _noteController,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                hintText:
+                    'Informasi tambahan tentang kondisi atau kebutuhan khusus',
+              ),
+            ),
+          ),
           const SizedBox(height: 30),
           _buildActionButtons(
-            onNext: () {
-              if (_selectedDate == null || _selectedTime == null) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Pilih tanggal dan jam dahulu")));
-              } else {
-                setState(() => _currentStep = 3);
-              }
-            },
-            nextLabel: "Lanjutkan"
-          ),
+              onNext: () {
+                if (_selectedDate == null || _selectedTime == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text("Pilih tanggal dan jam dahulu")));
+                } else {
+                  setState(() => _currentStep = 3);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (_scrollController.hasClients) {
+                      _scrollController.animateTo(
+                        _scrollController.position.maxScrollExtent,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOut,
+                      );
+                    }
+                  });
+                }
+              },
+              nextLabel: "Lanjutkan"),
         ],
       ),
     );
@@ -257,16 +548,22 @@ class _BookingScreenState extends State<BookingScreen> {
 
   // --- STEP 3: RINGKASAN PEMBAYARAN (Gambar 1) ---
   Widget _buildPaymentSummary() {
+<<<<<<< Updated upstream
     if (_selectedDate == null || _selectedTime == null) return const Center(child: Text("Data tidak lengkap"));
+=======
+    if (_selectedDate == null || _selectedTime == null)
+      return const Center(child: Text("Data tidak lengkap"));
+>>>>>>> Stashed changes
 
     int total = _therapyCost + _visitCost;
     return SingleChildScrollView(
+      controller: _scrollController,
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Card Terapis
           Container(
+<<<<<<< Updated upstream
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(border: Border.all(color: const Color(0xFF00BBA7)), borderRadius: BorderRadius.circular(12)),
             child: Row(children: [
@@ -295,38 +592,123 @@ class _BookingScreenState extends State<BookingScreen> {
                 ),
               ),
             ]),
+=======
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3))
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSelectedTherapyCard(),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F2F1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                          backgroundColor: Color(0xFF00BBA7),
+                          child: Text('SN',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold))),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text('Ftr. Siti Nurhaliza, S.Tr.Kes',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            SizedBox(height: 4),
+                            Text('• 10 tahun pengalaman • 12 km dari Anda',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey)),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _showTherapistProfile,
+                        style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF00BBA7)),
+                        child: const Text('Lihat Profil Lengkap',
+                            style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+>>>>>>> Stashed changes
           ),
           const SizedBox(height: 25),
-          // Rincian Biaya
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: const Color(0xFFE0F2F1), borderRadius: BorderRadius.circular(15)),
-            child: Column(children: [
-              _rowDetail("Layanan", _selectedTherapy ?? ""),
-              _rowDetail("Waktu", "${DateFormat('dd MMM yyyy').format(_selectedDate!)} - ${_selectedTime!.format(context)}"),
-              const Divider(height: 30),
-              _rowDetail("Biaya Terapi", _selectedPrice ?? ""),
-              _rowDetail("Biaya Kunjungan", "Rp 50.000"),
-              const Divider(height: 30),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text("Total Bayar", style: TextStyle(fontWeight: FontWeight.bold)),
-                Text("Rp ${NumberFormat('#,###', 'id_ID').format(total)}", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00BBA7), fontSize: 18)),
-              ]),
-            ]),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE0F2F1),
+              borderRadius: BorderRadius.circular(15),
+              border:
+                  Border.all(color: const Color(0xFF00BBA7).withOpacity(0.2)),
+            ),
+            child: Column(
+              children: [
+                _rowDetail('Layanan', _selectedTherapy ?? ''),
+                _rowDetail('Terapis', 'Ftr. Siti Nurhaliza, S.Tr.Kes'),
+                _rowDetail('Tanggal & Waktu',
+                    '${DateFormat('yyyy-MM-dd').format(_selectedDate!)} · ${_selectedTime!.format(context)}'),
+                const Divider(height: 30),
+                _rowDetail('Biaya Terapi', _selectedPrice ?? ''),
+                _rowDetail('Biaya Kunjungan', 'Rp 50.000'),
+                const Divider(height: 30),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Total yang Harus Dibayar',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('Rp ${NumberFormat('#,###', 'id_ID').format(total)}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF00BBA7),
+                            fontSize: 16)),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 20),
-          // Info Cash
           Container(
             padding: const EdgeInsets.all(15),
-            decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(12)),
-            child: Row(children: const [
-              Icon(Icons.info_outline, color: Colors.orange),
-              SizedBox(width: 10),
-              Expanded(child: Text("Pembayaran tunai dilakukan setelah layanan selesai.", style: TextStyle(fontSize: 12, color: Colors.orange))),
-            ]),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.green.shade100),
+            ),
+            child: Row(
+              children: const [
+                Icon(Icons.info_outline, color: Color(0xFF00BBA7)),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Pembayaran tunai menerima uang total (Bayar saat selesai layanan).',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF1B5E20)),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 30),
           _buildActionButtons(
+<<<<<<< Updated upstream
             onNext: () {
               Navigator.pushReplacement(
                 context,
@@ -334,8 +716,56 @@ class _BookingScreenState extends State<BookingScreen> {
               );
             }, 
             nextLabel: "Konfirmasi Pesanan"
+=======
+            onNext: _confirmBooking,
+            nextLabel: 'Konfirmasi Pesanan',
+>>>>>>> Stashed changes
           ),
         ],
+      ),
+    );
+  }
+
+  void _confirmBooking() {
+    debugPrint('Confirm booking pressed');
+    if (_selectedTherapy == null ||
+        _selectedPrice == null ||
+        _selectedDate == null ||
+        _selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Data pemesanan belum lengkap.')),
+      );
+      return;
+    }
+
+    final newRequest = BookingRequest(
+      patientName: UserModel.currentUser.name,
+      therapy: _selectedTherapy!,
+      date: DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(_selectedDate!),
+      time: _selectedTime!.format(context),
+      address: _selectedAddress,
+      phone: UserModel.currentUser.phone,
+    );
+
+    BookingRequestRepository.add(newRequest);
+    debugPrint(
+        'Booking dikonfirmasi: ${newRequest.patientName} - ${newRequest.therapy}');
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pesanan berhasil dikonfirmasi.')),
+    );
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BookingConfirmationScreen(
+          therapy: _selectedTherapy!,
+          price: _selectedPrice!,
+          address: _selectedAddress,
+          date: _selectedDate!,
+          time: _selectedTime!,
+          notes: _noteController.text,
+        ),
       ),
     );
   }
@@ -349,10 +779,13 @@ class _BookingScreenState extends State<BookingScreen> {
         title: const Text("Tambah Alamat Baru"),
         content: TextField(
           controller: _newAddressController,
-          decoration: const InputDecoration(hintText: "Masukkan alamat lengkap"),
+          decoration:
+              const InputDecoration(hintText: "Masukkan alamat lengkap"),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Batal")),
           ElevatedButton(
             onPressed: () {
               if (_newAddressController.text.isNotEmpty) {
@@ -364,7 +797,8 @@ class _BookingScreenState extends State<BookingScreen> {
                 Navigator.pop(context);
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BBA7)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00BBA7)),
             child: const Text("Simpan"),
           )
         ],
@@ -372,42 +806,245 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
+  void _showTherapistProfile() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const SizedBox(width: 32),
+                    const Text('Profil Fisioterapis',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const CircleAvatar(
+                      radius: 28,
+                      backgroundColor: Color(0xFF00BBA7),
+                      child: Text('SN',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text('Ftr. Siti Nurhaliza S.Tr.Kes',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16)),
+                        SizedBox(height: 4),
+                        Text('Fisioterapi Ortopedi',
+                            style: TextStyle(color: Colors.grey)),
+                        SizedBox(height: 4),
+                        Text('4.9 (94 ulasan)',
+                            style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Text('Biografi',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text(
+                  'Fisioterapis spesialis ortopedi yang berfokus pada pemulihan sistem muskuloskeletal. Memiliki keahlian dalam menangani kasus pasca-operasi, cedera olahraga, serta gangguan pada sendi dan tulang belakang.',
+                  style: TextStyle(color: Colors.black87, height: 1.4),
+                ),
+                const SizedBox(height: 16),
+                const Text('Pendidikan',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text('• S1 Fisioterapi - Universitas Airlangga (2018)',
+                    style: TextStyle(color: Colors.black87, height: 1.4)),
+                const SizedBox(height: 16),
+                const Text('Sertifikasi',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text(
+                    '• Sertifikasi Orthopedic Manual Physical Therapy (OMPT)',
+                    style: TextStyle(color: Colors.black87, height: 1.4)),
+                const Text('• Sports Injury Management & Rehabilitation',
+                    style: TextStyle(color: Colors.black87, height: 1.4)),
+                const Text('• Dry Needling Practitioner Level 1',
+                    style: TextStyle(color: Colors.black87, height: 1.4)),
+                const SizedBox(height: 16),
+                const Text('Pengalaman Kerja',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text('• RS Orthopedi & Traumatologi (2018-2021)',
+                    style: TextStyle(color: Colors.black87, height: 1.4)),
+                const Text('• Clinic Sports Center (2021-Sekarang)',
+                    style: TextStyle(color: Colors.black87, height: 1.4)),
+                const Text('• Konsultan Ortopedi di RS Siloam (2022-Sekarang)',
+                    style: TextStyle(color: Colors.black87, height: 1.4)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSelectedTherapyCard() => Container(
-    padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: const Color(0xFFE0F2F1), borderRadius: BorderRadius.circular(12)),
-    child: Row(children: [const Icon(Icons.check_circle, color: Color(0xFF00BBA7)), const SizedBox(width: 10), Text(_selectedTherapy ?? ""), const Spacer(), Text(_selectedPrice ?? "", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00BBA7)))]),
-  );
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+            color: const Color(0xFFE0F2F1),
+            borderRadius: BorderRadius.circular(12)),
+        child: Row(children: [
+          const Icon(Icons.check_circle, color: Color(0xFF00BBA7)),
+          const SizedBox(width: 10),
+          Text(_selectedTherapy ?? ""),
+          const Spacer(),
+          Text(_selectedPrice ?? "",
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, color: Color(0xFF00BBA7)))
+        ]),
+      );
 
   Widget _buildSelectedAddressCard() => Container(
-    padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade300)),
-    child: Column(children: [Text(_selectedAddress, style: const TextStyle(fontSize: 12)), const SizedBox(height: 8), InkWell(onTap: () => setState(() => _isChoosingAddress = true), child: const Text("Ganti alamat", style: TextStyle(color: Color(0xFF00BBA7), fontWeight: FontWeight.bold, fontSize: 12)))]),
-  );
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300)),
+        child: Column(children: [
+          Text(_selectedAddress, style: const TextStyle(fontSize: 12)),
+          const SizedBox(height: 8),
+          InkWell(
+              onTap: () => setState(() => _isChoosingAddress = true),
+              child: const Text("Ganti alamat",
+                  style: TextStyle(
+                      color: Color(0xFF00BBA7),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12)))
+        ]),
+      );
 
   Widget _buildAddressList() => Container(
-    padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFFE0F2F1), borderRadius: BorderRadius.circular(12)),
-    child: Column(children: [
-      ..._myAddresses.map((addr) => RadioListTile<String>(value: addr, groupValue: _selectedAddress, activeColor: const Color(0xFF00BBA7), title: Text(addr, style: const TextStyle(fontSize: 12)), onChanged: (val) => setState(() { _selectedAddress = val!; _isChoosingAddress = false; }))),
-      const Divider(),
-      TextButton.icon(onPressed: _showAddAddressDialog, icon: const Icon(Icons.add, color: Color(0xFF00BBA7)), label: const Text("Tambah Alamat Baru", style: TextStyle(color: Color(0xFF00BBA7)))),
-    ]),
-  );
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+            color: const Color(0xFFE0F2F1),
+            borderRadius: BorderRadius.circular(12)),
+        child: Column(children: [
+          ..._myAddresses.map((addr) => RadioListTile<String>(
+              value: addr,
+              groupValue: _selectedAddress,
+              activeColor: const Color(0xFF00BBA7),
+              title: Text(addr, style: const TextStyle(fontSize: 12)),
+              onChanged: (val) => setState(() {
+                    _selectedAddress = val!;
+                    _isChoosingAddress = false;
+                  }))),
+          const Divider(),
+          TextButton.icon(
+              onPressed: _showAddAddressDialog,
+              icon: const Icon(Icons.add, color: Color(0xFF00BBA7)),
+              label: const Text("Tambah Alamat Baru",
+                  style: TextStyle(color: Color(0xFF00BBA7)))),
+        ]),
+      );
 
-  Widget _buildLabel(IconData i, String t) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [Icon(i, size: 18, color: const Color(0xFF00BBA7)), const SizedBox(width: 8), Text(t, style: const TextStyle(fontWeight: FontWeight.bold))]));
+  Widget _buildLabel(IconData i, String t) => Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(children: [
+        Icon(i, size: 18, color: const Color(0xFF00BBA7)),
+        const SizedBox(width: 8),
+        Text(t, style: const TextStyle(fontWeight: FontWeight.bold))
+      ]));
 
-  Widget _buildInkInput(String t, IconData i, VoidCallback tap) => InkWell(onTap: tap, child: Container(padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(t), Icon(i, color: Colors.grey)])));
+  Widget _buildInkInput(String t, IconData i, VoidCallback tap) => InkWell(
+      onTap: tap,
+      child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+              color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+          child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [Text(t), Icon(i, color: Colors.grey)])));
 
-  Widget _rowDetail(String l, String v) => Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(l, style: const TextStyle(color: Colors.grey, fontSize: 13)), Text(v, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))]));
+  Widget _buildFormField(
+      {required String value,
+      required String hint,
+      required IconData icon,
+      required VoidCallback onTap}) {
+    final isHint = value == hint;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              value,
+              style: TextStyle(color: isHint ? Colors.grey : Colors.black87),
+            ),
+            Icon(icon, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
 
-  Widget _buildActionButtons({required VoidCallback onNext, required String nextLabel}) => Row(children: [
-    Expanded(child: OutlinedButton(onPressed: () => setState(() { if(_currentStep > 1) _currentStep--; }), child: const Text("Kembali"))),
-    const SizedBox(width: 15),
-    Expanded(child: ElevatedButton(onPressed: onNext, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BBA7)), child: Text(nextLabel, style: const TextStyle(color: Colors.white)))),
-  ]);
+  Widget _rowDetail(String l, String v) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(l, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+        Text(v,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))
+      ]));
+
+  Widget _buildActionButtons(
+          {required VoidCallback onNext, required String nextLabel}) =>
+      Row(children: [
+        Expanded(
+            child: OutlinedButton(
+                onPressed: () => setState(() {
+                      if (_currentStep > 1) _currentStep--;
+                    }),
+                child: const Text("Kembali"))),
+        const SizedBox(width: 15),
+        Expanded(
+            child: ElevatedButton(
+                onPressed: onNext,
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00BBA7)),
+                child: Text(nextLabel,
+                    style: const TextStyle(color: Colors.white)))),
+      ]);
 
   Future<void> _selectDate(BuildContext c) async {
-    final DateTime? p = await showDatePicker(context: c, initialDate: DateTime.now(), firstDate: DateTime.now(), lastDate: DateTime(2030));
+    final DateTime? p = await showDatePicker(
+        context: c,
+        initialDate: DateTime.now(),
+        firstDate: DateTime.now(),
+        lastDate: DateTime(2030));
     if (p != null) setState(() => _selectedDate = p);
   }
 
+<<<<<<< Updated upstream
   Future<void> _selectTime(BuildContext context) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
@@ -441,5 +1078,11 @@ class _BookingScreenState extends State<BookingScreen> {
         ],
       ),
     );
+=======
+  Future<void> _selectTime(BuildContext c) async {
+    final TimeOfDay? p =
+        await showTimePicker(context: c, initialTime: TimeOfDay.now());
+    if (p != null) setState(() => _selectedTime = p);
+>>>>>>> Stashed changes
   }
 }

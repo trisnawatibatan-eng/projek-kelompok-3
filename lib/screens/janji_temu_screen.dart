@@ -1,6 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../widgets/bottom_nav_bar.dart';
 
+<<<<<<< Updated upstream
+=======
+enum StatusJadwal { menunggu, selesai, ditolak }
+
+class JadwalItem {
+  final String jenisTerapi;
+  final String namaTerapis;
+  final String tanggal;
+  final String jam;
+  final String alamat;
+  final StatusJadwal status;
+  final String? alasanPenolakan;
+
+  JadwalItem({
+    required this.jenisTerapi,
+    required this.namaTerapis,
+    required this.tanggal,
+    required this.jam,
+    required this.alamat,
+    required this.status,
+    this.alasanPenolakan,
+  });
+}
+
+>>>>>>> Stashed changes
 class JanjiTemuScreen extends StatefulWidget {
   const JanjiTemuScreen({super.key});
 
@@ -9,15 +35,130 @@ class JanjiTemuScreen extends StatefulWidget {
 }
 
 class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
+<<<<<<< Updated upstream
   bool isUpcomingActive = true;
   int _userRating = 0;
 
   // Map untuk melacak status ulasan per ID kartu
   final Map<String, bool> _ulasanTerkirim = {};
+=======
+  bool _isHistoryView = false;
+  int _selectedRating = 0;
+
+  final List<JadwalItem> daftarJadwal = [
+    JadwalItem(
+      jenisTerapi: 'Terapi Skoliosis',
+      namaTerapis: 'Ftr. Siti Nurhaliza, S.Tr.Kes',
+      tanggal: 'Senin, 06 April 2026',
+      jam: '14:00 WIB',
+      alamat: 'Jl. Tidar No. 1, Jember, Jawa Timur',
+      status: StatusJadwal.menunggu,
+    ),
+    JadwalItem(
+      jenisTerapi: 'Terapi Nyeri Punggung',
+      namaTerapis: 'Ftr. Siti Nurhaliza, S.Tr.Kes',
+      tanggal: 'Senin, 30 Maret 2026',
+      jam: '10:00 WIB',
+      alamat: 'Jl. Tidar No. 1, Jember, Jawa Timur',
+      status: StatusJadwal.selesai,
+    ),
+    JadwalItem(
+      jenisTerapi: 'Terapi Skoliosis',
+      namaTerapis: 'Ftr. Siti Nurhaliza, S.Tr.Kes',
+      tanggal: 'Senin, 06 April 2026',
+      jam: '14:00 WIB',
+      alamat: 'Jl. Tidar No. 1, Jember, Jawa Timur',
+      status: StatusJadwal.ditolak,
+      alasanPenolakan: 'Mohon maaf, jadwal pada tanggal dan waktu yang dipilih sudah penuh.',
+    ),
+  ];
+
+  // --- MODAL ULASAN (Gambar 2) ---
+  void _showRatingDialog(JadwalItem item) {
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const SizedBox(width: 20),
+                    Text('Beri Ulasan', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                  ],
+                ),
+                Text('Rating Pelayanan', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (index) => IconButton(
+                    icon: Icon(index < _selectedRating ? Icons.star : Icons.star_border, color: Colors.orange, size: 30),
+                    onPressed: () => setModalState(() => _selectedRating = index + 1),
+                  )),
+                ),
+                const SizedBox(height: 10),
+                TextField(maxLines: 3, decoration: InputDecoration(hintText: 'Ceritakan pengalaman Anda...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+                const SizedBox(height: 20),
+                SizedBox(width: double.infinity, height: 45, child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BBA7), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                  child: const Text('Kirim Ulasan', style: TextStyle(color: Colors.white)),
+                )),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+>>>>>>> Stashed changes
+
+  // --- MODAL TANGGAL ALTERNATIF ---
+  void _showAlternativeDates() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Pilih Tanggal Alternatif', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 20),
+            _alternativeTile('Selasa, 07 April 2026', '09:00 WIB'),
+            _alternativeTile('Selasa, 07 April 2026', '16:00 WIB'),
+            const SizedBox(height: 20),
+            SizedBox(width: double.infinity, height: 48, child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BBA7), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+              child: const Text('Booking Sekarang', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _alternativeTile(String d, String t) => ListTile(
+    leading: const Icon(Icons.calendar_month, color: Color(0xFF00BBA7)),
+    title: Text(d, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+    subtitle: Text(t),
+    trailing: const Icon(Icons.circle_outlined),
+  );
 
   @override
   Widget build(BuildContext context) {
+    List<JadwalItem> displayList = daftarJadwal.where((item) => _isHistoryView 
+      ? (item.status == StatusJadwal.selesai || item.status == StatusJadwal.ditolak) 
+      : item.status == StatusJadwal.menunggu).toList();
+
     return Scaffold(
+<<<<<<< Updated upstream
       backgroundColor: Colors.white,
       body: Column(
         children: [
@@ -72,10 +213,36 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
                   _buildTabItem("Riwayat", !isUpcomingActive, () {
                     setState(() => isUpcomingActive = false);
                   }),
+=======
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF00BBA7),
+        elevation: 0,
+        automaticallyImplyLeading: false, // Menghilangkan panah back default
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Janji Temu', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+            Text('Kelola jadwal terapi Anda', style: GoogleFonts.inter(fontSize: 12, color: Colors.white70)),
+          ],
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(color: Colors.black.withOpacity(0.05), borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                children: [
+                  _buildTab("Akan Datang", !_isHistoryView),
+                  _buildTab("Riwayat", _isHistoryView),
+>>>>>>> Stashed changes
                 ],
               ),
             ),
           ),
+<<<<<<< Updated upstream
 
           // --- CONTENT LIST ---
           Expanded(
@@ -180,10 +347,43 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: Colors.grey.shade200),
+=======
+        ),
+      ),
+      body: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: displayList.length,
+        itemBuilder: (context, index) => _buildItemCard(displayList[index]),
+      ),
+      bottomNavigationBar: const BottomNavBar(currentIndex: 2),
+    );
+  }
+
+  Widget _buildTab(String label, bool active) => Expanded(
+    child: GestureDetector(
+      onTap: () => setState(() => _isHistoryView = label == "Riwayat"),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(color: active ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(10)),
+        child: Center(child: Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: active ? const Color(0xFF00BBA7) : Colors.white))),
+      ),
+    ),
+  );
+
+  Widget _buildItemCard(JadwalItem item) {
+    bool isDitolak = item.status == StatusJadwal.ditolak;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDitolak ? const Color(0xFFFFF5F5) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDitolak ? Colors.red.shade100 : Colors.grey.shade200),
+>>>>>>> Stashed changes
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+<<<<<<< Updated upstream
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -233,12 +433,33 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
                     child: Text("Beri Ulasan", style: GoogleFonts.inter(color: Colors.black87, fontWeight: FontWeight.w600)),
                   ),
                 ),
+=======
+          ListTile(
+            title: Text(item.jenisTerapi, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16)),
+            trailing: _statusBadge(item.status), // Label di pojok kanan atas
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(children: [
+              _infoRow(Icons.person_outline, item.namaTerapis),
+              _infoRow(Icons.calendar_today_outlined, "${item.tanggal} • ${item.jam}"),
+              _infoRow(Icons.location_on_outlined, item.alamat),
+            ]),
+          ),
+          if (item.status == StatusJadwal.selesai) ...[
+            const Divider(),
+            _actionBtn("Beri Ulasan", () => _showRatingDialog(item)),
+          ] else if (isDitolak) ...[
+            const Divider(),
+            _rejectionSection(item),
+>>>>>>> Stashed changes
           ],
         ],
       ),
     );
   }
 
+<<<<<<< Updated upstream
   Widget _buildInfoRow(IconData icon, String text) {
     return Row(
       children: [
@@ -341,6 +562,36 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
           },
         );
       },
+=======
+  Widget _statusBadge(StatusJadwal s) {
+    String txt = s == StatusJadwal.menunggu ? "Menunggu Konfirmasi" : (s == StatusJadwal.selesai ? "Selesai" : "Booking ditolak");
+    Color c = s == StatusJadwal.menunggu ? Colors.orange : (s == StatusJadwal.selesai ? Colors.green : Colors.red);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(color: s == StatusJadwal.menunggu ? const Color(0xFFFFF8E1) : c.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+      child: Text(txt, style: TextStyle(color: c, fontSize: 10, fontWeight: FontWeight.bold)),
+>>>>>>> Stashed changes
     );
   }
+
+  Widget _infoRow(IconData i, String t) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(children: [Icon(i, size: 18, color: const Color(0xFF00BBA7)), const SizedBox(width: 10), Text(t, style: const TextStyle(fontSize: 12))]),
+  );
+
+  Widget _actionBtn(String label, VoidCallback tap) => Padding(
+    padding: const EdgeInsets.all(16),
+    child: SizedBox(width: double.infinity, height: 45, child: ElevatedButton(onPressed: tap, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00BBA7), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: Text(label, style: const TextStyle(color: Colors.white)))),
+  );
+
+  Widget _rejectionSection(JadwalItem item) => Padding(
+    padding: const EdgeInsets.all(16),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text("Alasan Penolakan", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 4),
+      Text(item.alasanPenolakan!, style: const TextStyle(fontSize: 12)),
+      const SizedBox(height: 12),
+      _actionBtn("Lihat Tanggal Alternatif", () => _showAlternativeDates()),
+    ]),
+  );
 }
