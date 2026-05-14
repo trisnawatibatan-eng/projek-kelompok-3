@@ -46,9 +46,6 @@ class _JadwalKalenderScreenState extends State<JadwalKalenderScreen> {
     return res['id'] as String;
   }
 
-  /// SELECT scheduled_date FROM bookings
-  /// WHERE fisioterapis_id = ? AND status IN (confirmed, on_going, completed)
-  ///   AND scheduled_date BETWEEN firstDay AND lastDay
   Future<void> _fetchBookedDays(DateTime month) async {
     setState(() => _isLoading = true);
     try {
@@ -66,7 +63,7 @@ class _JadwalKalenderScreenState extends State<JadwalKalenderScreen> {
 
       final days = (response as List).map((e) {
         final d = DateTime.parse(e['scheduled_date'] as String);
-        return DateTime(d.year, d.month, d.day); // strip time
+        return DateTime(d.year, d.month, d.day);
       }).toSet();
 
       setState(() {
@@ -134,10 +131,8 @@ class _JadwalKalenderScreenState extends State<JadwalKalenderScreen> {
                       selectedDay = selected;
                       focusedDay = focused;
                     });
-                    // Langsung kembali ke JadwalPraktikScreen dengan tanggal yang dipilih
                     Navigator.pop(context, selected);
                   },
-                  // Saat bulan berganti → fetch ulang data booking bulan baru
                   onPageChanged: (focused) {
                     setState(() => focusedDay = focused);
                     _fetchBookedDays(focused);
@@ -238,31 +233,26 @@ class _JadwalKalenderScreenState extends State<JadwalKalenderScreen> {
     Color textColor;
 
     if (isToday && isSelected) {
-      // Hari ini + dipilih: abu gelap dengan border
       decoration = BoxDecoration(
           color: Colors.grey.shade600,
           shape: BoxShape.circle,
           border: Border.all(color: Colors.grey.shade800, width: 2));
       textColor = Colors.white;
     } else if (isToday) {
-      // Hari ini: abu-abu
       decoration = BoxDecoration(
           color: Colors.grey.shade400, shape: BoxShape.circle);
       textColor = Colors.white;
     } else if (isSelected && hasBooking) {
-      // Dipilih + ada booking: hijau gelap
       decoration = const BoxDecoration(
           color: Color(0xFF00897B), shape: BoxShape.circle);
       textColor = Colors.white;
     } else if (isSelected) {
-      // Dipilih biasa: teal muda
       decoration = BoxDecoration(
           color: const Color(0xFF00BBA7).withOpacity(0.20),
           shape: BoxShape.circle,
           border: Border.all(color: const Color(0xFF00BBA7), width: 1.5));
       textColor = const Color(0xFF00BBA7);
     } else if (hasBooking) {
-      // Ada booking: hijau
       decoration = const BoxDecoration(
           color: Color(0xFF43A047), shape: BoxShape.circle);
       textColor = Colors.white;
@@ -338,7 +328,12 @@ class _SelectedDayBookingsState extends State<_SelectedDayBookings> {
   void didUpdateWidget(_SelectedDayBookings oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!isSameDay(oldWidget.selectedDay, widget.selectedDay)) {
-      setState(() => _future = _fetchDetail());
+      // ✅ FIX: WidgetsBinding (bukan WidgetBinding) + mounted check
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => _future = _fetchDetail());
+        }
+      });
     }
   }
 
@@ -355,8 +350,7 @@ class _SelectedDayBookingsState extends State<_SelectedDayBookings> {
 
   Future<List<Map<String, dynamic>>> _fetchDetail() async {
     final fisioterapisId = await _getFisioterapisId();
-    final dateStr =
-        DateFormat('yyyy-MM-dd').format(widget.selectedDay);
+    final dateStr = DateFormat('yyyy-MM-dd').format(widget.selectedDay);
 
     final response = await widget.supabase
         .from('bookings')

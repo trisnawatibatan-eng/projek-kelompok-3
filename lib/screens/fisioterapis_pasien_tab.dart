@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../theme.dart';
 import '../widgets/fisioterapis_bottom_navbar.dart';
 import 'fisioterapis_dashboard_screen.dart';
 import 'fisioterapis_jadwal_praktik.dart';
 import 'fisioterapis_profil_tab.dart';
+import 'fisioterapis_pasien_detail.dart';
 
 class FisioterapisPasienTab extends StatefulWidget {
   final Map<String, dynamic>? profil;
@@ -15,119 +19,111 @@ class FisioterapisPasienTab extends StatefulWidget {
 }
 
 class _FisioterapisPasienTabState extends State<FisioterapisPasienTab> {
-  // ✅ Navbar index untuk tab Pasien = 2
+  final _supabase = Supabase.instance.client;
   final int _currentNavIndex = 2;
 
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  final List<Map<String, dynamic>> _pasienList = [
-    {
-      'nama': 'Budi Santoso',
-      'inisial': 'AR',
-      'usia': 28,
-      'jenisKelamin': 'Laki-laki',
-      'layanan': 'Terapi Cedera Olahraga',
-      'telepon': '+62 814 5678 9012',
-      'alamat': 'Jl. Gatot Subroto No. 78, Jakarta Selatan',
-      'terapiBerikutnya': '30/03/2026',
-    },
-    {
-      'nama': 'Andi Wijaya',
-      'inisial': 'AW',
-      'usia': 35,
-      'jenisKelamin': 'Laki-laki',
-      'layanan': 'Terapi Pasca Operasi',
-      'telepon': '+62 816 7890 1234',
-      'alamat': 'Jl. Thamrin No. 12, Jakarta Pusat',
-      'terapiBerikutnya': '30/03/2026',
-    },
-    {
-      'nama': 'Siti Aminah',
-      'inisial': 'SA',
-      'usia': 42,
-      'jenisKelamin': 'Perempuan',
-      'layanan': 'Terapi Nyeri Punggung',
-      'telepon': '+62 813 4567 8901',
-      'alamat': 'Jl. Sudirman No. 45, Jakarta Pusat',
-      'terapiBerikutnya': '31/03/2026',
-    },
-    {
-      'nama': 'Rina Kusuma',
-      'inisial': 'RK',
-      'usia': 55,
-      'jenisKelamin': 'Perempuan',
-      'layanan': 'Terapi Stroke',
-      'telepon': '+62 812 3456 7890',
-      'alamat': 'Jl. Merdeka No. 5, Jakarta Barat',
-      'terapiBerikutnya': '01/04/2026',
-    },
-    {
-      'nama': 'Hendra Gunawan',
-      'inisial': 'HG',
-      'usia': 30,
-      'jenisKelamin': 'Laki-laki',
-      'layanan': 'Terapi Cedera Olahraga',
-      'telepon': '+62 817 8901 2345',
-      'alamat': 'Jl. Kebon Jeruk No. 22, Jakarta Barat',
-      'terapiBerikutnya': '02/04/2026',
-    },
-    {
-      'nama': 'Dewi Lestari',
-      'inisial': 'DL',
-      'usia': 48,
-      'jenisKelamin': 'Perempuan',
-      'layanan': 'Terapi Sendi Lutut',
-      'telepon': '+62 819 0123 4567',
-      'alamat': 'Jl. Mangga Dua No. 10, Jakarta Utara',
-      'terapiBerikutnya': '03/04/2026',
-    },
-    {
-      'nama': 'Agus Prasetyo',
-      'inisial': 'AP',
-      'usia': 60,
-      'jenisKelamin': 'Laki-laki',
-      'layanan': 'Terapi Parkinson',
-      'telepon': '+62 821 2345 6789',
-      'alamat': 'Jl. Raya Bogor No. 88, Jakarta Timur',
-      'terapiBerikutnya': '04/04/2026',
-    },
-    {
-      'nama': 'Maya Indah',
-      'inisial': 'MI',
-      'usia': 25,
-      'jenisKelamin': 'Perempuan',
-      'layanan': 'Terapi Postur Tubuh',
-      'telepon': '+62 822 3456 7890',
-      'alamat': 'Jl. Cipete Raya No. 33, Jakarta Selatan',
-      'terapiBerikutnya': '05/04/2026',
-    },
-    {
-      'nama': 'Bambang Susilo',
-      'inisial': 'BS',
-      'usia': 50,
-      'jenisKelamin': 'Laki-laki',
-      'layanan': 'Terapi Nyeri Leher',
-      'telepon': '+62 823 4567 8901',
-      'alamat': 'Jl. Fatmawati No. 15, Jakarta Selatan',
-      'terapiBerikutnya': '06/04/2026',
-    },
-  ];
-
-  List<Map<String, dynamic>> get _filteredList {
-    if (_searchQuery.isEmpty) return _pasienList;
-    final q = _searchQuery.toLowerCase();
-    return _pasienList.where((p) {
-      return p['nama'].toString().toLowerCase().contains(q) ||
-          p['layanan'].toString().toLowerCase().contains(q) ||
-          p['telepon'].toString().toLowerCase().contains(q);
-    }).toList();
-  }
+  late Future<List<Map<String, dynamic>>> _future;
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _future = _fetchPasien();
+  }
+
+  void _reload() {
+    setState(() => _future = _fetchPasien());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Supabase
+  // ---------------------------------------------------------------------------
+
+  Future<String> _getFisioterapisId() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('User belum login');
+    final res = await _supabase
+        .from('fisioterapis')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+    return res['id'] as String;
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchPasien() async {
+    final fisioterapisId = await _getFisioterapisId();
+
+    // Ambil semua booking completed + data pasien, urutkan terbaru dulu
+    final res = await _supabase
+        .from('bookings')
+        .select('''
+          patient_id,
+          service_type,
+          scheduled_date,
+          patients (
+            full_name,
+            phone,
+            date_of_birth,
+            gender,
+            full_address
+          )
+        ''')
+        .eq('fisioterapis_id', fisioterapisId)
+        .eq('status', 'completed')
+        .order('scheduled_date', ascending: false);
+
+    final raw = res as List;
+
+    // Deduplicate: satu entri per pasien (ambil booking terbaru)
+    final Map<String, Map<String, dynamic>> seen = {};
+    for (final item in raw) {
+      final pid = item['patient_id'] as String;
+      if (!seen.containsKey(pid)) {
+        seen[pid] = Map<String, dynamic>.from(item as Map);
+      }
+    }
+
+    return seen.values.toList();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  int? _hitungUsia(String? dob) {
+    if (dob == null || dob.isEmpty) return null;
+    try {
+      DateTime birth;
+      if (dob.contains('-')) {
+        birth = DateTime.parse(dob);
+      } else {
+        final parts = dob.split('/');
+        birth = DateTime(
+          int.parse(parts[2]),
+          int.parse(parts[1]),
+          int.parse(parts[0]),
+        );
+      }
+      final now = DateTime.now();
+      int age = now.year - birth.year;
+      if (now.month < birth.month ||
+          (now.month == birth.month && now.day < birth.day)) {
+        age--;
+      }
+      return age;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name.isNotEmpty ? name[0].toUpperCase() : '?';
   }
 
   Color _avatarColor(String inisial) {
@@ -139,137 +135,284 @@ class _FisioterapisPasienTabState extends State<FisioterapisPasienTab> {
       Color(0xFF10B981),
       Color(0xFF3B82F6),
     ];
-    final index = inisial.codeUnitAt(0) % colors.length;
-    return colors[index];
+    return colors[inisial.codeUnitAt(0) % colors.length];
   }
 
-  // ✅ Handler navigasi navbar — sama polanya dengan JadwalPraktikScreen
+  List<Map<String, dynamic>> _filtered(List<Map<String, dynamic>> list) {
+    if (_searchQuery.isEmpty) return list;
+    final q = _searchQuery.toLowerCase();
+    return list.where((item) {
+      final pasien = item['patients'] as Map<String, dynamic>? ?? {};
+      return (pasien['full_name'] ?? '').toString().toLowerCase().contains(q) ||
+          (item['service_type'] ?? '').toString().toLowerCase().contains(q) ||
+          (pasien['phone'] ?? '').toString().toLowerCase().contains(q);
+    }).toList();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Navbar
+  // ---------------------------------------------------------------------------
+
   void _onNavTap(int index) {
     if (index == _currentNavIndex) return;
-
-    Widget targetScreen;
+    Widget target;
     switch (index) {
       case 0:
-        targetScreen = const FisioterapisDashboardScreen();
+        target = const FisioterapisDashboardScreen();
         break;
       case 1:
-        targetScreen = const JadwalPraktikScreen();
+        target = const JadwalPraktikScreen();
         break;
       case 2:
-        targetScreen = const FisioterapisPasienTab(); // halaman ini sendiri
+        target = const FisioterapisPasienTab();
         break;
       case 3:
-        targetScreen = const FisioterapisProfilTab();
+        target = const FisioterapisProfilTab();
         break;
       default:
         return;
     }
-
     Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => targetScreen),
-    );
+        context, MaterialPageRoute(builder: (_) => target));
   }
 
   @override
-  Widget build(BuildContext context) {
-    final filtered = _filteredList;
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
-
-      // ✅ Bottom navbar terhubung
       bottomNavigationBar: FisioterapisBottomNavbar(
         currentIndex: _currentNavIndex,
         onTap: _onNavTap,
       ),
-
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false, // hapus tombol back karena ada navbar
+        automaticallyImplyLeading: false,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Daftar Pasien',
-              style: GoogleFonts.inter(
-                  fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            Text(
-              '${_pasienList.length} pasien terdaftar',
-              style: GoogleFonts.inter(fontSize: 11, color: Colors.white70),
-            ),
+            Text('Daftar Pasien',
+                style: GoogleFonts.inter(
+                    fontSize: 16, fontWeight: FontWeight.w700)),
+            Text('Pasien yang telah menyelesaikan layanan',
+                style:
+                    GoogleFonts.inter(fontSize: 11, color: Colors.white70)),
           ],
         ),
+        actions: [
+          IconButton(
+            onPressed: _reload,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+          ),
+        ],
       ),
-
-      body: Column(
-        children: [
-          // Search Bar
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(12),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFF00BBA7)),
+            );
+          }
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.error_outline,
+                      color: Colors.red, size: 48),
+                  const SizedBox(height: 12),
+                  Text('Terjadi kesalahan:\n${snapshot.error}',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(fontSize: 13)),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: _reload,
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00BBA7),
+                        foregroundColor: Colors.white),
+                    child: const Text('Coba Lagi'),
+                  ),
+                ]),
               ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (val) => setState(() => _searchQuery = val),
-                style: GoogleFonts.inter(fontSize: 13),
-                decoration: InputDecoration(
-                  hintText: 'Cari nama, layanan, atau nomor telepon...',
-                  hintStyle: GoogleFonts.inter(
-                      fontSize: 13, color: AppColors.lightText),
-                  prefixIcon: const Icon(Icons.search,
-                      color: AppColors.lightText, size: 20),
-                  border: InputBorder.none,
-                  contentPadding:
-                      const EdgeInsets.symmetric(vertical: 12),
+            );
+          }
+
+          final all = snapshot.data ?? [];
+          final filtered = _filtered(all);
+
+          return Column(children: [
+            // Search bar
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                  style: GoogleFonts.inter(fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Cari nama, layanan, atau nomor telepon...',
+                    hintStyle: GoogleFonts.inter(
+                        fontSize: 13, color: AppColors.lightText),
+                    prefixIcon: const Icon(Icons.search,
+                        color: AppColors.lightText, size: 20),
+                    border: InputBorder.none,
+                    contentPadding:
+                        const EdgeInsets.symmetric(vertical: 12),
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // List Pasien
-          Expanded(
-            child: filtered.isEmpty
-                ? Center(
-                    child: Text(
-                      'Pasien tidak ditemukan',
-                      style: GoogleFonts.inter(
-                          fontSize: 13, color: AppColors.lightText),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final pasien = filtered[index];
-                      return _PasienCard(
-                        pasien: pasien,
-                        avatarColor: _avatarColor(pasien['inisial']),
-                      );
-                    },
-                  ),
-          ),
-        ],
+            // Counter
+            if (all.isNotEmpty)
+              Container(
+                width: double.infinity,
+                color: Colors.white,
+                padding:
+                    const EdgeInsets.only(left: 16, right: 16, bottom: 10),
+                child: Text(
+                  '${all.length} pasien terdaftar',
+                  style: GoogleFonts.inter(
+                      fontSize: 12, color: AppColors.secondaryText),
+                ),
+              ),
+
+            // List
+            Expanded(
+              child: RefreshIndicator(
+                color: const Color(0xFF00BBA7),
+                onRefresh: () async => _reload(),
+                child: filtered.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.people_outline,
+                                size: 64, color: Colors.grey.shade400),
+                            const SizedBox(height: 12),
+                            Text(
+                              all.isEmpty
+                                  ? 'Belum ada pasien yang\nmenyelesaikan layanan'
+                                  : 'Pasien tidak ditemukan',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: AppColors.lightText),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final item = filtered[index];
+                          final pasien =
+                              (item['patients'] as Map<String, dynamic>?) ??
+                                  {};
+
+                          final nama =
+                              (pasien['full_name'] as String? ?? 'Pasien')
+                                  .trim();
+                          final inisial = _initials(nama);
+                          final usia =
+                              _hitungUsia(pasien['date_of_birth'] as String?);
+                          final gender =
+                              (pasien['gender'] as String?) == 'male'
+                                  ? 'Laki-laki'
+                                  : (pasien['gender'] as String?) == 'female'
+                                      ? 'Perempuan'
+                                      : null;
+                          final layanan =
+                              item['service_type'] as String? ?? '-';
+                          final telepon =
+                              pasien['phone'] as String? ?? '-';
+                          final alamat =
+                              pasien['full_address'] as String? ?? '-';
+                          final scheduledDate =
+                              item['scheduled_date'] as String?;
+                          final terapiTerakhir = scheduledDate != null
+                              ? DateFormat('dd/MM/yyyy').format(
+                                  DateTime.parse(scheduledDate))
+                              : '-';
+
+                          return _PasienCard(
+                            patientId: item['patient_id'] as String,
+                            nama: nama,
+                            inisial: inisial,
+                            avatarColor: _avatarColor(inisial),
+                            usia: usia,
+                            gender: gender,
+                            layanan: layanan,
+                            telepon: telepon,
+                            alamat: alamat,
+                            terapiTerakhir: terapiTerakhir,
+                          );
+                        },
+                      ),
+              ),
+            ),
+          ]);
+        },
       ),
     );
   }
 }
 
-class _PasienCard extends StatelessWidget {
-  final Map<String, dynamic> pasien;
-  final Color avatarColor;
+// =============================================================================
+// PASIEN CARD
+// =============================================================================
 
-  const _PasienCard({required this.pasien, required this.avatarColor});
+class _PasienCard extends StatelessWidget {
+  final String patientId;      // ← tambah ini
+  final String nama;
+  final String inisial;
+  final Color avatarColor;
+  final int? usia;
+  final String? gender;
+  final String layanan;
+  final String telepon;
+  final String alamat;
+  final String terapiTerakhir;
+
+  const _PasienCard({
+    required this.patientId,   // ← tambah ini
+    required this.nama,
+    required this.inisial,
+    required this.avatarColor,
+    required this.usia,
+    required this.gender,
+    required this.layanan,
+    required this.telepon,
+    required this.alamat,
+    required this.terapiTerakhir,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final usiaGender = [
+      if (usia != null) '$usia tahun',
+      if (gender != null) gender!,
+    ].join(' • ');
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -288,6 +431,7 @@ class _PasienCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -300,7 +444,7 @@ class _PasienCard extends StatelessWidget {
                   ),
                   child: Center(
                     child: Text(
-                      pasien['inisial'],
+                      inisial,
                       style: GoogleFonts.inter(
                         color: Colors.white,
                         fontSize: 14,
@@ -315,46 +459,68 @@ class _PasienCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        pasien['nama'],
+                        nama,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: AppColors.primaryText,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${pasien['usia']} tahun • ${pasien['jenisKelamin']}',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: AppColors.secondaryText,
+                      if (usiaGender.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          usiaGender,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: AppColors.secondaryText,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(8),
+
+                // ✅ Ikon laporan — terhubung ke FisioterapisPasienDetail
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FisioterapisPasienDetail(
+                        patientId: patientId,
+                        patientName: nama,
+                        inisial: inisial,
+                        avatarColor: avatarColor,
+                      ),
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.description_outlined,
-                    size: 18,
-                    color: AppColors.lightText,
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F8F6),   // ← warna teal muda saat terhubung
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.description_outlined,
+                      size: 18,
+                      color: AppColors.primary,          // ← ikon teal
+                    ),
                   ),
                 ),
               ],
             ),
+
             const SizedBox(height: 12),
-            _InfoRow(icon: Icons.monitor_heart_outlined, text: pasien['layanan']),
+
+            _InfoRow(icon: Icons.monitor_heart_outlined, text: layanan),
             const SizedBox(height: 6),
-            _InfoRow(icon: Icons.phone_outlined, text: pasien['telepon']),
+            _InfoRow(icon: Icons.phone_outlined, text: telepon),
             const SizedBox(height: 6),
-            _InfoRow(icon: Icons.location_on_outlined, text: pasien['alamat']),
+            _InfoRow(icon: Icons.location_on_outlined, text: alamat),
+
             const SizedBox(height: 12),
+
+            // Terapi Terakhir
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -365,16 +531,16 @@ class _PasienCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.calendar_today_outlined,
+                  const Icon(Icons.check_circle_outline,
                       size: 14, color: AppColors.primary),
                   const SizedBox(width: 8),
                   Text(
-                    'Terapi Berikutnya : ',
+                    'Terapi Terakhir : ',
                     style: GoogleFonts.inter(
                         fontSize: 12, color: AppColors.primary),
                   ),
                   Text(
-                    pasien['terapiBerikutnya'],
+                    terapiTerakhir,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -390,6 +556,10 @@ class _PasienCard extends StatelessWidget {
     );
   }
 }
+
+// =============================================================================
+// INFO ROW
+// =============================================================================
 
 class _InfoRow extends StatelessWidget {
   final IconData icon;

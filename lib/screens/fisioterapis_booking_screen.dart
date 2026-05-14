@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/booking_model.dart';
 import 'fisioterapis_jadwal_praktik.dart';
+import 'fisioterapis_pasien_tab.dart';
 
 // =============================================================================
 // SCREEN
@@ -21,7 +22,6 @@ class FisioterapiBookingScreen extends StatefulWidget {
 class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
   final _supabase = Supabase.instance.client;
 
-  // ✅ FIX UTAMA: late Future, di-assign di initState TANPA setState
   late Future<List<BookingModel>> _future;
 
   String? _fisioterapisId;
@@ -31,11 +31,9 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
   @override
   void initState() {
     super.initState();
-    // ✅ Assign langsung — JANGAN pakai setState di sini
     _future = _fetchAll();
   }
 
-  // ✅ Untuk refresh setelah widget mounted: assign dulu, lalu setState
   void _load() {
     final next = _fetchAll();
     if (mounted) {
@@ -75,7 +73,7 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
         .from('bookings')
         .select('*, patients(full_name, phone)')
         .eq('fisioterapis_id', id)
-        .eq('status', 'pending')
+        .inFilter('status', ['pending', 'confirmed', 'on_going'])
         .order('scheduled_date', ascending: true)
         .order('scheduled_time', ascending: true);
 
@@ -109,6 +107,34 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
           'untuk layanan "${booking.serviceType}" telah dikonfirmasi. '
           'Pastikan Anda hadir tepat waktu.',
       'type': 'jadwal',
+      'is_read': false,
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Selesai
+  // ---------------------------------------------------------------------------
+
+  Future<void> _completeBooking(BookingModel booking) async {
+    final now = DateTime.now().toIso8601String();
+
+    await _supabase
+        .from('bookings')
+        .update({'status': 'completed', 'updated_at': now})
+        .eq('id', booking.id);
+
+    final jadwalFormatted = DateFormat('EEEE, dd MMMM yyyy', 'id_ID')
+        .format(booking.scheduledDate);
+
+    await _supabase.from('notifications').insert({
+      'user_id': booking.patientId,
+      'judul': 'Layanan Selesai ✅',
+      'pesan':
+          'Layanan "${booking.serviceType}" pada $jadwalFormatted '
+          'pukul ${booking.scheduledTime} telah selesai. '
+          'Terima kasih telah menggunakan layanan kami. '
+          'Silakan berikan ulasan Anda.',
+      'type': 'completed',
       'is_read': false,
     });
   }
@@ -231,6 +257,65 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
     }
   }
 
+  Future<void> _handleComplete(BookingModel booking) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Selesaikan Layanan',
+            style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+        content: Text(
+          'Tandai layanan untuk ${booking.patientFullName ?? 'Pasien'} '
+          'pada ${DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(booking.scheduledDate)} '
+          'sebagai selesai?\n\nPasien akan otomatis masuk ke Daftar Pasien.',
+          style: GoogleFonts.inter(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Batal',
+                style: GoogleFonts.inter(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00BBA7),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text('Ya, Selesai', style: GoogleFonts.inter()),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true || !mounted) return;
+
+    try {
+      await _completeBooking(booking);
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Layanan selesai! Pasien masuk ke Daftar Pasien.'),
+          backgroundColor: Color(0xFF00BBA7),
+        ),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const FisioterapisPasienTab()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menyelesaikan layanan: $e')),
+      );
+    }
+  }
+
   Future<void> _handleTolak(BookingModel booking) async {
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -338,6 +423,7 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
                   booking: booking,
                   onTerima: () => _handleConfirm(booking),
                   onTolak: () => _handleTolak(booking),
+                  onSelesai: () => _handleComplete(booking),
                 );
               },
             ),
@@ -356,11 +442,13 @@ class _BookingCard extends StatelessWidget {
   final BookingModel booking;
   final Future<void> Function() onTerima;
   final Future<void> Function() onTolak;
+  final Future<void> Function() onSelesai;
 
-  _BookingCard({
+  const _BookingCard({
     required this.booking,
     required this.onTerima,
     required this.onTolak,
+    required this.onSelesai,
   });
 
   String _formatSchedule() {
@@ -385,6 +473,8 @@ class _BookingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isPending = booking.status == 'pending';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -443,33 +533,50 @@ class _BookingCard extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          Row(children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => onTolak(),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+          // Tombol: Pending → Tolak & Terima | Confirmed/On_going → Selesai
+          if (isPending)
+            Row(children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => onTolak(),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Tolak'),
                 ),
-                child: const Text('Tolak'),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () => onTerima(),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => onTerima(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00BBA7),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Terima'),
+                ),
+              ),
+            ])
+          else
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => onSelesai(),
+                icon: const Icon(Icons.check_circle_outline, size: 18),
+                label: const Text('Tandai Selesai'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF00BBA7),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('Terima'),
               ),
             ),
-          ]),
         ],
       ),
     );
