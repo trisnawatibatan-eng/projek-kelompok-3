@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/booking_model.dart';
-import 'fisioterapis_jadwal_praktik.dart'; // ← navigate setelah terima
+import 'fisioterapis_jadwal_praktik.dart';
 
 // =============================================================================
 // SCREEN
@@ -20,6 +20,8 @@ class FisioterapiBookingScreen extends StatefulWidget {
 
 class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
   final _supabase = Supabase.instance.client;
+
+  // ✅ FIX UTAMA: late Future, di-assign di initState TANPA setState
   late Future<List<BookingModel>> _future;
 
   String? _fisioterapisId;
@@ -29,11 +31,16 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    // ✅ Assign langsung — JANGAN pakai setState di sini
+    _future = _fetchAll();
   }
 
+  // ✅ Untuk refresh setelah widget mounted: assign dulu, lalu setState
   void _load() {
-    setState(() => _future = _fetchAll());
+    final next = _fetchAll();
+    if (mounted) {
+      setState(() => _future = next);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -57,7 +64,6 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
   Future<List<BookingModel>> _fetchAll() async {
     final id = await _getFisioterapisId();
 
-    // Load jadwal fisioterapis (untuk tanggal alternatif penolakan)
     final jadwalRes = await _supabase
         .from('jadwal_fisioterapis')
         .select()
@@ -65,7 +71,6 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
         .eq('is_available', true);
     _jadwal = List<Map<String, dynamic>>.from(jadwalRes as List);
 
-    // ✅ Join ke patients(full_name, phone) — butuh RLS policy yang benar
     final res = await _supabase
         .from('bookings')
         .select('*, patients(full_name, phone)')
@@ -74,7 +79,6 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
         .order('scheduled_date', ascending: true)
         .order('scheduled_time', ascending: true);
 
-    // Debug — hapus setelah nama pasien sudah muncul dengan benar
     debugPrint('[BookingScreen] raw: $res');
 
     return (res as List)
@@ -83,19 +87,17 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // ✅ Terima: update DB → confirmed + notifikasi ke pasien
+  // Terima
   // ---------------------------------------------------------------------------
 
   Future<void> _confirmBooking(BookingModel booking) async {
     final now = DateTime.now().toIso8601String();
 
-    // 1. Update status di tabel bookings → confirmed
     await _supabase
         .from('bookings')
         .update({'status': 'confirmed', 'updated_at': now})
         .eq('id', booking.id);
 
-    // 2. Notifikasi ke pasien
     final jadwalFormatted = DateFormat('EEEE, dd MMMM yyyy', 'id_ID')
         .format(booking.scheduledDate);
 
@@ -112,7 +114,7 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Tolak: cancelled + notifikasi alasan + jadwal alternatif ke pasien
+  // Tolak
   // ---------------------------------------------------------------------------
 
   Future<void> _cancelBooking({
@@ -124,13 +126,11 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
     final jadwalFormatted = DateFormat('EEEE, dd MMMM yyyy', 'id_ID')
         .format(booking.scheduledDate);
 
-    // 1. Update status → cancelled
     await _supabase
         .from('bookings')
         .update({'status': 'cancelled', 'updated_at': now})
         .eq('id', booking.id);
 
-    // 2. Susun pesan ke pasien
     final buffer = StringBuffer(
       'Maaf, booking Anda pada $jadwalFormatted pukul ${booking.scheduledTime} '
       'untuk layanan "${booking.serviceType}" ditolak.\n\n'
@@ -144,7 +144,6 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
       );
     }
 
-    // 3. Notifikasi ke pasien
     await _supabase.from('notifications').insert({
       'user_id': booking.patientId,
       'judul': 'Booking Ditolak',
@@ -153,7 +152,6 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
       'is_read': false,
     });
 
-    // 4. Notifikasi log ke fisioterapis sendiri
     if (_fisioterapisUserId != null) {
       await _supabase.from('notifications').insert({
         'user_id': _fisioterapisUserId,
@@ -172,7 +170,6 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
   // ---------------------------------------------------------------------------
 
   Future<void> _handleConfirm(BookingModel booking) async {
-    // Dialog konfirmasi
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -219,8 +216,6 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
         ),
       );
 
-      // ✅ Langsung ke JadwalPraktikScreen dengan tanggal booking
-      // sehingga jadwal yang baru dikonfirmasi langsung terlihat
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -359,10 +354,10 @@ class _FisioterapiBookingScreenState extends State<FisioterapiBookingScreen> {
 
 class _BookingCard extends StatelessWidget {
   final BookingModel booking;
-  final VoidCallback onTerima;
-  final VoidCallback onTolak;
+  final Future<void> Function() onTerima;
+  final Future<void> Function() onTolak;
 
-  const _BookingCard({
+  _BookingCard({
     required this.booking,
     required this.onTerima,
     required this.onTolak,
@@ -451,7 +446,7 @@ class _BookingCard extends StatelessWidget {
           Row(children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: onTolak,
+                onPressed: () => onTolak(),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.red,
                   side: const BorderSide(color: Colors.red),
@@ -464,7 +459,7 @@ class _BookingCard extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton(
-                onPressed: onTerima,
+                onPressed: () => onTerima(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF00BBA7),
                   foregroundColor: Colors.white,
@@ -551,7 +546,7 @@ class _TolakBookingSheetState extends State<_TolakBookingSheet> {
       );
       return;
     }
-    setState(() => _isSubmitting = true);
+    if (mounted) setState(() => _isSubmitting = true);
     try {
       final dipilih = _selectedAlternatifIndex != null
           ? alternatif[_selectedAlternatifIndex!]
@@ -623,7 +618,6 @@ class _TolakBookingSheetState extends State<_TolakBookingSheet> {
             ),
             const SizedBox(height: 20),
 
-            // Info booking
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
@@ -650,7 +644,6 @@ class _TolakBookingSheetState extends State<_TolakBookingSheet> {
             ),
             const SizedBox(height: 20),
 
-            // Alasan
             Row(children: [
               Text('Alasan Penolakan',
                   style: GoogleFonts.inter(
@@ -683,7 +676,6 @@ class _TolakBookingSheetState extends State<_TolakBookingSheet> {
             ),
             const SizedBox(height: 20),
 
-            // Jadwal alternatif
             Text('Tawarkan Jadwal Alternatif',
                 style: GoogleFonts.inter(
                     fontWeight: FontWeight.bold, fontSize: 13)),
