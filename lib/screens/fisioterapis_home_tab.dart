@@ -35,11 +35,15 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
 
   // ── Getters profil ───────────────────────────────────────────
   String get _namaLengkap => widget.profil?['nama_lengkap'] ?? 'Fisioterapis';
-
-  // ← DIUBAH: gelar dari database, kosong jika tidak ada (bukan hardcoded)
   String get _gelar => widget.profil?['gelar'] ?? '';
-
   String get _fotoProfilUrl => widget.profil?['foto_profil_url'] ?? '';
+
+  // Gabungkan prefix Ftr. + nama + suffix gelar jika ada
+  String get _namaLengkapDenganGelar {
+    final nama = 'Ftr. $_namaLengkap';
+    if (_gelar.isNotEmpty) return '$nama, $_gelar';
+    return nama;
+  }
 
   String get _inisial {
     final parts = _namaLengkap.trim().split(' ');
@@ -332,7 +336,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
                   ),
           ),
           const SizedBox(width: 12),
-          // Nama & gelar
+          // Nama & gelar dalam satu baris: "Ftr. Nama, Gelar"
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,24 +351,16 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Ftr. $_namaLengkap',
+                  _namaLengkapDenganGelar,
                   style: GoogleFonts.inter(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.3,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
-                // ← DIUBAH: hanya tampil jika gelar tidak kosong
-                if (_gelar.isNotEmpty)
-                  Text(
-                    _gelar,
-                    style: GoogleFonts.inter(
-                      color: Colors.white.withOpacity(0.75),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
               ],
             ),
           ),

@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
@@ -22,10 +24,11 @@ class _FisioterapisEditProfilScreenState
 
   // Controllers - Informasi Pribadi
   final _namaController = TextEditingController();
-  final _gelarController = TextEditingController(); // ← BARU: kolom gelar
+  final _gelarController = TextEditingController();
   final _emailController = TextEditingController();
   final _teleponController = TextEditingController();
-  final _alamatController = TextEditingController();
+  final _alamatLengkapController = TextEditingController(); // detail jalan
+  final _postalController = TextEditingController();
 
   // Controllers - Informasi Profesional
   final _strController = TextEditingController();
@@ -33,6 +36,15 @@ class _FisioterapisEditProfilScreenState
   final _pendidikanController = TextEditingController();
   final _biografiController = TextEditingController();
   final _sertifikasiController = TextEditingController();
+
+  // ── Wilayah (sama seperti pasien) ────────────────────────────
+  List _provinces = [];
+  List _regencies = [];
+  List _districts = [];
+  List _villages = [];
+
+  String? _provinceId, _regencyId, _districtId, _villageId;
+  String? _provinceLabel, _regencyLabel, _districtLabel, _villageLabel;
 
   // ── Daftar sertifikasi (multi-item) ──────────────────────────
   final List<String> _sertifikasiList = [];
@@ -48,16 +60,18 @@ class _FisioterapisEditProfilScreenState
   @override
   void initState() {
     super.initState();
+    _loadProvinces();
     _loadProfil();
   }
 
   @override
   void dispose() {
     _namaController.dispose();
-    _gelarController.dispose(); // ← BARU
+    _gelarController.dispose();
     _emailController.dispose();
     _teleponController.dispose();
-    _alamatController.dispose();
+    _alamatLengkapController.dispose();
+    _postalController.dispose();
     _strController.dispose();
     _pengalamanController.dispose();
     _pendidikanController.dispose();
@@ -65,6 +79,142 @@ class _FisioterapisEditProfilScreenState
     _sertifikasiController.dispose();
     super.dispose();
   }
+
+  // ── Load wilayah ──────────────────────────────────────────────
+
+  Future<void> _loadProvinces() async {
+    try {
+      final res = await http.get(Uri.parse(
+          'https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json'));
+      final data = json.decode(res.body);
+      if (mounted) setState(() => _provinces = data);
+    } catch (e) {
+      debugPrint('Error provinces: $e');
+    }
+  }
+
+  Future<void> _loadRegencies(String provinceId) async {
+    try {
+      final res = await http.get(Uri.parse(
+          'https://www.emsifa.com/api-wilayah-indonesia/api/regencies/$provinceId.json'));
+      final data = json.decode(res.body);
+      if (mounted) {
+        setState(() {
+          _regencies = data;
+          _regencyId = _regencyLabel = null;
+          _districtId = _districtLabel = null;
+          _villageId = _villageLabel = null;
+          _districts = [];
+          _villages = [];
+        });
+      }
+    } catch (e) {
+      debugPrint('Error regencies: $e');
+    }
+  }
+
+  Future<void> _loadDistricts(String regencyId) async {
+    try {
+      final res = await http.get(Uri.parse(
+          'https://www.emsifa.com/api-wilayah-indonesia/api/districts/$regencyId.json'));
+      final data = json.decode(res.body);
+      if (mounted) {
+        setState(() {
+          _districts = data;
+          _districtId = _districtLabel = null;
+          _villageId = _villageLabel = null;
+          _villages = [];
+        });
+      }
+    } catch (e) {
+      debugPrint('Error districts: $e');
+    }
+  }
+
+  Future<void> _loadVillages(String districtId) async {
+    try {
+      final res = await http.get(Uri.parse(
+          'https://www.emsifa.com/api-wilayah-indonesia/api/villages/$districtId.json'));
+      final data = json.decode(res.body);
+      if (mounted) {
+        setState(() {
+          _villages = data;
+          _villageId = _villageLabel = null;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error villages: $e');
+    }
+  }
+
+  // ── Cari wilayah by ID untuk pre-fill saat load profil ───────
+
+  Future<void> _prefillWilayah({
+    required String? provinceId,
+    required String? regencyId,
+    required String? districtId,
+    required String? villageId,
+  }) async {
+    if (provinceId == null) return;
+    try {
+      // Provinces sudah loaded, cari label
+      final prov = (_provinces as List)
+          .cast<Map>()
+          .firstWhere((p) => p['id'] == provinceId, orElse: () => {});
+      if (prov.isNotEmpty) {
+        setState(() {
+          _provinceId = provinceId;
+          _provinceLabel = prov['name'];
+        });
+      }
+
+      if (regencyId == null) return;
+      final regRes = await http.get(Uri.parse(
+          'https://www.emsifa.com/api-wilayah-indonesia/api/regencies/$provinceId.json'));
+      final regData = json.decode(regRes.body) as List;
+      final reg = regData.cast<Map>()
+          .firstWhere((r) => r['id'] == regencyId, orElse: () => {});
+      if (reg.isNotEmpty) {
+        setState(() {
+          _regencies = regData;
+          _regencyId = regencyId;
+          _regencyLabel = reg['name'];
+        });
+      }
+
+      if (districtId == null) return;
+      final distRes = await http.get(Uri.parse(
+          'https://www.emsifa.com/api-wilayah-indonesia/api/districts/$regencyId.json'));
+      final distData = json.decode(distRes.body) as List;
+      final dist = distData.cast<Map>()
+          .firstWhere((d) => d['id'] == districtId, orElse: () => {});
+      if (dist.isNotEmpty) {
+        setState(() {
+          _districts = distData;
+          _districtId = districtId;
+          _districtLabel = dist['name'];
+        });
+      }
+
+      if (villageId == null) return;
+      final vilRes = await http.get(Uri.parse(
+          'https://www.emsifa.com/api-wilayah-indonesia/api/villages/$districtId.json'));
+      final vilData = json.decode(vilRes.body) as List;
+      final vil = vilData.cast<Map>()
+          .firstWhere((v) => v['id'] == villageId, orElse: () => {});
+      if (vil.isNotEmpty) {
+        setState(() {
+          _villages = vilData;
+          _villageId = villageId;
+          _villageLabel = vil['name'];
+        });
+      }
+    } catch (e) {
+      debugPrint('Error prefill wilayah: $e');
+    }
+  }
+
+  // ── Load profil ───────────────────────────────────────────────
 
   Future<void> _loadProfil() async {
     setState(() => _isLoading = true);
@@ -82,17 +232,41 @@ class _FisioterapisEditProfilScreenState
 
       if (mounted) {
         _namaController.text = data['nama_lengkap'] ?? '';
-        _gelarController.text = data['gelar'] ?? ''; // ← BARU
+        _gelarController.text = data['gelar'] ?? '';
         _emailController.text = data['email'] ?? '';
         _teleponController.text = data['nomor_telepon'] ?? '';
-        _alamatController.text = data['alamat'] ?? '';
         _strController.text = data['nomor_str_sipa'] ?? '';
         _pengalamanController.text = data['pengalaman_kerja'] ?? '';
         _pendidikanController.text = data['pendidikan_terakhir'] ?? '';
         _biografiController.text = data['biografi'] ?? '';
         _existingFotoProfilUrl = data['foto_profil_url'];
 
-        // ── Parse sertifikasi: tersimpan sebagai teks dipisah koma ──
+        // Alamat lengkap (detail jalan)
+        // Kita parse dari kolom 'alamat' yang berformat:
+        // "full_address||province_id||regency_id||district_id||village_id||postal"
+        // Jika belum pakai format baru, fallback ke teks biasa
+        final rawAlamat = data['alamat'] as String? ?? '';
+        if (rawAlamat.contains('||')) {
+          final parts = rawAlamat.split('||');
+          _alamatLengkapController.text = parts.elementAtOrNull(0) ?? '';
+          final pId = parts.elementAtOrNull(1);
+          final rId = parts.elementAtOrNull(2);
+          final dId = parts.elementAtOrNull(3);
+          final vId = parts.elementAtOrNull(4);
+          _postalController.text = parts.elementAtOrNull(5) ?? '';
+          // Prefill wilayah setelah provinces loaded
+          await _prefillWilayah(
+            provinceId: pId,
+            regencyId: rId,
+            districtId: dId,
+            villageId: vId,
+          );
+        } else {
+          // Profil lama — isi ke alamat lengkap saja
+          _alamatLengkapController.text = rawAlamat;
+        }
+
+        // Parse sertifikasi
         final raw = data['sertifikasi'] as String? ?? '';
         if (raw.isNotEmpty) {
           setState(() {
@@ -105,27 +279,124 @@ class _FisioterapisEditProfilScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal memuat profil: $e',
-                style: GoogleFonts.inter(color: Colors.white)),
-            backgroundColor: AppColors.errorRed,
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
+        _showSnackError('Gagal memuat profil: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  // ── Search dialog wilayah ─────────────────────────────────────
+
+  Future<dynamic> _showSearchDialog(List data, String title) async {
+    final search = TextEditingController();
+    List filtered = List.from(data);
+
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setModal) {
+          return DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.75,
+            maxChildSize: 0.95,
+            builder: (_, sc) => Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    title,
+                    style: GoogleFonts.inter(
+                        fontSize: 15, fontWeight: FontWeight.w700,
+                        color: AppColors.primaryText),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextField(
+                    controller: search,
+                    style: GoogleFonts.inter(fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'Cari...',
+                      hintStyle: GoogleFonts.inter(
+                          fontSize: 13, color: AppColors.lightText),
+                      prefixIcon: const Icon(Icons.search, size: 18,
+                          color: AppColors.primary),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide:
+                              BorderSide(color: AppColors.borderColor)),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide:
+                              BorderSide(color: AppColors.borderColor)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                              color: AppColors.primary, width: 1.5)),
+                      filled: true,
+                      fillColor: const Color(0xFFF9FAFB),
+                    ),
+                    onChanged: (q) {
+                      setModal(() {
+                        filtered = data
+                            .where((d) => (d['name'] as String)
+                                .toLowerCase()
+                                .contains(q.toLowerCase()))
+                            .toList();
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.builder(
+                    controller: sc,
+                    itemCount: filtered.length,
+                    itemBuilder: (_, i) {
+                      final item = filtered[i];
+                      return ListTile(
+                        title: Text(item['name'],
+                            style: GoogleFonts.inter(
+                                fontSize: 13, color: AppColors.primaryText)),
+                        onTap: () => Navigator.pop(ctx, item),
+                        trailing: const Icon(Icons.chevron_right,
+                            size: 18, color: AppColors.lightText),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  // ── Upload & simpan ───────────────────────────────────────────
+
   Future<String?> _uploadFile(File file, String bucket, String path) async {
     try {
       await _supabase.storage.from(bucket).upload(
-            path,
-            file,
+            path, file,
             fileOptions: const FileOptions(upsert: true),
           );
       return _supabase.storage.from(bucket).getPublicUrl(path);
@@ -136,6 +407,10 @@ class _FisioterapisEditProfilScreenState
 
   Future<void> _simpanPerubahan() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_provinceId == null || _regencyId == null || _districtId == null) {
+      _showSnackError('Provinsi, Kab/Kota, dan Kecamatan wajib dipilih!');
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
@@ -147,38 +422,42 @@ class _FisioterapisEditProfilScreenState
 
       if (_fotoProfilFile != null) {
         fotoProfilUrl = await _uploadFile(
-          _fotoProfilFile!,
-          'fisioterapis',
-          '$userId/profile_photo.jpg',
+          _fotoProfilFile!, 'fisioterapis', '$userId/profile_photo.jpg',
         );
       }
       if (_fotoStrFile != null) {
         fotoStrUrl = await _uploadFile(
-          _fotoStrFile!,
-          'fisioterapis',
-          '$userId/foto_str.jpg',
+          _fotoStrFile!, 'fisioterapis', '$userId/foto_str.jpg',
         );
       }
       List<String> sertifikatUrls = [];
       for (int i = 0; i < _sertifikatFiles.length; i++) {
         final url = await _uploadFile(
-          _sertifikatFiles[i],
-          'fisioterapis',
-          '$userId/sertifikat_$i.pdf',
+          _sertifikatFiles[i], 'fisioterapis', '$userId/sertifikat_$i.pdf',
         );
         if (url != null) sertifikatUrls.add(url);
       }
 
-      // Sertifikasi disimpan sebagai teks dipisah koma
       final sertifikasiValue = _sertifikasiList.join(', ');
+
+      // Simpan alamat dalam format terstruktur:
+      // "full_address||province_id||regency_id||district_id||village_id||postal"
+      final alamatTerstruktur = [
+        _alamatLengkapController.text.trim(),
+        _provinceId ?? '',
+        _regencyId ?? '',
+        _districtId ?? '',
+        _villageId ?? '',
+        _postalController.text.trim(),
+      ].join('||');
 
       final payload = {
         'user_id': userId,
         'nama_lengkap': _namaController.text.trim(),
-        'gelar': _gelarController.text.trim(), // ← BARU
+        'gelar': _gelarController.text.trim(),
         'email': _emailController.text.trim(),
         'nomor_telepon': _teleponController.text.trim(),
-        'alamat': _alamatController.text.trim(),
+        'alamat': alamatTerstruktur,
         'nomor_str_sipa': _strController.text.trim(),
         'pengalaman_kerja': _pengalamanController.text.trim(),
         'pendidikan_terakhir': _pendidikanController.text.trim(),
@@ -195,35 +474,32 @@ class _FisioterapisEditProfilScreenState
           .upsert(payload, onConflict: 'user_id');
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Profil berhasil disimpan',
-                style: GoogleFonts.inter(color: Colors.white)),
-            backgroundColor: AppColors.primary,
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Profil berhasil disimpan',
+              style: GoogleFonts.inter(color: Colors.white)),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
         Navigator.pop(context);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal menyimpan: $e',
-                style: GoogleFonts.inter(color: Colors.white)),
-            backgroundColor: AppColors.errorRed,
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-      }
+      if (mounted) _showSnackError('Gagal menyimpan: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  void _showSnackError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg, style: GoogleFonts.inter(color: Colors.white)),
+      backgroundColor: AppColors.errorRed,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
+  }
+
+  // ── Sertifikasi helpers ───────────────────────────────────────
 
   void _tambahSertifikasi() {
     final value = _sertifikasiController.text.trim();
@@ -238,54 +514,40 @@ class _FisioterapisEditProfilScreenState
     setState(() => _sertifikasiList.removeAt(index));
   }
 
+  // ── Foto picker helpers ───────────────────────────────────────
+
   Future<void> _pickFotoProfil() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
-    );
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (picked != null) setState(() => _fotoProfilFile = File(picked.path));
   }
 
   Future<void> _pickFile(bool isStr) async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
-    );
-    if (picked != null) {
-      setState(() {
-        if (isStr) {
-          _fotoStrFile = File(picked.path);
-        }
-      });
-    }
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (picked != null && isStr) setState(() => _fotoStrFile = File(picked.path));
   }
 
   Future<void> _pickMultipleSertifikat() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
-    );
-    if (picked != null) {
-      setState(() {
-        _sertifikatFiles.add(File(picked.path));
-      });
-    }
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (picked != null) setState(() => _sertifikatFiles.add(File(picked.path)));
   }
 
   void _removeSertifikatFile(int index) {
     setState(() => _sertifikatFiles.removeAt(index));
   }
 
+  // ════════════════════════════════════════════════════════════════
+  //  BUILD
+  // ════════════════════════════════════════════════════════════════
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary))
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : Column(
               children: [
                 Expanded(
@@ -296,136 +558,140 @@ class _FisioterapisEditProfilScreenState
                         children: [
                           _buildHeader(),
                           const SizedBox(height: 16),
-                          _buildSection(
-                            'Informasi Pribadi',
-                            [
-                              // ── Nama Lengkap ──────────────────────────────
-                              _buildField(
-                                icon: Icons.person_outline,
-                                label: 'Nama Lengkap',
-                                hint: 'Siti Nurhaliza',
-                                controller: _namaController,
-                                required: true,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                    RegExp(r"[a-zA-Z\s\.\,\'\-]"),
-                                  ),
-                                ],
-                                validator: (val) {
-                                  if (val == null || val.trim().isEmpty) {
-                                    return 'Nama Lengkap wajib diisi';
-                                  }
+                          _buildSection('Informasi Pribadi', [
+                            _buildField(
+                              icon: Icons.person_outline,
+                              label: 'Nama Lengkap',
+                              hint: 'Siti Nurhaliza',
+                              controller: _namaController,
+                              required: true,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                    RegExp(r"[a-zA-Z\s\.\,\'\-]")),
+                              ],
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Nama Lengkap wajib diisi';
+                                }
+                                if (RegExp(r'[0-9]').hasMatch(val)) {
+                                  return 'Nama tidak boleh mengandung angka';
+                                }
+                                return null;
+                              },
+                            ),
+                            _buildField(
+                              icon: Icons.workspace_premium_outlined,
+                              label: 'Gelar',
+                              hint: 'S.Tr.Kes / S.Ft / Ners',
+                              controller: _gelarController,
+                              required: false,
+                              subtitle: 'Gelar akademik atau profesi (hanya huruf)',
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                    RegExp(r"[a-zA-Z\s\.\,\'\-]")),
+                              ],
+                              validator: (val) {
+                                if (val != null && val.isNotEmpty) {
                                   if (RegExp(r'[0-9]').hasMatch(val)) {
-                                    return 'Nama tidak boleh mengandung angka';
+                                    return 'Gelar tidak boleh mengandung angka';
                                   }
-                                  return null;
-                                },
-                              ),
-
-                              // ── BARU: Gelar ───────────────────────────────
-                              _buildField(
-                                icon: Icons.workspace_premium_outlined,
-                                label: 'Gelar',
-                                hint: 'S.Tr.Kes / S.Ft / Ners',
-                                controller: _gelarController,
-                                required: false,
-                                subtitle:
-                                    'Gelar akademik atau profesi (hanya huruf)',
-                                // Hanya huruf, titik, koma, spasi, strip
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                    RegExp(r"[a-zA-Z\s\.\,\'\-]"),
-                                  ),
-                                ],
-                                validator: (val) {
-                                  if (val != null && val.isNotEmpty) {
-                                    if (RegExp(r'[0-9]').hasMatch(val)) {
-                                      return 'Gelar tidak boleh mengandung angka';
-                                    }
-                                  }
-                                  return null;
-                                },
-                              ),
-
-                              _buildField(
-                                icon: Icons.email_outlined,
-                                label: 'Email',
-                                hint: 'siti@email.com',
-                                controller: _emailController,
-                                required: true,
-                                keyboardType: TextInputType.emailAddress,
-                              ),
-                              // ── Nomor Telepon ─────────────────────────────
-                              _buildField(
-                                icon: Icons.phone_outlined,
-                                label: 'Nomor Telepon',
-                                hint: '+62 812 3456 7890',
-                                controller: _teleponController,
-                                required: true,
-                                keyboardType: TextInputType.phone,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                    RegExp(r'[0-9\+\-\s]'),
-                                  ),
-                                ],
-                                validator: (val) {
-                                  if (val == null || val.trim().isEmpty) {
-                                    return 'Nomor Telepon wajib diisi';
-                                  }
-                                  final digitsOnly =
-                                      val.replaceAll(RegExp(r'[^\d]'), '');
-                                  if (digitsOnly.length < 8) {
-                                    return 'Nomor telepon minimal 8 digit';
-                                  }
-                                  return null;
-                                },
-                              ),
-                              _buildField(
-                                icon: Icons.location_on_outlined,
-                                label: 'Alamat',
-                                hint: 'Jl. Danautoba VII Blok1 No.9, Jember',
-                                controller: _alamatController,
-                                required: true,
-                                maxLines: 2,
-                              ),
-                            ],
-                          ),
+                                }
+                                return null;
+                              },
+                            ),
+                            _buildField(
+                              icon: Icons.email_outlined,
+                              label: 'Email',
+                              hint: 'siti@email.com',
+                              controller: _emailController,
+                              required: true,
+                              keyboardType: TextInputType.emailAddress,
+                            ),
+                            _buildField(
+                              icon: Icons.phone_outlined,
+                              label: 'Nomor Telepon',
+                              hint: '+62 812 3456 7890',
+                              controller: _teleponController,
+                              required: true,
+                              keyboardType: TextInputType.phone,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9\+\-\s]')),
+                              ],
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Nomor Telepon wajib diisi';
+                                }
+                                final digitsOnly =
+                                    val.replaceAll(RegExp(r'[^\d]'), '');
+                                if (digitsOnly.length < 8) {
+                                  return 'Nomor telepon minimal 8 digit';
+                                }
+                                return null;
+                              },
+                            ),
+                          ]),
                           const SizedBox(height: 16),
-                          _buildSection(
-                            'Informasi Profesional',
-                            [
-                              _buildField(
-                                icon: Icons.badge_outlined,
-                                label: 'Nomor STR/SIPA',
-                                hint: '23456898765445678',
-                                controller: _strController,
-                                required: true,
-                                subtitle:
-                                    'Surat Tanda Registrasi/Surat Izin Praktik Apoteker',
-                              ),
-                              _buildField(
-                                icon: Icons.work_outline,
-                                label: 'Pengalaman Kerja',
-                                hint: '12 tahun di rs raffa',
-                                controller: _pengalamanController,
-                                required: false,
-                              ),
-                              _buildField(
-                                icon: Icons.school_outlined,
-                                label: 'Pendidikan Terakhir',
-                                hint: 'S1 Fisioterapi, Universitas Indonesia',
-                                controller: _pendidikanController,
-                                required: false,
-                              ),
-                              _buildTextAreaField(
-                                label: 'Biografi',
-                                hint:
-                                    'Fisioterapis berpengalaman dengan spesialisasi neurologi dan rehabilitasi pasca...',
-                                controller: _biografiController,
-                              ),
-                              _buildSertifikasiMultiField(),
-                            ],
-                          ),
+
+                          // ── Seksi Alamat (sistem wilayah) ──────────
+                          _buildSection('Alamat Fisioterapis', [
+                            _buildWilayahRow(),
+                            const SizedBox(height: 14),
+                            _buildField(
+                              icon: Icons.home_outlined,
+                              label: 'Alamat Lengkap',
+                              hint: 'Jl. Danautoba VII Blok1 No.9, RT/RW...',
+                              controller: _alamatLengkapController,
+                              required: true,
+                              maxLines: 2,
+                            ),
+                            _buildField(
+                              icon: Icons.markunread_mailbox_outlined,
+                              label: 'Kode Pos',
+                              hint: '68xxx',
+                              controller: _postalController,
+                              required: false,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(5),
+                              ],
+                            ),
+                          ]),
+                          const SizedBox(height: 16),
+
+                          _buildSection('Informasi Profesional', [
+                            _buildField(
+                              icon: Icons.badge_outlined,
+                              label: 'Nomor STR/SIPA',
+                              hint: '23456898765445678',
+                              controller: _strController,
+                              required: true,
+                              subtitle:
+                                  'Surat Tanda Registrasi/Surat Izin Praktik Apoteker',
+                            ),
+                            _buildField(
+                              icon: Icons.work_outline,
+                              label: 'Pengalaman Kerja',
+                              hint: '12 tahun di rs raffa',
+                              controller: _pengalamanController,
+                              required: false,
+                            ),
+                            _buildField(
+                              icon: Icons.school_outlined,
+                              label: 'Pendidikan Terakhir',
+                              hint: 'S1 Fisioterapi, Universitas Indonesia',
+                              controller: _pendidikanController,
+                              required: false,
+                            ),
+                            _buildTextAreaField(
+                              label: 'Biografi',
+                              hint:
+                                  'Fisioterapis berpengalaman dengan spesialisasi neurologi dan rehabilitasi pasca...',
+                              controller: _biografiController,
+                            ),
+                            _buildSertifikasiMultiField(),
+                          ]),
                           const SizedBox(height: 16),
                           _buildDokumenSection(),
                           const SizedBox(height: 100),
@@ -440,126 +706,183 @@ class _FisioterapisEditProfilScreenState
     );
   }
 
-  // ── Widget sertifikasi multi-item ────────────────────────────
+  // ════════════════════════════════════════════════════════════════
+  //  WIDGET: Wilayah (Provinsi → Kab/Kota → Kecamatan → Kelurahan)
+  // ════════════════════════════════════════════════════════════════
 
-  Widget _buildSertifikasiMultiField() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.verified_outlined,
-                  size: 14, color: AppColors.primary),
-              const SizedBox(width: 6),
-              Text(
-                'Sertifikasi',
-                style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryText),
+  Widget _buildWilayahRow() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Provinsi
+        _buildLocationTile(
+          icon: Icons.map_outlined,
+          label: 'Provinsi',
+          value: _provinceLabel,
+          required: true,
+          enabled: true,
+          onTap: () async {
+            if (_provinces.isEmpty) {
+              _showSnackError('Data provinsi belum tersedia, coba lagi.');
+              return;
+            }
+            final val = await _showSearchDialog(_provinces, 'Pilih Provinsi');
+            if (val != null) {
+              setState(() {
+                _provinceId = val['id'];
+                _provinceLabel = val['name'];
+              });
+              _loadRegencies(val['id']);
+            }
+          },
+        ),
+        const SizedBox(height: 10),
+        // Kab/Kota & Kecamatan
+        Row(
+          children: [
+            Expanded(
+              child: _buildLocationTile(
+                icon: Icons.location_city_outlined,
+                label: 'Kab / Kota',
+                value: _regencyLabel,
+                required: true,
+                enabled: _provinceId != null,
+                onTap: _provinceId == null
+                    ? null
+                    : () async {
+                        final val = await _showSearchDialog(
+                            _regencies, 'Pilih Kab / Kota');
+                        if (val != null) {
+                          setState(() {
+                            _regencyId = val['id'];
+                            _regencyLabel = val['name'];
+                          });
+                          _loadDistricts(val['id']);
+                        }
+                      },
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          if (_sertifikasiList.isNotEmpty) ...[
-            ..._sertifikasiList.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              return Container(
-                margin: const EdgeInsets.only(bottom: 6),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE6FAF8),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle_outline,
-                        size: 14, color: AppColors.primary),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        item,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: AppColors.primaryText,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => _hapusSertifikasi(index),
-                      child: const Icon(Icons.close,
-                          size: 16, color: AppColors.lightText),
-                    ),
-                  ],
-                ),
-              );
-            }),
-            const SizedBox(height: 8),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildLocationTile(
+                icon: Icons.location_on_outlined,
+                label: 'Kecamatan',
+                value: _districtLabel,
+                required: true,
+                enabled: _regencyId != null,
+                onTap: _regencyId == null
+                    ? null
+                    : () async {
+                        final val = await _showSearchDialog(
+                            _districts, 'Pilih Kecamatan');
+                        if (val != null) {
+                          setState(() {
+                            _districtId = val['id'];
+                            _districtLabel = val['name'];
+                          });
+                          _loadVillages(val['id']);
+                        }
+                      },
+              ),
+            ),
           ],
-
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _sertifikasiController,
-                  style: GoogleFonts.inter(
-                      fontSize: 13, color: AppColors.primaryText),
-                  decoration: InputDecoration(
-                    hintText: 'Tambah sertifikasi...',
-                    hintStyle: GoogleFonts.inter(
-                        fontSize: 13, color: AppColors.lightText),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: AppColors.borderColor),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: AppColors.borderColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(
-                          color: AppColors.primary, width: 1.5),
-                    ),
-                    filled: true,
-                    fillColor: const Color(0xFFF9FAFB),
-                  ),
-                  onFieldSubmitted: (_) => _tambahSertifikasi(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: _tambahSertifikasi,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.add, color: Colors.white, size: 20),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Ketuk + untuk menambah sertifikasi',
-            style: GoogleFonts.inter(fontSize: 9, color: AppColors.lightText),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 10),
+        // Kelurahan
+        _buildLocationTile(
+          icon: Icons.holiday_village_outlined,
+          label: 'Kelurahan / Desa (Opsional)',
+          value: _villageLabel,
+          required: false,
+          enabled: _districtId != null,
+          onTap: _districtId == null
+              ? null
+              : () async {
+                  final val =
+                      await _showSearchDialog(_villages, 'Pilih Kelurahan');
+                  if (val != null) {
+                    setState(() {
+                      _villageId = val['id'];
+                      _villageLabel = val['name'];
+                    });
+                  }
+                },
+        ),
+      ],
     );
   }
+
+  Widget _buildLocationTile({
+    required IconData icon,
+    required String label,
+    String? value,
+    bool required = false,
+    bool enabled = true,
+    VoidCallback? onTap,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 14, color: AppColors.primary),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryText),
+            ),
+            if (required)
+              Text(' *',
+                  style: GoogleFonts.inter(
+                      fontSize: 11, color: AppColors.errorRed)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            decoration: BoxDecoration(
+              color: enabled ? const Color(0xFFF9FAFB) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: value != null
+                    ? AppColors.primary.withOpacity(0.5)
+                    : AppColors.borderColor,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    value ?? 'Pilih',
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: value != null
+                          ? AppColors.primaryText
+                          : AppColors.lightText,
+                    ),
+                  ),
+                ),
+                Icon(Icons.keyboard_arrow_down,
+                    size: 18,
+                    color: enabled ? AppColors.primary : AppColors.lightText),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  WIDGET: Header
+  // ════════════════════════════════════════════════════════════════
 
   Widget _buildHeader() {
     return Container(
@@ -600,8 +923,7 @@ class _FisioterapisEditProfilScreenState
               child: Stack(
                 children: [
                   Container(
-                    width: 80,
-                    height: 80,
+                    width: 80, height: 80,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
@@ -614,27 +936,13 @@ class _FisioterapisEditProfilScreenState
                                 (_existingFotoProfilUrl?.isNotEmpty ?? false)
                             ? Image.network(_existingFotoProfilUrl!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  color: const Color(0xFF00BBA7),
-                                  child: const Center(
-                                    child: Icon(Icons.person,
-                                        color: Colors.white, size: 40),
-                                  ),
-                                ))
-                            : Container(
-                                color: const Color(0xFF00BBA7),
-                                child: const Center(
-                                  child: Icon(Icons.person,
-                                      color: Colors.white, size: 40),
-                                ),
-                              ),
+                                errorBuilder: (_, __, ___) => _avatarPlaceholder())
+                            : _avatarPlaceholder(),
                   ),
                   Positioned(
-                    bottom: 0,
-                    right: 0,
+                    bottom: 0, right: 0,
                     child: Container(
-                      width: 24,
-                      height: 24,
+                      width: 24, height: 24,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
@@ -652,9 +960,7 @@ class _FisioterapisEditProfilScreenState
             Text(
               'Ketuk untuk ganti foto profil',
               style: GoogleFonts.inter(
-                color: Colors.white.withOpacity(0.85),
-                fontSize: 11,
-              ),
+                  color: Colors.white.withOpacity(0.85), fontSize: 11),
             ),
             const SizedBox(height: 20),
           ],
@@ -663,20 +969,27 @@ class _FisioterapisEditProfilScreenState
     );
   }
 
+  Widget _avatarPlaceholder() => Container(
+        color: const Color(0xFF00BBA7),
+        child: const Center(
+            child: Icon(Icons.person, color: Colors.white, size: 40)),
+      );
+
+  // ════════════════════════════════════════════════════════════════
+  //  WIDGET: Section container
+  // ════════════════════════════════════════════════════════════════
+
   Widget _buildSection(String title, List<Widget> children) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primaryText,
-            ),
-          ),
+          Text(title,
+              style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryText)),
           const SizedBox(height: 10),
           Container(
             decoration: BoxDecoration(
@@ -687,15 +1000,18 @@ class _FisioterapisEditProfilScreenState
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: children,
-              ),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: children),
             ),
           ),
         ],
       ),
     );
   }
+
+  // ════════════════════════════════════════════════════════════════
+  //  WIDGET: Form fields
+  // ════════════════════════════════════════════════════════════════
 
   Widget _buildField({
     required IconData icon,
@@ -718,13 +1034,11 @@ class _FisioterapisEditProfilScreenState
             children: [
               Icon(icon, size: 14, color: AppColors.primary),
               const SizedBox(width: 6),
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryText),
-              ),
+              Text(label,
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryText)),
               if (required)
                 Text(' *',
                     style: GoogleFonts.inter(
@@ -734,8 +1048,8 @@ class _FisioterapisEditProfilScreenState
           if (subtitle != null) ...[
             const SizedBox(height: 2),
             Text(subtitle,
-                style:
-                    GoogleFonts.inter(fontSize: 9, color: AppColors.lightText)),
+                style: GoogleFonts.inter(
+                    fontSize: 9, color: AppColors.lightText)),
           ],
           const SizedBox(height: 6),
           TextFormField(
@@ -743,27 +1057,24 @@ class _FisioterapisEditProfilScreenState
             keyboardType: keyboardType,
             maxLines: maxLines,
             inputFormatters: inputFormatters,
-            style:
-                GoogleFonts.inter(fontSize: 13, color: AppColors.primaryText),
+            style: GoogleFonts.inter(
+                fontSize: 13, color: AppColors.primaryText),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle:
-                  GoogleFonts.inter(fontSize: 13, color: AppColors.lightText),
+              hintStyle: GoogleFonts.inter(
+                  fontSize: 13, color: AppColors.lightText),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppColors.borderColor),
-              ),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: AppColors.borderColor)),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppColors.borderColor),
-              ),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: AppColors.borderColor)),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide:
-                    const BorderSide(color: AppColors.primary, width: 1.5),
-              ),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                      color: AppColors.primary, width: 1.5)),
               filled: true,
               fillColor: const Color(0xFFF9FAFB),
             ),
@@ -789,37 +1100,32 @@ class _FisioterapisEditProfilScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryText),
-          ),
+          Text(label,
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryText)),
           const SizedBox(height: 6),
           TextFormField(
             controller: controller,
             maxLines: 4,
-            style:
-                GoogleFonts.inter(fontSize: 13, color: AppColors.primaryText),
+            style: GoogleFonts.inter(
+                fontSize: 13, color: AppColors.primaryText),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle:
-                  GoogleFonts.inter(fontSize: 13, color: AppColors.lightText),
+              hintStyle: GoogleFonts.inter(
+                  fontSize: 13, color: AppColors.lightText),
               contentPadding: const EdgeInsets.all(12),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppColors.borderColor),
-              ),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: AppColors.borderColor)),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppColors.borderColor),
-              ),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: AppColors.borderColor)),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide:
-                    const BorderSide(color: AppColors.primary, width: 1.5),
-              ),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                      color: AppColors.primary, width: 1.5)),
               filled: true,
               fillColor: const Color(0xFFF9FAFB),
             ),
@@ -829,20 +1135,131 @@ class _FisioterapisEditProfilScreenState
     );
   }
 
+  // ── Sertifikasi multi-item ───────────────────────────────────
+
+  Widget _buildSertifikasiMultiField() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.verified_outlined,
+                  size: 14, color: AppColors.primary),
+              const SizedBox(width: 6),
+              Text('Sertifikasi',
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryText)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_sertifikasiList.isNotEmpty) ...[
+            ..._sertifikasiList.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE6FAF8),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: AppColors.primary.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline,
+                        size: 14, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(item,
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: AppColors.primaryText,
+                              fontWeight: FontWeight.w500)),
+                    ),
+                    GestureDetector(
+                      onTap: () => _hapusSertifikasi(index),
+                      child: const Icon(Icons.close,
+                          size: 16, color: AppColors.lightText),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 8),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _sertifikasiController,
+                  style: GoogleFonts.inter(
+                      fontSize: 13, color: AppColors.primaryText),
+                  decoration: InputDecoration(
+                    hintText: 'Tambah sertifikasi...',
+                    hintStyle: GoogleFonts.inter(
+                        fontSize: 13, color: AppColors.lightText),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide:
+                            BorderSide(color: AppColors.borderColor)),
+                    enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide:
+                            BorderSide(color: AppColors.borderColor)),
+                    focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                            color: AppColors.primary, width: 1.5)),
+                    filled: true,
+                    fillColor: const Color(0xFFF9FAFB),
+                  ),
+                  onFieldSubmitted: (_) => _tambahSertifikasi(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _tambahSertifikasi,
+                child: Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.add, color: Colors.white, size: 20),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('Ketuk + untuk menambah sertifikasi',
+              style:
+                  GoogleFonts.inter(fontSize: 9, color: AppColors.lightText)),
+        ],
+      ),
+    );
+  }
+
+  // ── Dokumen section ──────────────────────────────────────────
+
   Widget _buildDokumenSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Dokumen Pendukung',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primaryText,
-            ),
-          ),
+          Text('Dokumen Pendukung',
+              style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryText)),
           const SizedBox(height: 10),
           Container(
             decoration: BoxDecoration(
@@ -874,13 +1291,11 @@ class _FisioterapisEditProfilScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Sertifikat Kompetensi',
-          style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryText),
-        ),
+        Text('Sertifikat Kompetensi',
+            style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryText)),
         const SizedBox(height: 8),
         if (_sertifikatFiles.isNotEmpty) ...[
           Container(
@@ -893,14 +1308,11 @@ class _FisioterapisEditProfilScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'File yang dipilih (${_sertifikatFiles.length}):',
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
-                ),
+                Text('File yang dipilih (${_sertifikatFiles.length}):',
+                    style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary)),
                 const SizedBox(height: 8),
                 ..._sertifikatFiles.asMap().entries.map((entry) {
                   final index = entry.key;
@@ -922,15 +1334,12 @@ class _FisioterapisEditProfilScreenState
                             size: 16, color: AppColors.primary),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            fileName,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: AppColors.primaryText,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          child: Text(fileName,
+                              style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: AppColors.primaryText,
+                                  fontWeight: FontWeight.w500),
+                              overflow: TextOverflow.ellipsis),
                         ),
                         GestureDetector(
                           onTap: () => _removeSertifikatFile(index),
@@ -961,21 +1370,16 @@ class _FisioterapisEditProfilScreenState
                 Icon(Icons.upload_outlined,
                     color: AppColors.lightText, size: 28),
                 const SizedBox(height: 6),
-                Text(
-                  'Klik untuk upload sertifikat',
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.secondaryText,
-                  ),
-                ),
+                Text('Klik untuk upload sertifikat',
+                    style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.secondaryText)),
                 const SizedBox(height: 4),
-                Text(
-                  'PDF atau gambar (Max. 5MB)\nTambahkan lebih dari 1 file',
-                  style: GoogleFonts.inter(
-                      fontSize: 9, color: AppColors.lightText),
-                  textAlign: TextAlign.center,
-                ),
+                Text('PDF atau gambar (Max. 5MB)\nTambahkan lebih dari 1 file',
+                    style: GoogleFonts.inter(
+                        fontSize: 9, color: AppColors.lightText),
+                    textAlign: TextAlign.center),
               ],
             ),
           ),
@@ -1018,7 +1422,6 @@ class _FisioterapisEditProfilScreenState
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: file != null ? AppColors.primary : AppColors.borderColor,
-                style: BorderStyle.solid,
               ),
             ),
             child: Column(
@@ -1027,7 +1430,8 @@ class _FisioterapisEditProfilScreenState
                   file != null
                       ? Icons.check_circle_outline
                       : Icons.upload_outlined,
-                  color: file != null ? AppColors.primary : AppColors.lightText,
+                  color:
+                      file != null ? AppColors.primary : AppColors.lightText,
                   size: 28,
                 ),
                 const SizedBox(height: 6),
@@ -1044,12 +1448,10 @@ class _FisioterapisEditProfilScreenState
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.inter(
-                      fontSize: 9, color: AppColors.lightText),
-                  textAlign: TextAlign.center,
-                ),
+                Text(subtitle,
+                    style:
+                        GoogleFonts.inter(fontSize: 9, color: AppColors.lightText),
+                    textAlign: TextAlign.center),
               ],
             ),
           ),
@@ -1057,6 +1459,8 @@ class _FisioterapisEditProfilScreenState
       ],
     );
   }
+
+  // ── Simpan button ────────────────────────────────────────────
 
   Widget _buildSimpanButton() {
     return Container(
@@ -1070,25 +1474,19 @@ class _FisioterapisEditProfilScreenState
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+                borderRadius: BorderRadius.circular(12)),
             elevation: 0,
           ),
           child: _isLoading
               ? const SizedBox(
-                  width: 20,
-                  height: 20,
+                  width: 20, height: 20,
                   child: CircularProgressIndicator(
-                      color: Colors.white, strokeWidth: 2),
-                )
-              : Text(
-                  'Simpan Perubahan',
+                      color: Colors.white, strokeWidth: 2))
+              : Text('Simpan Perubahan',
                   style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white)),
         ),
       ),
     );
