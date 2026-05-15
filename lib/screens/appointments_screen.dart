@@ -151,7 +151,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('📅', style: TextStyle(fontSize: 60)),
+            Text('📅', style: GoogleFonts.inter(fontSize: 60)),
             const SizedBox(height: 16),
             Text('Tidak ada janji temu', 
               style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.lightText)),
@@ -191,7 +191,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
                         borderRadius: BorderRadius.circular(12),
                         color: const Color(0xFFF1F5F9),
                       ),
-                      child: Center(child: Text(apt['emoji'], style: const TextStyle(fontSize: 24))),
+                      child: Center(child: Text(apt['emoji'], style: GoogleFonts.inter(fontSize: 24))),
                     ),
                     const SizedBox(width: 12),
                     Expanded(

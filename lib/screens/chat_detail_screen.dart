@@ -10,7 +10,7 @@ class ChatDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF00BBA7),
-        title: Text(name, style: GoogleFonts.poppins(fontSize: 16, color: Colors.white)),
+        title: Text(name, style: GoogleFonts.inter(fontSize: 16, color: Colors.white)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -46,9 +46,9 @@ class ChatDetailScreen extends StatelessWidget {
               color: isMe ? const Color(0xFF00BBA7) : Colors.grey.shade200,
               borderRadius: BorderRadius.circular(15),
             ),
-            child: Text(message, style: TextStyle(color: isMe ? Colors.white : Colors.black87)),
+            child: Text(message, style: GoogleFonts.inter(color: isMe ? Colors.white : Colors.black87)),
           ),
-          Text(time, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          Text(time, style: GoogleFonts.inter(fontSize: 10, color: Colors.grey)),
           const SizedBox(height: 15),
         ],
       ),

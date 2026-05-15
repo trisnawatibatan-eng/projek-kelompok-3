@@ -216,7 +216,7 @@ class _NotifikasiPasienScreenState extends State<NotifikasiPasienScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text('Notifikasi',
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.inter(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold)),
@@ -322,7 +322,7 @@ class _NotifikasiPasienScreenState extends State<NotifikasiPasienScreen> {
   Widget _sectionHeader(String title) => Padding(
         padding: const EdgeInsets.fromLTRB(0, 12, 0, 8),
         child: Text(title,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey.shade700)),
@@ -377,7 +377,7 @@ class _NotifikasiPasienScreenState extends State<NotifikasiPasienScreen> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(_labelFor(type),
-                            style: TextStyle(
+                            style: GoogleFonts.inter(
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
                                 color: _colorFor(type))),
@@ -393,20 +393,20 @@ class _NotifikasiPasienScreenState extends State<NotifikasiPasienScreen> {
                                 shape: BoxShape.circle),
                           ),
                         Text(_timeAgo(createdAt),
-                            style: const TextStyle(
+                            style: GoogleFonts.inter(
                                 fontSize: 10, color: Colors.grey)),
                       ]),
                     ],
                   ),
                   const SizedBox(height: 5),
                   Text(judul,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87)),
                   const SizedBox(height: 3),
                   Text(pesan,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                           fontSize: 12,
                           color: Colors.black54,
                           height: 1.4),
@@ -429,13 +429,13 @@ class _NotifikasiPasienScreenState extends State<NotifikasiPasienScreen> {
                 size: 48, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text('Tidak ada notifikasi',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: Colors.grey.shade600)),
             const SizedBox(height: 8),
             Text('Notifikasi terbaru akan muncul di sini',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.inter(
                     fontSize: 12, color: Colors.grey.shade500)),
           ]),
         ),

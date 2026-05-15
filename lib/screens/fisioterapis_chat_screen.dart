@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'fisioterapis_detail_chat_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -106,9 +107,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     pagePadding,
                     8,
                   ),
-                  child: const Text(
+                  child: Text(
                     "Pesan Fisioterapis",
-                    style: TextStyle(
+                    style: GoogleFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFFD6D6D6),
@@ -147,21 +148,21 @@ class _ChatScreenState extends State<ChatScreen> {
 
                           const SizedBox(width: 14),
 
-                          const Column(
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 "Pesan",
-                                style: TextStyle(
+                                style: GoogleFonts.inter(
                                   color: Colors.white,
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              SizedBox(height: 3),
+                              const SizedBox(height: 3),
                               Text(
                                 "3 pesan belum dibaca",
-                                style: TextStyle(
+                                style: GoogleFonts.inter(
                                   color: Colors.white70,
                                   fontSize: 12,
                                 ),
@@ -194,7 +195,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         child: TextField(
                           controller: _searchController,
                           textAlignVertical: TextAlignVertical.center,
-                          style: const TextStyle(
+                          style: GoogleFonts.inter(
                             fontSize: 14,
                             color: Color(0xFF263238),
                           ),
@@ -205,7 +206,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           },
                           decoration: InputDecoration(
                             hintText: "Cari pasien...",
-                            hintStyle: const TextStyle(
+                            hintStyle: GoogleFonts.inter(
                               color: Color(0xFF7A8CA0),
                               fontSize: 14,
                             ),
@@ -290,9 +291,9 @@ class _ChatScreenState extends State<ChatScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                                const Text(
+                                Text(
                                   "Pasien tidak ditemukan",
-                                  style: TextStyle(
+                                  style: GoogleFonts.inter(
                                     color: Color(0xFF607D8B),
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -386,7 +387,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   backgroundColor: const Color(0xFFC7FFF4),
                   child: Text(
                     _getInitial(name),
-                    style: TextStyle(
+                    style: GoogleFonts.inter(
                       color: const Color(0xFF00897B),
                       fontWeight: FontWeight.w600,
                       fontSize: isMobile ? 13 : 15,
@@ -425,7 +426,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: GoogleFonts.inter(
                       fontWeight: FontWeight.bold,
                       fontSize: isMobile ? 13 : 15,
                       color: const Color(0xFF1E1E1E),
@@ -438,7 +439,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     layanan,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: GoogleFonts.inter(
                       fontSize: isMobile ? 11 : 12,
                       color: const Color(0xFF8A8A8A),
                     ),
@@ -450,7 +451,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     message,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: GoogleFonts.inter(
                       fontSize: isMobile ? 11.5 : 13,
                       color: const Color(0xFF455A64),
                     ),
@@ -467,7 +468,7 @@ class _ChatScreenState extends State<ChatScreen> {
               children: [
                 Text(
                   time,
-                  style: TextStyle(
+                  style: GoogleFonts.inter(
                     fontSize: isMobile ? 10.5 : 12,
                     color: const Color(0xFF607D8B),
                   ),
@@ -486,7 +487,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                     child: Text(
                       unread,
-                      style: TextStyle(
+                      style: GoogleFonts.inter(
                         color: Colors.white,
                         fontSize: isMobile ? 10 : 11,
                         fontWeight: FontWeight.bold,

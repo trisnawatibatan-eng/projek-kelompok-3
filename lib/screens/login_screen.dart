@@ -413,10 +413,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   );
                 },
-                child: const Text(
+                child: Text(
                   'Daftar Sekarang',
-                  style: TextStyle(
-                    color: Color(0xFF00BBA7),
+                  style: GoogleFonts.inter(
+                    color: const Color(0xFF00BBA7),
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),

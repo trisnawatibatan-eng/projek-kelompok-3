@@ -35,7 +35,10 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
 
   // ── Getters profil ───────────────────────────────────────────
   String get _namaLengkap => widget.profil?['nama_lengkap'] ?? 'Fisioterapis';
-  String get _gelar => widget.profil?['gelar'] ?? 'S.Tr.Kes';
+
+  // ← DIUBAH: gelar dari database, kosong jika tidak ada (bukan hardcoded)
+  String get _gelar => widget.profil?['gelar'] ?? '';
+
   String get _fotoProfilUrl => widget.profil?['foto_profil_url'] ?? '';
 
   String get _inisial {
@@ -226,7 +229,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
       MaterialPageRoute(builder: (_) => FisioterapiBookingScreen()),
     );
     _loadPendingBookingCount();
-    _loadPasienHariIni(); // refresh juga setelah kembali dari booking
+    _loadPasienHariIni();
   }
 
   // ── Edukasi (data statis) ────────────────────────────────────
@@ -314,7 +317,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Center(
                       child: Text(_inisial,
-                          style: const TextStyle(
+                          style: GoogleFonts.inter(
                               color: Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.w700)),
@@ -322,7 +325,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
                   )
                 : Center(
                     child: Text(_inisial,
-                        style: const TextStyle(
+                        style: GoogleFonts.inter(
                             color: Colors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.w700)),
@@ -352,14 +355,16 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
                     letterSpacing: -0.3,
                   ),
                 ),
-                Text(
-                  _gelar,
-                  style: GoogleFonts.inter(
-                    color: Colors.white.withOpacity(0.75),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                // ← DIUBAH: hanya tampil jika gelar tidak kosong
+                if (_gelar.isNotEmpty)
+                  Text(
+                    _gelar,
+                    style: GoogleFonts.inter(
+                      color: Colors.white.withOpacity(0.75),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -794,8 +799,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
-              child: Text(item['emoji'],
-                  style: const TextStyle(fontSize: 26)),
+              child: Text(item['emoji'], style: GoogleFonts.inter(fontSize: 26)),
             ),
           ),
           const SizedBox(width: 12),

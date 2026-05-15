@@ -96,7 +96,7 @@ class LaporanScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(color: const Color(0xFFE0F7F4), borderRadius: BorderRadius.circular(20)),
-                        child: const Text("1 Pertemuan", style: TextStyle(color: Color(0xFF00BBA7), fontSize: 12)),
+                        child: Text("1 Pertemuan", style: GoogleFonts.inter(color: Color(0xFF00BBA7), fontSize: 12)),
                       ),
                     ],
                   ),
@@ -123,12 +123,12 @@ class LaporanScreen extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Row(
-                                children: const [
-                                  Text("Pertemuan #1", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                  SizedBox(width: 10),
-                                  Icon(Icons.calendar_today, size: 12, color: Colors.grey),
-                                  SizedBox(width: 4),
-                                  Text("28 Maret 2026", style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                children: [
+                                  Text("Pertemuan #1", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12)),
+                                  const SizedBox(width: 10),
+                                  const Icon(Icons.calendar_today, size: 12, color: Colors.grey),
+                                  const SizedBox(width: 4),
+                                  Text("28 Maret 2026", style: GoogleFonts.inter(fontSize: 11, color: Colors.grey)),
                                 ],
                               ),
                               // Tombol Unduh
@@ -174,7 +174,7 @@ class LaporanScreen extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text("Evaluasi Terapi", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00796B), fontSize: 12)),
+                                    Text("Evaluasi Terapi", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Color(0xFF00796B), fontSize: 12)),
                                     const SizedBox(height: 4),
                                     Text("Progress baik, lanjutkan program. Tambahkan ice therapy.", style: GoogleFonts.inter(fontSize: 11)),
                                   ],
@@ -184,11 +184,11 @@ class LaporanScreen extends StatelessWidget {
                               const SizedBox(height: 20),
                               
                               // --- BAGIAN REKOMENDASI LATIHAN (DIJAMIN TIDAK HILANG) ---
-                              const Text("Rekomendasi Latihan", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              Text("Rekomendasi Latihan", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13)),
                               const SizedBox(height: 8),
-                              const Text(
+                              Text(
                                 "1. Latihan bahu 2x sehari\n2. Gunakan resistance band ring\n3. Hindari mengangkat beban berat", 
-                                style: TextStyle(fontSize: 12, height: 1.6, color: Colors.black87)
+                                style: GoogleFonts.inter(fontSize: 12, height: 1.6, color: Colors.black87)
                               ),
 
                               const SizedBox(height: 20),
@@ -204,8 +204,8 @@ class LaporanScreen extends StatelessWidget {
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text("Terapi Berikutnya:", style: TextStyle(fontSize: 12, color: Color(0xFF00796B))),
-                                    const Text("30 Maret 2026", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00796B))),
+                                    Text("Terapi Berikutnya:", style: GoogleFonts.inter(fontSize: 12, color: Color(0xFF00796B))),
+                                    Text("30 Maret 2026", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Color(0xFF00796B))),
                                   ],
                                 ),
                               )
@@ -233,9 +233,9 @@ class LaporanScreen extends StatelessWidget {
         children: [
           const Icon(Icons.check_circle, size: 16, color: Color(0xFF00BBA7)),
           const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13)),
           const Spacer(),
-          Text(value, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+          Text(value, style: GoogleFonts.inter(color: Colors.grey, fontSize: 11)),
         ],
       ),
     );
@@ -247,9 +247,9 @@ class LaporanScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+          Text(label, style: GoogleFonts.inter(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text(content, style: const TextStyle(fontSize: 12, height: 1.4)),
+          Text(content, style: GoogleFonts.inter(fontSize: 12, height: 1.4)),
         ],
       ),
     );
@@ -260,7 +260,7 @@ class LaporanScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          Text(label, style: GoogleFonts.inter(fontSize: 11, color: Colors.grey)),
           const SizedBox(height: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -268,7 +268,7 @@ class LaporanScreen extends StatelessWidget {
               color: isYellow ? const Color(0xFFFFF9C4) : Colors.transparent,
               borderRadius: BorderRadius.circular(5),
             ),
-            child: Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isYellow ? Colors.orange[800] : Colors.black)),
+            child: Text(value, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12, color: isYellow ? Colors.orange[800] : Colors.black)),
           ),
         ],
       ),

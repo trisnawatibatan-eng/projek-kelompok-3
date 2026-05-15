@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final String name;
@@ -97,7 +98,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         backgroundColor: const Color(0xFFC7FFF4),
                         child: Text(
                           _getInitial(widget.name),
-                          style: TextStyle(
+                          style: GoogleFonts.inter(
                             color: const Color(0xFF00897B),
                             fontWeight: FontWeight.bold,
                             fontSize: isMobile ? 12 : 14,
@@ -115,16 +116,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               widget.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: GoogleFonts.inter(
                                 color: Colors.white,
                                 fontSize: isMobile ? 15 : 17,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(height: 2),
-                            const Text(
+                            Text(
                               "Online",
-                              style: TextStyle(
+                              style: GoogleFonts.inter(
                                 color: Colors.white70,
                                 fontSize: 12,
                               ),
@@ -148,9 +149,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text(
+                  child: Text(
                     "Hari ini",
-                    style: TextStyle(
+                    style: GoogleFonts.inter(
                       color: Colors.grey,
                       fontSize: 11,
                     ),
@@ -210,7 +211,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                             children: [
                               Text(
                                 msg["text"],
-                                style: TextStyle(
+                                style: GoogleFonts.inter(
                                   color: isMe
                                       ? Colors.white
                                       : const Color(0xFF263238),
@@ -221,7 +222,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               const SizedBox(height: 4),
                               Text(
                                 msg["time"],
-                                style: TextStyle(
+                                style: GoogleFonts.inter(
                                   fontSize: 10,
                                   color: isMe ? Colors.white70 : Colors.grey,
                                 ),
@@ -263,13 +264,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           child: TextField(
                             controller: _controller,
                             textAlignVertical: TextAlignVertical.center,
-                            style: const TextStyle(
+                            style: GoogleFonts.inter(
                               fontSize: 15,
                               color: Color(0xFF263238),
                             ),
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: "Ketik pesan...",
-                              hintStyle: TextStyle(
+                              hintStyle: GoogleFonts.inter(
                                 fontSize: 15,
                                 color: Color(0xFF8A8A8A),
                               ),

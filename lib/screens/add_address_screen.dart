@@ -1301,8 +1301,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
         children: [
           TextSpan(text: text),
           if (required)
-            const TextSpan(
-                text: ' *', style: TextStyle(color: Colors.red)),
+            TextSpan(
+                text: ' *', style: GoogleFonts.inter(color: Colors.red)),
         ],
       ),
     );

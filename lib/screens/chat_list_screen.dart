@@ -19,7 +19,7 @@ class ChatListScreen extends StatelessWidget {
         ),
         title: Text(
           'Pesan',
-          style: GoogleFonts.poppins(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
         ),
       ),
       body: ListView(
@@ -60,19 +60,19 @@ class ChatListScreen extends StatelessWidget {
         radius: 25,
         backgroundImage: NetworkImage(imageUrl),
       ),
-      title: Text(name, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14)),
-      subtitle: Text(message, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(fontSize: 12)),
+      title: Text(name, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14)),
+      subtitle: Text(message, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 12)),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text(time, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          Text(time, style: GoogleFonts.inter(fontSize: 10, color: Colors.grey)),
           const SizedBox(height: 5),
           if (unreadCount > 0)
             Container(
               padding: const EdgeInsets.all(6),
               decoration: const BoxDecoration(color: Color(0xFF00BBA7), shape: BoxShape.circle),
-              child: Text('$unreadCount', style: const TextStyle(color: Colors.white, fontSize: 10)),
+              child: Text('$unreadCount', style: GoogleFonts.inter(color: Colors.white, fontSize: 10)),
             ),
         ],
       ),

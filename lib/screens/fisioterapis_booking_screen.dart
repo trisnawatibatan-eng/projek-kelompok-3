@@ -493,7 +493,7 @@ class _BookingCard extends StatelessWidget {
               CircleAvatar(
                 backgroundColor: const Color(0xFF00BBA7),
                 child: Text(_initials,
-                    style: const TextStyle(
+                    style: GoogleFonts.inter(
                         color: Colors.white, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(width: 12),
@@ -991,7 +991,7 @@ class _StatusChip extends StatelessWidget {
       decoration:
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
       child: Text(label,
-          style: TextStyle(
+          style: GoogleFonts.inter(
               color: fg, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }

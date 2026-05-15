@@ -196,7 +196,7 @@ class EdukasiScreen extends StatelessWidget {
                       ),
                       child: Text(
                         tag,
-                        style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.inter(color: color, fontSize: 9, fontWeight: FontWeight.bold),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -268,7 +268,7 @@ class EdukasiScreen extends StatelessWidget {
                   children: [
                     Text(
                       tag,
-                      style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.inter(color: color, fontSize: 10, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -280,7 +280,7 @@ class EdukasiScreen extends StatelessWidget {
                       children: [
                         const Icon(Icons.access_time, size: 12, color: Colors.grey),
                         const SizedBox(width: 4),
-                        Text(date, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text(date, style: GoogleFonts.inter(fontSize: 11, color: Colors.grey)),
                       ],
                     ),
                   ],

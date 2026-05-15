@@ -10,7 +10,7 @@ import 'fisioterapis_dashboard_screen.dart';
 import 'fisioterapis_jadwal_praktik.dart';
 import 'fisioterapis_pasien_tab.dart';
 import 'fisioterapis_review_rating_screen.dart';
-import 'change_password_screen.dart'; // ← tambahan import
+import 'change_password_screen.dart';
 
 class FisioterapisProfilTab extends StatefulWidget {
   final Map<String, dynamic>? profil;
@@ -101,6 +101,17 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
   Map<String, dynamic>? get _profil => widget.profil ?? _profilLoaded;
 
   String get _namaLengkap => _profil?['nama_lengkap'] ?? 'Fisioterapis';
+
+  // ← BARU: getter gelar
+  String get _gelar => _profil?['gelar'] ?? '';
+
+  // ← BARU: nama lengkap dengan prefix Ftr. dan suffix gelar
+  String get _namaLengkapDenganGelar {
+    final nama = 'Ftr. $_namaLengkap';
+    if (_gelar.isNotEmpty) return '$nama, $_gelar';
+    return nama;
+  }
+
   String get _email => _profil?['email'] ?? '-';
   String get _telepon => _profil?['nomor_telepon'] ?? '-';
   String get _alamat => _profil?['alamat'] ?? '-';
@@ -115,6 +126,7 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
     if (_sertifikatUrlsRaw.isEmpty) return [];
     return _sertifikatUrlsRaw.split(',').map((url) => url.trim()).toList();
   }
+
   String get _fotoProfilUrl => _profil?['foto_profil_url'] ?? '';
 
   String get _statusVerifikasi => _profil?['status_verifikasi'] ?? 'pending';
@@ -305,7 +317,7 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) => Center(
                                     child: Text(_inisial,
-                                        style: const TextStyle(
+                                        style: GoogleFonts.inter(
                                             color: Colors.white,
                                             fontSize: 20,
                                             fontWeight: FontWeight.w700)),
@@ -313,7 +325,7 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                                 )
                               : Center(
                                   child: Text(_inisial,
-                                      style: const TextStyle(
+                                      style: GoogleFonts.inter(
                                           color: Colors.white,
                                           fontSize: 20,
                                           fontWeight: FontWeight.w700)),
@@ -324,10 +336,11 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // ← DIUBAH: tampilkan nama dengan Ftr. prefix + gelar suffix
                               Text(
-                                _namaLengkap,
+                                _namaLengkapDenganGelar,
                                 style: GoogleFonts.inter(
-                                  fontSize: 14,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.primaryText,
                                   height: 1.3,
@@ -736,9 +749,9 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
       },
       {
         'icon': Icons.lock_outline,
-        'label': 'Ubah Password',           // ← label sudah benar
+        'label': 'Ubah Password',
         'color': const Color(0xFF6366F1),
-        'onTap': () => Navigator.push(       // ← disambungkan ke ChangePasswordScreen
+        'onTap': () => Navigator.push(
               context,
               MaterialPageRoute(
                   builder: (_) => const ChangePasswordScreen()),
@@ -794,9 +807,7 @@ class _FisioterapisProfilTabState extends State<FisioterapisProfilTab> {
               ),
               if (index < items.length - 1)
                 Divider(
-                    height: 1,
-                    indent: 64,
-                    color: AppColors.borderColor),
+                    height: 1, indent: 64, color: AppColors.borderColor),
             ],
           );
         }),

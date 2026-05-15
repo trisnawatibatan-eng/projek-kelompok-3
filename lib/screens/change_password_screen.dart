@@ -383,10 +383,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         TextField(
           controller: controller,
           obscureText: isObscure,
-          style: const TextStyle(fontSize: 14),
+          style: GoogleFonts.inter(fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+            hintStyle: GoogleFonts.inter(fontSize: 13, color: Colors.grey),
             filled: true,
             fillColor: const Color(0xFFF8F9FA),
             contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),

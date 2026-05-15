@@ -183,8 +183,8 @@ class DetailArtikelScreen extends StatelessWidget {
             child: Center(
               child: Text(
                 number.toString(),
-                style: const TextStyle(
-                  color: Color(0xFF00BBA7),
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF00BBA7),
                   fontWeight: FontWeight.bold,
                 ),
               ),

@@ -450,7 +450,7 @@ class _SelectedDayBookingsState extends State<_SelectedDayBookings> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(statusLabel,
-                            style: TextStyle(
+                            style: GoogleFonts.inter(
                                 color: statusColor,
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold)),

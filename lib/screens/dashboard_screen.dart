@@ -240,9 +240,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Pesan Home Care',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 20),
           SizedBox(
@@ -258,9 +258,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text(
+              child: Text(
                 'Pesan Sekarang',
-                style: TextStyle(color: Colors.white),
+                style: GoogleFonts.inter(color: Colors.white),
               ),
             ),
           ),
@@ -276,7 +276,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         color: const Color(0xFF00BBA7),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Row(
+      child: Row(
         children: [
           CircleAvatar(
             backgroundColor: Colors.white24,
@@ -288,12 +288,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Text(
                 'Ftr. Siti Nurhaliza',
-                style: TextStyle(
+                style: GoogleFonts.inter(
                     color: Colors.white, fontWeight: FontWeight.bold),
               ),
               Text(
                 'Besok, 10:00 WIB',
-                style: TextStyle(color: Colors.white70, fontSize: 12),
+                style: GoogleFonts.inter(color: Colors.white70, fontSize: 12),
               ),
             ],
           ),
@@ -322,7 +322,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
+              style: GoogleFonts.inter(
                   fontWeight: FontWeight.bold, fontSize: 13),
             ),
           ),

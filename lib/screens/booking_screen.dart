@@ -422,7 +422,7 @@ class _BookingScreenState extends State<BookingScreen> {
         child: Center(
             child: Text(t,
                 style:
-                    const TextStyle(color: Colors.white, fontSize: 12))),
+                    GoogleFonts.inter(color: Colors.white, fontSize: 12))),
       );
 
   Widget _stepLine(bool a) =>
@@ -945,14 +945,14 @@ class _BookingScreenState extends State<BookingScreen> {
             decoration: BoxDecoration(
                 color: Colors.orange.shade50,
                 borderRadius: BorderRadius.circular(12)),
-            child: const Row(
+            child: Row(
               children: [
                 Icon(Icons.info_outline, color: Colors.orange),
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     "Pembayaran tunai dilakukan setelah layanan selesai.",
-                    style: TextStyle(fontSize: 12, color: Colors.orange),
+                    style: GoogleFonts.inter(fontSize: 12, color: Colors.orange),
                   ),
                 ),
               ],

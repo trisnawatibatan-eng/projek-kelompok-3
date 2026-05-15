@@ -284,8 +284,8 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
                             height: 18,
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white))
-                        : const Text('Kirim Ulasan',
-                            style: TextStyle(color: Colors.white)),
+                        : Text('Kirim Ulasan',
+                            style: GoogleFonts.inter(color: Colors.white)),
                   ),
                 ),
               ],
@@ -521,7 +521,7 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
       decoration:
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
       child: Text(_statusLabel(status),
-          style: TextStyle(
+          style: GoogleFonts.inter(
               color: color, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
@@ -553,7 +553,7 @@ class _JanjiTemuScreenState extends State<JanjiTemuScreen> {
                   borderRadius: BorderRadius.circular(8)),
             ),
             child: Text(label,
-                style: const TextStyle(color: Colors.white)),
+                style: GoogleFonts.inter(color: Colors.white)),
           ),
         ),
       );

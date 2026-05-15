@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // ← untuk inputFormatters
-import 'package:flutter/foundation.dart'; // ← untuk kIsWeb
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -22,6 +22,7 @@ class _FisioterapisEditProfilScreenState
 
   // Controllers - Informasi Pribadi
   final _namaController = TextEditingController();
+  final _gelarController = TextEditingController(); // ← BARU: kolom gelar
   final _emailController = TextEditingController();
   final _teleponController = TextEditingController();
   final _alamatController = TextEditingController();
@@ -31,7 +32,7 @@ class _FisioterapisEditProfilScreenState
   final _pengalamanController = TextEditingController();
   final _pendidikanController = TextEditingController();
   final _biografiController = TextEditingController();
-  final _sertifikasiController = TextEditingController(); // controller input tambah sertifikasi
+  final _sertifikasiController = TextEditingController();
 
   // ── Daftar sertifikasi (multi-item) ──────────────────────────
   final List<String> _sertifikasiList = [];
@@ -53,6 +54,7 @@ class _FisioterapisEditProfilScreenState
   @override
   void dispose() {
     _namaController.dispose();
+    _gelarController.dispose(); // ← BARU
     _emailController.dispose();
     _teleponController.dispose();
     _alamatController.dispose();
@@ -80,6 +82,7 @@ class _FisioterapisEditProfilScreenState
 
       if (mounted) {
         _namaController.text = data['nama_lengkap'] ?? '';
+        _gelarController.text = data['gelar'] ?? ''; // ← BARU
         _emailController.text = data['email'] ?? '';
         _teleponController.text = data['nomor_telepon'] ?? '';
         _alamatController.text = data['alamat'] ?? '';
@@ -141,7 +144,6 @@ class _FisioterapisEditProfilScreenState
 
       String? fotoProfilUrl;
       String? fotoStrUrl;
-      String? sertifikatUrl;
 
       if (_fotoProfilFile != null) {
         fotoProfilUrl = await _uploadFile(
@@ -173,6 +175,7 @@ class _FisioterapisEditProfilScreenState
       final payload = {
         'user_id': userId,
         'nama_lengkap': _namaController.text.trim(),
+        'gelar': _gelarController.text.trim(), // ← BARU
         'email': _emailController.text.trim(),
         'nomor_telepon': _teleponController.text.trim(),
         'alamat': _alamatController.text.trim(),
@@ -183,7 +186,8 @@ class _FisioterapisEditProfilScreenState
         'sertifikasi': sertifikasiValue,
         if (fotoProfilUrl != null) 'foto_profil_url': fotoProfilUrl,
         if (fotoStrUrl != null) 'foto_str_url': fotoStrUrl,
-        if (sertifikatUrls.isNotEmpty) 'sertifikat_urls': sertifikatUrls.join(','),
+        if (sertifikatUrls.isNotEmpty)
+          'sertifikat_urls': sertifikatUrls.join(','),
       };
 
       await _supabase
@@ -221,7 +225,6 @@ class _FisioterapisEditProfilScreenState
     }
   }
 
-  // ── Tambah sertifikasi ke list ────────────────────────────────
   void _tambahSertifikasi() {
     final value = _sertifikasiController.text.trim();
     if (value.isEmpty) return;
@@ -231,7 +234,6 @@ class _FisioterapisEditProfilScreenState
     });
   }
 
-  // ── Hapus sertifikasi dari list ───────────────────────────────
   void _hapusSertifikasi(int index) {
     setState(() => _sertifikasiList.removeAt(index));
   }
@@ -297,15 +299,14 @@ class _FisioterapisEditProfilScreenState
                           _buildSection(
                             'Informasi Pribadi',
                             [
-                              // ── Nama Lengkap: hanya huruf & spasi ──
+                              // ── Nama Lengkap ──────────────────────────────
                               _buildField(
                                 icon: Icons.person_outline,
                                 label: 'Nama Lengkap',
-                                hint: 'Ftr. Siti Nurhaliza S.Tr.Kes',
+                                hint: 'Siti Nurhaliza',
                                 controller: _namaController,
                                 required: true,
                                 inputFormatters: [
-                                  // Blokir angka, hanya izinkan huruf, spasi, titik
                                   FilteringTextInputFormatter.allow(
                                     RegExp(r"[a-zA-Z\s\.\,\'\-]"),
                                   ),
@@ -320,6 +321,32 @@ class _FisioterapisEditProfilScreenState
                                   return null;
                                 },
                               ),
+
+                              // ── BARU: Gelar ───────────────────────────────
+                              _buildField(
+                                icon: Icons.workspace_premium_outlined,
+                                label: 'Gelar',
+                                hint: 'S.Tr.Kes / S.Ft / Ners',
+                                controller: _gelarController,
+                                required: false,
+                                subtitle:
+                                    'Gelar akademik atau profesi (hanya huruf)',
+                                // Hanya huruf, titik, koma, spasi, strip
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r"[a-zA-Z\s\.\,\'\-]"),
+                                  ),
+                                ],
+                                validator: (val) {
+                                  if (val != null && val.isNotEmpty) {
+                                    if (RegExp(r'[0-9]').hasMatch(val)) {
+                                      return 'Gelar tidak boleh mengandung angka';
+                                    }
+                                  }
+                                  return null;
+                                },
+                              ),
+
                               _buildField(
                                 icon: Icons.email_outlined,
                                 label: 'Email',
@@ -328,7 +355,7 @@ class _FisioterapisEditProfilScreenState
                                 required: true,
                                 keyboardType: TextInputType.emailAddress,
                               ),
-                              // ── Nomor Telepon: hanya angka & + di awal ──
+                              // ── Nomor Telepon ─────────────────────────────
                               _buildField(
                                 icon: Icons.phone_outlined,
                                 label: 'Nomor Telepon',
@@ -337,7 +364,6 @@ class _FisioterapisEditProfilScreenState
                                 required: true,
                                 keyboardType: TextInputType.phone,
                                 inputFormatters: [
-                                  // Izinkan angka, +, spasi, strip
                                   FilteringTextInputFormatter.allow(
                                     RegExp(r'[0-9\+\-\s]'),
                                   ),
@@ -397,7 +423,6 @@ class _FisioterapisEditProfilScreenState
                                     'Fisioterapis berpengalaman dengan spesialisasi neurologi dan rehabilitasi pasca...',
                                 controller: _biografiController,
                               ),
-                              // ── Sertifikasi multi-item ──
                               _buildSertifikasiMultiField(),
                             ],
                           ),
@@ -423,7 +448,6 @@ class _FisioterapisEditProfilScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Label
           Row(
             children: [
               const Icon(Icons.verified_outlined,
@@ -440,7 +464,6 @@ class _FisioterapisEditProfilScreenState
           ),
           const SizedBox(height: 8),
 
-          // Daftar sertifikasi yang sudah ditambahkan
           if (_sertifikasiList.isNotEmpty) ...[
             ..._sertifikasiList.asMap().entries.map((entry) {
               final index = entry.key;
@@ -481,7 +504,6 @@ class _FisioterapisEditProfilScreenState
             const SizedBox(height: 8),
           ],
 
-          // Input tambah sertifikasi baru
           Row(
             children: [
               Expanded(
@@ -538,8 +560,6 @@ class _FisioterapisEditProfilScreenState
       ),
     );
   }
-
-  // ────────────────────────────────────────────────────────────
 
   Widget _buildHeader() {
     return Container(
@@ -723,12 +743,12 @@ class _FisioterapisEditProfilScreenState
             keyboardType: keyboardType,
             maxLines: maxLines,
             inputFormatters: inputFormatters,
-            style: GoogleFonts.inter(
-                fontSize: 13, color: AppColors.primaryText),
+            style:
+                GoogleFonts.inter(fontSize: 13, color: AppColors.primaryText),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: GoogleFonts.inter(
-                  fontSize: 13, color: AppColors.lightText),
+              hintStyle:
+                  GoogleFonts.inter(fontSize: 13, color: AppColors.lightText),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               border: OutlineInputBorder(
@@ -780,12 +800,12 @@ class _FisioterapisEditProfilScreenState
           TextFormField(
             controller: controller,
             maxLines: 4,
-            style: GoogleFonts.inter(
-                fontSize: 13, color: AppColors.primaryText),
+            style:
+                GoogleFonts.inter(fontSize: 13, color: AppColors.primaryText),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: GoogleFonts.inter(
-                  fontSize: 13, color: AppColors.lightText),
+              hintStyle:
+                  GoogleFonts.inter(fontSize: 13, color: AppColors.lightText),
               contentPadding: const EdgeInsets.all(12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -862,7 +882,6 @@ class _FisioterapisEditProfilScreenState
               color: AppColors.primaryText),
         ),
         const SizedBox(height: 8),
-        // Daftar file sertifikat yang sudah dipilih
         if (_sertifikatFiles.isNotEmpty) ...[
           Container(
             padding: const EdgeInsets.all(12),
@@ -889,8 +908,8 @@ class _FisioterapisEditProfilScreenState
                   final fileName = file.path.split('/').last;
                   return Container(
                     margin: const EdgeInsets.only(bottom: 6),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
@@ -927,7 +946,6 @@ class _FisioterapisEditProfilScreenState
           ),
           const SizedBox(height: 12),
         ],
-        // Upload box
         GestureDetector(
           onTap: _pickMultipleSertifikat,
           child: Container(

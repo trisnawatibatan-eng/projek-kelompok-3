@@ -572,7 +572,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+            child: Text('Hapus', style: GoogleFonts.inter(color: Colors.red)),
           ),
         ],
       ),

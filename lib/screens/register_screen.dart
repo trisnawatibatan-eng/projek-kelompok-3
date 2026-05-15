@@ -430,7 +430,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.inter(
                         fontSize: 16, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 12),
                 TextField(
@@ -470,7 +470,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     itemBuilder: (_, i) => ListTile(
                       dense: true,
                       title: Text(filtered[i]['name'],
-                          style: GoogleFonts.poppins(fontSize: 13)),
+                          style: GoogleFonts.inter(fontSize: 13)),
                       onTap: () => Navigator.pop(ctx, filtered[i]),
                     ),
                   ),
@@ -644,7 +644,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             Expanded(
                               child: Text(
                                 'Alamat ini akan disimpan dengan label "Rumah" dan dapat diubah nanti di profil Anda.',
-                                style: GoogleFonts.poppins(
+                                style: GoogleFonts.inter(
                                     fontSize: 11, color: _tealDark),
                               ),
                             ),
@@ -708,7 +708,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         child: Text(
                           "Informasi ini membantu terapis memberikan perawatan terbaik",
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.inter(
                               fontSize: 12, color: _tealDark),
                         ),
                       ),
@@ -764,7 +764,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       Colors.white)),
                             )
                           : Text("Daftar Sekarang",
-                              style: GoogleFonts.poppins(
+                              style: GoogleFonts.inter(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600)),
                     ),
@@ -774,12 +774,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text("Sudah punya akun? ",
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.inter(
                               fontSize: 13, color: _label)),
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
                         child: Text("Masuk",
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.inter(
                                 fontSize: 13,
                                 color: _teal,
                                 fontWeight: FontWeight.w600)),
@@ -827,7 +827,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SizedBox(width: 6),
           Text(
             text,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.inter(
               fontSize: 11,
               color: passed ? _tealDark : _grey,
               fontWeight: passed ? FontWeight.w500 : FontWeight.normal,
@@ -850,10 +850,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           RichText(
             text: TextSpan(
               text: "Nomor Telepon",
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.inter(
                   fontSize: 13, fontWeight: FontWeight.w500, color: _text),
-              children: const [
-                TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              children: [
+                TextSpan(text: ' *', style: GoogleFonts.inter(color: Colors.red)),
               ],
             ),
           ),
@@ -862,15 +862,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
             controller: _phoneC,
             keyboardType: TextInputType.phone,
             inputFormatters: [_PhoneIndonesiaFormatter()],
-            style: GoogleFonts.poppins(fontSize: 13, color: _text),
+            style: GoogleFonts.inter(fontSize: 13, color: _text),
             decoration: InputDecoration(
               hintText: "08xx atau +628xx",
-              hintStyle: GoogleFonts.poppins(fontSize: 13, color: _grey),
+              hintStyle: GoogleFonts.inter(fontSize: 13, color: _grey),
               prefixIcon:
                   const Icon(Icons.phone_outlined, size: 18, color: _grey),
               helperText:
                   "Format: 08xxxxxxxxxx atau +628xxxxxxxxxx (10–13 digit)",
-              helperStyle: GoogleFonts.poppins(fontSize: 10, color: _grey),
+              helperStyle: GoogleFonts.inter(fontSize: 10, color: _grey),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(
@@ -901,22 +901,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text("Golongan Darah",
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.inter(
                   fontSize: 13, fontWeight: FontWeight.w500, color: _text)),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
             value: _bloodType,
             hint: Text("Pilih golongan darah",
-                style: GoogleFonts.poppins(fontSize: 13, color: _grey)),
+                style: GoogleFonts.inter(fontSize: 13, color: _grey)),
             items: _bloodTypes
                 .map((bt) => DropdownMenuItem(
                       value: bt,
                       child:
-                          Text(bt, style: GoogleFonts.poppins(fontSize: 13)),
+                          Text(bt, style: GoogleFonts.inter(fontSize: 13)),
                     ))
                 .toList(),
             onChanged: (val) => setState(() => _bloodType = val),
-            style: GoogleFonts.poppins(fontSize: 13, color: _text),
+            style: GoogleFonts.inter(fontSize: 13, color: _text),
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.bloodtype_outlined,
                   size: 18, color: _grey),
@@ -978,12 +978,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("Daftar Pasien",
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                           color: Colors.white,
                           fontSize: 18,
                           fontWeight: FontWeight.w700)),
                   Text("Buat akun untuk layanan fisioterapi",
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                           color: Colors.white.withOpacity(0.85),
                           fontSize: 12)),
                 ],
@@ -1017,7 +1017,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.inter(
                   fontSize: 15, fontWeight: FontWeight.w600, color: _text)),
           const SizedBox(height: 4),
           Container(height: 2, width: 40, color: _teal),
@@ -1036,7 +1036,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const Icon(Icons.location_on_outlined, size: 16, color: _teal),
           const SizedBox(width: 6),
           Text(title,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.inter(
                   fontSize: 13, fontWeight: FontWeight.w600, color: _text)),
         ],
       ),
@@ -1066,12 +1066,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           RichText(
             text: TextSpan(
               text: label,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.inter(
                   fontSize: 13, fontWeight: FontWeight.w500, color: _text),
               children: required
                   ? [
-                      const TextSpan(
-                          text: ' *', style: TextStyle(color: Colors.red))
+                      TextSpan(
+                          text: ' *', style: GoogleFonts.inter(color: Colors.red))
                     ]
                   : [],
             ),
@@ -1083,12 +1083,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
             keyboardType: keyboardType,
             maxLines: maxLines,
             inputFormatters: inputFormatters,
-            style: GoogleFonts.poppins(fontSize: 13, color: _text),
+            style: GoogleFonts.inter(fontSize: 13, color: _text),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: GoogleFonts.poppins(fontSize: 13, color: _grey),
+              hintStyle: GoogleFonts.inter(fontSize: 13, color: _grey),
               helperText: helperText,
-              helperStyle: GoogleFonts.poppins(fontSize: 10, color: _grey),
+              helperStyle: GoogleFonts.inter(fontSize: 10, color: _grey),
               prefixIcon: prefixIcon != null
                   ? Icon(prefixIcon, size: 18, color: _grey)
                   : null,
@@ -1131,12 +1131,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           RichText(
             text: TextSpan(
               text: label,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.inter(
                   fontSize: 13, fontWeight: FontWeight.w500, color: _text),
               children: required
                   ? [
-                      const TextSpan(
-                          text: ' *', style: TextStyle(color: Colors.red))
+                      TextSpan(
+                          text: ' *', style: GoogleFonts.inter(color: Colors.red))
                     ]
                   : [],
             ),
@@ -1145,10 +1145,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           TextField(
             controller: controller,
             obscureText: obscure,
-            style: GoogleFonts.poppins(fontSize: 13, color: _text),
+            style: GoogleFonts.inter(fontSize: 13, color: _text),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: GoogleFonts.poppins(fontSize: 13, color: _grey),
+              hintStyle: GoogleFonts.inter(fontSize: 13, color: _grey),
               prefixIcon:
                   const Icon(Icons.lock_outline, size: 18, color: _grey),
               suffixIcon: GestureDetector(
@@ -1190,7 +1190,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text("Tanggal Lahir",
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.inter(
                   fontSize: 13, fontWeight: FontWeight.w500, color: _text)),
           const SizedBox(height: 6),
           GestureDetector(
@@ -1198,11 +1198,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: AbsorbPointer(
               child: TextField(
                 controller: _dobC,
-                style: GoogleFonts.poppins(fontSize: 13, color: _text),
+                style: GoogleFonts.inter(fontSize: 13, color: _text),
                 decoration: InputDecoration(
                   hintText: "dd/mm/yyyy",
                   hintStyle:
-                      GoogleFonts.poppins(fontSize: 13, color: _grey),
+                      GoogleFonts.inter(fontSize: 13, color: _grey),
                   prefixIcon: const Icon(Icons.calendar_today_outlined,
                       size: 18, color: _grey),
                   contentPadding: const EdgeInsets.symmetric(
@@ -1238,25 +1238,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text("Jenis Kelamin",
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.inter(
                   fontSize: 13, fontWeight: FontWeight.w500, color: _text)),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
             value: _gender,
             hint: Text("Pilih jenis kelamin",
-                style: GoogleFonts.poppins(fontSize: 13, color: _grey)),
+                style: GoogleFonts.inter(fontSize: 13, color: _grey)),
             items: [
               DropdownMenuItem(
                   value: 'male',
                   child: Text("Laki-laki",
-                      style: GoogleFonts.poppins(fontSize: 13))),
+                      style: GoogleFonts.inter(fontSize: 13))),
               DropdownMenuItem(
                   value: 'female',
                   child: Text("Perempuan",
-                      style: GoogleFonts.poppins(fontSize: 13))),
+                      style: GoogleFonts.inter(fontSize: 13))),
             ],
             onChanged: (val) => setState(() => _gender = val),
-            style: GoogleFonts.poppins(fontSize: 13, color: _text),
+            style: GoogleFonts.inter(fontSize: 13, color: _text),
             decoration: InputDecoration(
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1298,12 +1298,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           RichText(
             text: TextSpan(
               text: label,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.inter(
                   fontSize: 13, fontWeight: FontWeight.w500, color: _text),
               children: required
                   ? [
-                      const TextSpan(
-                          text: ' *', style: TextStyle(color: Colors.red))
+                      TextSpan(
+                          text: ' *', style: GoogleFonts.inter(color: Colors.red))
                     ]
                   : [],
             ),
@@ -1326,7 +1326,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: Text(
                       value ?? "Pilih",
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                           fontSize: 13,
                           color: value != null ? _text : _grey),
                     ),

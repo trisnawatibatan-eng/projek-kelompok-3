@@ -224,7 +224,7 @@ class _LatihanScreenState extends State<LatihanScreen> {
                   ),
                 ),
                 child: Center(
-                  child: Text(exercise['image'], style: const TextStyle(fontSize: 60)),
+                  child: Text(exercise['image'], style: GoogleFonts.inter(fontSize: 60)),
                 ),
               ),
 
@@ -357,7 +357,7 @@ class _LatihanDetailScreenState extends State<LatihanDetailScreen> {
                 ),
               ),
               child: Center(
-                child: Text(widget.exercise['image'], style: const TextStyle(fontSize: 100)),
+                child: Text(widget.exercise['image'], style: GoogleFonts.inter(fontSize: 100)),
               ),
             ),
 
