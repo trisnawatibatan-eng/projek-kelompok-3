@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../theme.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 // =============================================================================
 // SCREEN UTAMA
@@ -25,7 +26,7 @@ class FisioterapisPasienDetail extends StatefulWidget {
     required this.patientName,
     this.inisial,
     this.avatarColor,
-    this.fromBookingId, // ← parameter baru
+    this.fromBookingId,
   });
 
   @override
@@ -42,7 +43,6 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
   @override
   void initState() {
     super.initState();
-    // Jika dibuka dari booking → langsung buka tab Catatan Medis (index 0)
     _tabController = TabController(length: 2, vsync: this);
     _futureDetail = _fetchDetail();
   }
@@ -53,13 +53,16 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
     super.dispose();
   }
 
-  void _reload() => setState(() => _futureDetail = _fetchDetail());
+  void _reload() {
+    setState(() {
+      _futureDetail = _fetchDetail();
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // Fetch: profil pasien + semua catatan medis + hitung nomor sesi
   // ---------------------------------------------------------------------------
   Future<Map<String, dynamic>> _fetchDetail() async {
-    // Profil pasien
     final patientRes = await _supabase
         .from('patients')
         .select()
@@ -74,7 +77,6 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
         .single();
     final fisioterapisId = fisioRes['id'] as String;
 
-    // Semua catatan medis pasien ini (urut terbaru dulu)
     final recordsRes = await _supabase
         .from('medical_records')
         .select('''
@@ -92,16 +94,16 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
 
     final records = recordsRes as List;
 
-    // ── Tentukan booking_id yang akan dipakai untuk form baru ────────────────
-    // Prioritas: fromBookingId → booking completed terbaru yang BELUM ada record
     String? targetBookingId = widget.fromBookingId;
 
     if (targetBookingId == null) {
-      // Cari booking completed terbaru yang belum punya medical_record
-      final existingBookingIds =
-          records.map((r) => (r['bookings'] as Map?)?.containsKey('id') == true
-              ? r['bookings']['id'] as String?
-              : null).whereType<String>().toSet();
+      final existingBookingIds = records
+          .map((r) =>
+              (r['bookings'] as Map?)?.containsKey('id') == true
+                  ? r['bookings']['id'] as String?
+                  : null)
+          .whereType<String>()
+          .toSet();
 
       final completedBookings = await _supabase
           .from('bookings')
@@ -120,17 +122,14 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
       }
     }
 
-    // ── Hitung nomor sesi per layanan ────────────────────────────────────────
-    // Ambil semua booking completed pasien ini (untuk hitung sesi)
     final allCompleted = await _supabase
         .from('bookings')
         .select('id, service_type, scheduled_date')
         .eq('patient_id', widget.patientId)
         .eq('fisioterapis_id', fisioterapisId)
         .eq('status', 'completed')
-        .order('scheduled_date', ascending: true); // ascending untuk nomor urut
+        .order('scheduled_date', ascending: true);
 
-    // Map bookingId → { sessionNumber, serviceType }
     final Map<String, Map<String, dynamic>> sessionMap = {};
     final Map<String, int> serviceCounter = {};
     for (final b in allCompleted as List) {
@@ -143,7 +142,6 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
       };
     }
 
-    // Catatan medis terbaru
     final latestRecord =
         records.isNotEmpty ? records.first as Map<String, dynamic> : null;
 
@@ -152,7 +150,7 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
       'records': records,
       'fisioterapis_id': fisioterapisId,
       'target_booking_id': targetBookingId,
-      'session_map': sessionMap,   // ← peta nomor sesi per booking
+      'session_map': sessionMap,
       'latest_record': latestRecord,
     };
   }
@@ -216,7 +214,8 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
                 backgroundColor: const Color(0xFF00BBA7),
                 foregroundColor: Colors.white,
                 title: Text('Detail Pasien',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                    style:
+                        GoogleFonts.inter(fontWeight: FontWeight.bold)),
               ),
               body: Center(child: Text('Error: ${snapshot.error}')),
             );
@@ -229,7 +228,8 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
           final targetBookingId = data['target_booking_id'] as String?;
           final sessionMap =
               data['session_map'] as Map<String, Map<String, dynamic>>;
-          final latestRecord = data['latest_record'] as Map<String, dynamic>?;
+          final latestRecord =
+              data['latest_record'] as Map<String, dynamic>?;
 
           final usia = _hitungUsia(patient['date_of_birth'] as String?);
           final gender = (patient['gender'] as String?) == 'male'
@@ -242,10 +242,8 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
             if (gender != null) gender,
           ].join(' • ');
 
-          // Hitung nomor sesi berikutnya untuk targetBookingId
-          final nextSessionInfo = targetBookingId != null
-              ? sessionMap[targetBookingId]
-              : null;
+          final nextSessionInfo =
+              targetBookingId != null ? sessionMap[targetBookingId] : null;
           final nextSessionNumber =
               nextSessionInfo?['session_number'] as int? ?? 1;
           final nextServiceType =
@@ -255,7 +253,6 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
             backgroundColor: const Color(0xFFF8F9FA),
             body: NestedScrollView(
               headerSliverBuilder: (context, _) => [
-                // ── AppBar teal ──
                 SliverAppBar(
                   backgroundColor: const Color(0xFF00BBA7),
                   foregroundColor: Colors.white,
@@ -324,8 +321,7 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
                                 if (patient['phone'] != null &&
                                     (patient['phone'] as String)
                                         .isNotEmpty) ...[
-                                  _profileInfoRow(
-                                      Icons.phone_outlined,
+                                  _profileInfoRow(Icons.phone_outlined,
                                       patient['phone'] as String),
                                   const SizedBox(height: 4),
                                 ],
@@ -355,7 +351,7 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
                   ),
                 ),
 
-                // ── Banner "Sesi Baru" jika dibuka dari booking ──
+                // ── Banner "Sesi Baru" ──
                 if (targetBookingId != null)
                   SliverToBoxAdapter(
                     child: Container(
@@ -365,7 +361,8 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
                       decoration: BoxDecoration(
                         color: const Color(0xFFE8F8F6),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF00BBA7)),
+                        border:
+                            Border.all(color: const Color(0xFF00BBA7)),
                       ),
                       child: Row(
                         children: [
@@ -375,8 +372,8 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
                           Expanded(
                             child: Text(
                               nextServiceType.isNotEmpty
-                                  ? 'Sesi $nextSessionNumber layanan "$nextServiceType" siap dicatat'
-                                  : 'Sesi $nextSessionNumber siap dicatat',
+                                  ? 'Terapi $nextSessionNumber · $nextServiceType siap dicatat'
+                                  : 'Terapi $nextSessionNumber siap dicatat',
                               style: GoogleFonts.inter(
                                   fontSize: 12,
                                   color: const Color(0xFF00897B),
@@ -400,8 +397,7 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
                       indicatorWeight: 2.5,
                       labelStyle: GoogleFonts.inter(
                           fontWeight: FontWeight.w600, fontSize: 13),
-                      unselectedLabelStyle:
-                          GoogleFonts.inter(fontSize: 13),
+                      unselectedLabelStyle: GoogleFonts.inter(fontSize: 13),
                       tabs: const [
                         Tab(text: 'Catatan Medis'),
                         Tab(text: 'Riwayat'),
@@ -411,27 +407,25 @@ class _FisioterapisPasienDetailState extends State<FisioterapisPasienDetail>
                 ),
               ],
 
-              // ── Body tab ──
               body: TabBarView(
                 controller: _tabController,
                 children: [
-                  // Tab 0: Catatan Medis
                   _CatatanMedisTab(
                     patientId: widget.patientId,
                     fisioterapisId: fisioterapisId,
                     targetBookingId: targetBookingId,
                     latestRecord: latestRecord,
-                    // Jika dari booking baru → langsung buka form
                     autoOpenForm: widget.fromBookingId != null &&
                         targetBookingId != null,
                     sessionNumber: nextSessionNumber,
                     serviceType: nextServiceType,
                     onSaved: _reload,
                   ),
-                  // Tab 1: Riwayat
                   _RiwayatTab(
                     records: records,
                     sessionMap: sessionMap,
+                    patientName: widget.patientName,
+                    patient: patient,
                   ),
                 ],
               ),
@@ -491,7 +485,6 @@ class _CatatanMedisTabState extends State<_CatatanMedisTab> {
   @override
   void initState() {
     super.initState();
-    // Jika dibuka dari booking yang baru selesai → langsung tampilkan form
     _isEditing = widget.autoOpenForm;
   }
 
@@ -524,20 +517,12 @@ class _CatatanMedisTabState extends State<_CatatanMedisTab> {
               children: [
                 Row(
                   children: [
-                    const Icon(
-                      Icons.description_outlined,
-                      color: Color(0xFF00BBA7),
-                      size: 18,
-                    ),
+                    const Icon(Icons.description_outlined,
+                        color: Color(0xFF00BBA7), size: 18),
                     const SizedBox(width: 8),
-                    Text(
-                      'Catatan Medis',
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    // Badge sesi
+                    Text('Catatan Medis',
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.bold, fontSize: 14)),
                     if (widget.sessionNumber > 0) ...[
                       const SizedBox(width: 8),
                       Container(
@@ -563,29 +548,22 @@ class _CatatanMedisTabState extends State<_CatatanMedisTab> {
                         onTap: () => setState(() => _isEditing = true),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
+                              horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
                             color: const Color(0xFFE8F8F6),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
                             children: [
-                              const Icon(
-                                Icons.edit_outlined,
-                                size: 13,
-                                color: Color(0xFF00BBA7),
-                              ),
+                              const Icon(Icons.edit_outlined,
+                                  size: 13, color: Color(0xFF00BBA7)),
                               const SizedBox(width: 4),
-                              Text(
-                                'Edit',
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  color: const Color(0xFF00BBA7),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              Text('Edit',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: const Color(0xFF00BBA7),
+                                    fontWeight: FontWeight.w600,
+                                  )),
                             ],
                           ),
                         ),
@@ -594,26 +572,20 @@ class _CatatanMedisTabState extends State<_CatatanMedisTab> {
                 ),
                 if (hasRecord) ...[
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.access_time,
-                        size: 12,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Terakhir diperbarui: ${_formatDate(record['updated_at'] as String?)}',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
+                  Row(children: [
+                    const Icon(Icons.access_time,
+                        size: 12, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Terakhir diperbarui: ${_formatDate(record['updated_at'] as String?)}',
+                      style:
+                          GoogleFonts.inter(fontSize: 11, color: Colors.grey),
+                    ),
+                  ]),
                 ],
-                // Tombol "Buat Catatan Baru" jika ada booking baru tapi belum ada record
-                if (!hasRecord && !_isEditing && widget.targetBookingId != null) ...[
+                if (!hasRecord &&
+                    !_isEditing &&
+                    widget.targetBookingId != null) ...[
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
@@ -625,9 +597,7 @@ class _CatatanMedisTabState extends State<_CatatanMedisTab> {
                             ? 'Buat Catatan SOAP — Sesi ${widget.sessionNumber} (${widget.serviceType})'
                             : 'Buat Catatan SOAP — Sesi ${widget.sessionNumber}',
                         style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                            fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF00BBA7),
@@ -743,20 +713,6 @@ class _CatatanMedisView extends StatelessWidget {
             content: record['evaluasi_terapi'] as String,
             highlight: true,
           ),
-        if (record['skala_nyeri'] != null)
-          _SimpleCard(
-            title: 'Skala Nyeri',
-            child: Row(children: [
-              Text(
-                '${record['skala_nyeri']}/10',
-                style: GoogleFonts.inter(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: _nyeriColor(record['skala_nyeri'] as int),
-                ),
-              ),
-            ]),
-          ),
         if (record['rekomendasi_latihan'] != null)
           _SimpleCard(
             title: 'Rekomendasi Latihan',
@@ -781,12 +737,6 @@ class _CatatanMedisView extends StatelessWidget {
           ),
       ],
     );
-  }
-
-  Color _nyeriColor(int skala) {
-    if (skala <= 3) return Colors.green;
-    if (skala <= 6) return Colors.orange;
-    return Colors.red;
   }
 
   String _formatTanggal(String raw) {
@@ -837,7 +787,6 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
   final _evalCtrl = TextEditingController();
   final _rekomenCtrl = TextEditingController();
 
-  int? _skalaNyeri;
   DateTime? _terapiBerikutnya;
   bool _isSaving = false;
 
@@ -852,7 +801,6 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
       _planCtrl.text = r['plan'] as String? ?? '';
       _evalCtrl.text = r['evaluasi_terapi'] as String? ?? '';
       _rekomenCtrl.text = r['rekomendasi_latihan'] as String? ?? '';
-      _skalaNyeri = r['skala_nyeri'] as int?;
       if (r['terapi_berikutnya'] != null) {
         try {
           _terapiBerikutnya =
@@ -865,7 +813,12 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
   @override
   void dispose() {
     for (final c in [
-      _subjCtrl, _objCtrl, _assessCtrl, _planCtrl, _evalCtrl, _rekomenCtrl,
+      _subjCtrl,
+      _objCtrl,
+      _assessCtrl,
+      _planCtrl,
+      _evalCtrl,
+      _rekomenCtrl,
     ]) {
       c.dispose();
     }
@@ -897,12 +850,6 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
       );
       return;
     }
-    if (_skalaNyeri == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Skala nyeri harus dipilih')),
-      );
-      return;
-    }
     if (widget.existingRecord == null && widget.bookingId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -928,7 +875,6 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
             _planCtrl.text.trim().isEmpty ? null : _planCtrl.text.trim(),
         'evaluasi_terapi':
             _evalCtrl.text.trim().isEmpty ? null : _evalCtrl.text.trim(),
-        'skala_nyeri': _skalaNyeri,
         'rekomendasi_latihan': _rekomenCtrl.text.trim().isEmpty
             ? null
             : _rekomenCtrl.text.trim(),
@@ -970,9 +916,9 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
 
   @override
   Widget build(BuildContext context) {
-    // Header form — tampilkan sesi & layanan
     return Column(
       children: [
+        // ── Info sesi ──
         if (widget.sessionNumber > 0) ...[
           Container(
             width: double.infinity,
@@ -1006,6 +952,7 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
           const SizedBox(height: 12),
         ],
 
+        // ── SOAP Fields ──
         _FormField(
           icon: Icons.error_outline,
           iconColor: Colors.red.shade400,
@@ -1048,38 +995,7 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
           hint: 'Masukkan evaluasi progress pasien',
         ),
 
-        // Skala Nyeri
-        _cardWrap(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Skala Nyeri',
-                  style: GoogleFonts.inter(
-                      fontWeight: FontWeight.bold, fontSize: 13)),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<int>(
-                value: _skalaNyeri,
-                isExpanded: true,
-                decoration: _inputDecor('Pilih skala nyeri'),
-                hint: Text('Pilih skala nyeri',
-                    style: GoogleFonts.inter(
-                        fontSize: 12, color: Colors.grey)),
-                items: List.generate(10, (index) {
-                  final value = index + 1;
-                  return DropdownMenuItem<int>(
-                    value: value,
-                    child: Text('$value/10',
-                        style: GoogleFonts.inter(
-                            fontSize: 13, color: Colors.black87)),
-                  );
-                }),
-                onChanged: (value) => setState(() => _skalaNyeri = value),
-              ),
-            ],
-          ),
-        ),
-
-        // Rekomendasi Latihan
+        // ── Rekomendasi Latihan ──
         _cardWrap(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1098,7 +1014,7 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
           ),
         ),
 
-        // Terapi Berikutnya
+        // ── Terapi Berikutnya ──
         _cardWrap(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1150,7 +1066,7 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
 
         const SizedBox(height: 8),
 
-        // Tombol Simpan
+        // ── Tombol Simpan ──
         SizedBox(
           width: double.infinity,
           height: 50,
@@ -1189,8 +1105,7 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
                     borderRadius: BorderRadius.circular(12)),
               ),
               child: Text('Batal',
-                  style:
-                      GoogleFonts.inter(fontWeight: FontWeight.w500)),
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
             ),
           ),
         ],
@@ -1240,10 +1155,14 @@ class _CatatanMedisFormState extends State<_CatatanMedisForm> {
 class _RiwayatTab extends StatelessWidget {
   final List records;
   final Map<String, Map<String, dynamic>> sessionMap;
+  final String patientName;
+  final Map<String, dynamic> patient;
 
   const _RiwayatTab({
     required this.records,
     required this.sessionMap,
+    required this.patientName,
+    required this.patient,
   });
 
   @override
@@ -1259,64 +1178,143 @@ class _RiwayatTab extends StatelessWidget {
       );
     }
 
+    // ── Kelompokkan records berdasarkan service_type ──
+    final Map<String, List<Map<String, dynamic>>> grouped =
+        <String, List<Map<String, dynamic>>>{};
+
+    for (final r in records) {
+      final record = r as Map<String, dynamic>;
+      final booking = record['bookings'] as Map<String, dynamic>?;
+      final bookingId = booking?['id'] as String?;
+      final sessionInfo =
+          bookingId != null ? sessionMap[bookingId] : null;
+      final serviceType = sessionInfo?['service_type'] as String? ??
+          booking?['service_type'] as String? ??
+          'Layanan Lainnya';
+      grouped.putIfAbsent(serviceType, () => []).add(record);
+    }
+
+    // Flatten → [header, card, card, header, card, ...]
+    final List<_RiwayatListItem> items = [];
+    grouped.forEach((serviceType, recs) {
+      items.add(_RiwayatListItem(isHeader: true, serviceType: serviceType));
+      final totalSesi = recs.length;
+      for (int i = 0; i < recs.length; i++) {
+        items.add(_RiwayatListItem(
+          isHeader: false,
+          serviceType: serviceType,
+          record: recs[i],
+          sessionNumber: totalSesi - i,
+        ));
+      }
+    });
+
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: records.length + 1,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      itemCount: items.length + 1,
       itemBuilder: (context, index) {
+        // ── Judul halaman ──
         if (index == 0) {
           return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text('Riwayat Terapi',
-                style: GoogleFonts.inter(
-                    fontSize: 14, fontWeight: FontWeight.w700)),
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text(
+              'Riwayat Terapi',
+              style: GoogleFonts.inter(
+                  fontSize: 14, fontWeight: FontWeight.w700),
+            ),
           );
         }
 
-        final record = records[index - 1] as Map<String, dynamic>;
-        final booking = record['bookings'] as Map<String, dynamic>?;
-        final bookingId = booking?['id'] as String?;
+        final item = items[index - 1];
 
-        // Ambil nomor sesi dari sessionMap
-        final sessionInfo =
-            bookingId != null ? sessionMap[bookingId] : null;
-        final sessionNumber = sessionInfo?['session_number'] as int?;
-        final serviceType =
-            sessionInfo?['service_type'] as String? ??
-                booking?['service_type'] as String? ?? '';
+        // ── Header grup layanan ──
+        if (item.isHeader) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10, top: 4),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00BBA7),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    item.serviceType,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Divider(
+                      color: Colors.grey.shade300, thickness: 1),
+                ),
+              ],
+            ),
+          );
+        }
 
-        // Nomor urut tampilan (terbaru = paling atas)
-        final displayNumber = records.length - (index - 1);
-
+        // ── Card riwayat ──
         return _RiwayatCard(
-          pertemuanKe: displayNumber,
-          sessionNumber: sessionNumber,
-          serviceType: serviceType,
-          record: record,
-          booking: booking,
+          sessionNumber: item.sessionNumber,
+          serviceType: item.serviceType,
+          record: item.record!,
+          booking: item.record!['bookings'] as Map<String, dynamic>?,
+          patientName: patientName,
+          patient: patient,
         );
       },
     );
   }
 }
 
+// Helper data class untuk item di ListView
+class _RiwayatListItem {
+  final bool isHeader;
+  final String serviceType;
+  final Map<String, dynamic>? record;
+  final int sessionNumber;
+
+  const _RiwayatListItem({
+    required this.isHeader,
+    required this.serviceType,
+    this.record,
+    this.sessionNumber = 0,
+  });
+}
+
 // =============================================================================
 // CARD: RIWAYAT PER SESI
 // =============================================================================
 
-class _RiwayatCard extends StatelessWidget {
-  final int pertemuanKe;
-  final int? sessionNumber;   // nomor sesi per layanan
+class _RiwayatCard extends StatefulWidget {
+  final int sessionNumber;
   final String serviceType;
   final Map<String, dynamic> record;
   final Map<String, dynamic>? booking;
+  final String patientName;
+  final Map<String, dynamic> patient;
 
   const _RiwayatCard({
-    required this.pertemuanKe,
     required this.sessionNumber,
     required this.serviceType,
     required this.record,
     required this.booking,
+    required this.patientName,
+    required this.patient,
   });
+
+  @override
+  State<_RiwayatCard> createState() => _RiwayatCardState();
+}
+
+class _RiwayatCardState extends State<_RiwayatCard> {
+  bool _isExporting = false;
 
   String _formatTanggal(String? raw) {
     if (raw == null) return '-';
@@ -1328,29 +1326,341 @@ class _RiwayatCard extends StatelessWidget {
     }
   }
 
-  String _formatJam(String? raw) {
+  String _buildJamRange(String? raw) {
     if (raw == null) return '';
     try {
       final parts = raw.split(':');
-      return '${parts[0]}:${parts[1]}';
+      final startHour = int.parse(parts[0]);
+      final endHour = (startHour + 1).toString().padLeft(2, '0');
+      final start = '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}';
+      return '$start - $endHour:${parts[1].padLeft(2, '0')} (60 menit)';
     } catch (_) {
       return raw;
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Generate & share PDF per pertemuan
+  // ---------------------------------------------------------------------------
+  Future<void> _exportPdf() async {
+    setState(() => _isExporting = true);
+    try {
+      final pdf = pw.Document();
+
+      final tealColor = PdfColor.fromHex('#00BBA7');
+      final lightTeal = PdfColor.fromHex('#E8F8F6');
+      final greyColor = PdfColor.fromHex('#6B7280');
+      final darkColor = PdfColor.fromHex('#111827');
+
+      final scheduledDate = widget.booking?['scheduled_date'] as String?;
+      final scheduledTime = widget.booking?['scheduled_time'] as String?;
+
+      String fmtTgl(String? raw) {
+        if (raw == null) return '-';
+        try {
+          return DateFormat('dd MMMM yyyy', 'id_ID')
+              .format(DateTime.parse(raw));
+        } catch (_) {
+          return raw;
+        }
+      }
+
+      String fmtJam(String? raw) {
+        if (raw == null) return '';
+        try {
+          final parts = raw.split(':');
+          final startH = int.parse(parts[0]);
+          final endH = (startH + 1).toString().padLeft(2, '0');
+          final start =
+              '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}';
+          return '$start - $endH:${parts[1].padLeft(2, '0')} (60 menit)';
+        } catch (_) {
+          return raw;
+        }
+      }
+
+      pw.Widget pdfSoapRow(String label, String value) {
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              label,
+              style: pw.TextStyle(
+                fontSize: 10,
+                fontWeight: pw.FontWeight.bold,
+                color: greyColor,
+              ),
+            ),
+            pw.SizedBox(height: 4),
+            pw.Text(
+              value,
+              style: pw.TextStyle(fontSize: 11, color: darkColor),
+            ),
+          ],
+        );
+      }
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          header: (_) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Container(
+                width: double.infinity,
+                padding: const pw.EdgeInsets.all(16),
+                decoration: pw.BoxDecoration(
+                  color: tealColor,
+                  borderRadius: pw.BorderRadius.circular(10),
+                ),
+                child: pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Expanded(
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'Laporan Riwayat Terapi',
+                            style: pw.TextStyle(
+                              color: PdfColors.white,
+                              fontSize: 16,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                          pw.SizedBox(height: 4),
+                          pw.Text(
+                            widget.patientName,
+                            style: pw.TextStyle(
+                                color: PdfColors.white, fontSize: 13),
+                          ),
+                          if ((widget.patient['phone'] as String? ?? '')
+                              .isNotEmpty) ...[
+                            pw.SizedBox(height: 2),
+                            pw.Text(
+                              widget.patient['phone'] as String,
+                              style: pw.TextStyle(
+                                  color: PdfColors.white, fontSize: 11),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text(
+                          'Dicetak: ${DateFormat('dd MMM yyyy', 'id_ID').format(DateTime.now())}',
+                          style: pw.TextStyle(
+                              color: PdfColors.white, fontSize: 10),
+                        ),
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          'Sesi ${widget.sessionNumber} — ${widget.serviceType}',
+                          style: pw.TextStyle(
+                              color: PdfColors.white, fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 16),
+              pw.Text(
+                'Detail Pertemuan ${widget.sessionNumber}',
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                  color: darkColor,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+            ],
+          ),
+          footer: (ctx) => pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'Laporan Fisioterapi — ${widget.patientName}',
+                style: pw.TextStyle(fontSize: 9, color: greyColor),
+              ),
+              pw.Text(
+                'Halaman ${ctx.pageNumber} dari ${ctx.pagesCount}',
+                style: pw.TextStyle(fontSize: 9, color: greyColor),
+              ),
+            ],
+          ),
+          build: (_) => [
+            pw.Container(
+              decoration: pw.BoxDecoration(
+                color: PdfColors.white,
+                borderRadius: pw.BorderRadius.circular(10),
+                border: pw.Border.all(
+                    color: PdfColor.fromHex('#E5E7EB'), width: 1),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // Header sesi
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(14),
+                    decoration: pw.BoxDecoration(
+                      color: lightTeal,
+                      borderRadius: const pw.BorderRadius.only(
+                        topLeft: pw.Radius.circular(10),
+                        topRight: pw.Radius.circular(10),
+                      ),
+                    ),
+                    child: pw.Row(
+                      children: [
+                        pw.Container(
+                          width: 32,
+                          height: 32,
+                          decoration: pw.BoxDecoration(
+                            color: tealColor,
+                            borderRadius: pw.BorderRadius.circular(8),
+                          ),
+                          child: pw.Center(
+                            child: pw.Text(
+                              '${widget.sessionNumber}',
+                              style: pw.TextStyle(
+                                color: PdfColors.white,
+                                fontSize: 14,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        pw.SizedBox(width: 12),
+                        pw.Expanded(
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text(
+                                'Pertemuan ${widget.sessionNumber}',
+                                style: pw.TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: darkColor,
+                                ),
+                              ),
+                              pw.SizedBox(height: 3),
+                              pw.Text(
+                                fmtTgl(scheduledDate) +
+                                    (scheduledTime != null
+                                        ? '  |  ${fmtJam(scheduledTime)}'
+                                        : ''),
+                                style: pw.TextStyle(
+                                    fontSize: 10, color: greyColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Isi SOAP
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.all(14),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        if (widget.record['subjective'] != null) ...[
+                          pdfSoapRow('Keluhan (S)',
+                              widget.record['subjective'] as String),
+                          pw.SizedBox(height: 10),
+                        ],
+                        if (widget.record['objective'] != null) ...[
+                          pdfSoapRow('Data Pemeriksaan (O)',
+                              widget.record['objective'] as String),
+                          pw.SizedBox(height: 10),
+                        ],
+                        if (widget.record['assessment'] != null) ...[
+                          pdfSoapRow('Diagnosa (A)',
+                              widget.record['assessment'] as String),
+                          pw.SizedBox(height: 10),
+                        ],
+                        if (widget.record['plan'] != null) ...[
+                          pdfSoapRow('Perencanaan Tindakan (P)',
+                              widget.record['plan'] as String),
+                          pw.SizedBox(height: 10),
+                        ],
+                        if (widget.record['evaluasi_terapi'] != null) ...[
+                          pw.Container(
+                            width: double.infinity,
+                            padding: const pw.EdgeInsets.all(12),
+                            decoration: pw.BoxDecoration(
+                              color: lightTeal,
+                              borderRadius: pw.BorderRadius.circular(8),
+                              border: pw.Border.all(
+                                  color: PdfColor.fromHex('#B2EDE7')),
+                            ),
+                            child: pw.Column(
+                              crossAxisAlignment:
+                                  pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text(
+                                  'Evaluasi Terapi',
+                                  style: pw.TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: tealColor,
+                                  ),
+                                ),
+                                pw.SizedBox(height: 4),
+                                pw.Text(
+                                  widget.record['evaluasi_terapi'] as String,
+                                  style: pw.TextStyle(
+                                      fontSize: 11, color: tealColor),
+                                ),
+                              ],
+                            ),
+                          ),
+                          pw.SizedBox(height: 10),
+                        ],
+                        if (widget.record['rekomendasi_latihan'] != null) ...[
+                          pdfSoapRow('Rekomendasi Latihan',
+                              widget.record['rekomendasi_latihan'] as String),
+                          pw.SizedBox(height: 10),
+                        ],
+                        if (widget.record['terapi_berikutnya'] != null) ...[
+                          pdfSoapRow('Terapi Berikutnya',
+                              fmtTgl(widget.record['terapi_berikutnya'] as String)),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+      await Printing.layoutPdf(
+        onLayout: (format) async => pdf.save(),
+        name:
+            'Laporan_${widget.patientName.replaceAll(' ', '_')}_Sesi${widget.sessionNumber}_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal membuat laporan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final skala = record['skala_nyeri'] as int?;
-    final skalaColor = skala == null
-        ? Colors.grey
-        : skala <= 3
-            ? Colors.green
-            : skala <= 6
-                ? Colors.orange
-                : Colors.red;
-
-    final scheduledDate = booking?['scheduled_date'] as String?;
-    final scheduledTime = booking?['scheduled_time'] as String?;
+    final scheduledDate = widget.booking?['scheduled_date'] as String?;
+    final scheduledTime = widget.booking?['scheduled_time'] as String?;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1365,11 +1675,13 @@ class _RiwayatCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // ── Header ──
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Nomor sesi
                 Container(
                   width: 32,
                   height: 32,
@@ -1378,181 +1690,147 @@ class _RiwayatCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Center(
-                    child: Text('$pertemuanKe',
-                        style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF00BBA7))),
+                    child: Text(
+                      '${widget.sessionNumber}',
+                      style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: const Color(0xFF00BBA7)),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
+                // Info tanggal & jam
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(
+                        'Pertemuan ${widget.sessionNumber}',
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      const SizedBox(height: 4),
                       Row(children: [
-                        Text('Pertemuan $pertemuanKe',
-                            style: GoogleFonts.inter(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13)),
-                        // Badge sesi per layanan
-                        if (sessionNumber != null &&
-                            serviceType.isNotEmpty) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color:
-                                  const Color(0xFF00BBA7).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              'Sesi $sessionNumber · $serviceType',
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                color: const Color(0xFF00BBA7),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
+                        const Icon(Icons.calendar_today_outlined,
+                            size: 12, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text(
+                          _formatTanggal(scheduledDate),
+                          style: GoogleFonts.inter(
+                              fontSize: 12, color: Colors.grey),
+                        ),
                       ]),
-                      if (scheduledDate != null)
-                        Row(children: [
-                          const Icon(Icons.calendar_today_outlined,
-                              size: 11, color: Colors.grey),
-                          const SizedBox(width: 3),
-                          Text(_formatTanggal(scheduledDate),
-                              style: GoogleFonts.inter(
-                                  fontSize: 11, color: Colors.grey)),
-                        ]),
+                      const SizedBox(height: 2),
                       if (scheduledTime != null)
                         Row(children: [
                           const Icon(Icons.access_time,
-                              size: 11, color: Colors.grey),
-                          const SizedBox(width: 3),
-                          Text(_formatJam(scheduledTime),
-                              style: GoogleFonts.inter(
-                                  fontSize: 11, color: Colors.grey)),
+                              size: 12, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Text(
+                            _buildJamRange(scheduledTime),
+                            style: GoogleFonts.inter(
+                                fontSize: 12, color: Colors.grey),
+                          ),
                         ]),
                     ],
+                  ),
+                ),
+                // Tombol Edit (outline teal, sesuai gambar)
+                GestureDetector(
+                  onTap: () {
+                    // TODO: implement edit riwayat
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF00BBA7)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.edit_outlined,
+                            size: 13, color: Color(0xFF00BBA7)),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Edit',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF00BBA7),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
           ),
 
-          const Divider(height: 1),
+          const Divider(height: 1, color: Color(0xFFF0F0F0)),
 
+          // ── Isi SOAP ──
           Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (record['subjective'] != null) ...[
-                  Text('Keluhan:',
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700)),
-                  const SizedBox(height: 2),
-                  Text(record['subjective'] as String,
-                      style: GoogleFonts.inter(fontSize: 12)),
-                  const SizedBox(height: 10),
+                if (widget.record['subjective'] != null) ...[
+                  _soapLabel('Keluhan:'),
+                  const SizedBox(height: 3),
+                  _soapContent(widget.record['subjective'] as String),
+                  const SizedBox(height: 12),
                 ],
-                if (record['objective'] != null) ...[
-                  Text('Data Pemeriksaan',
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700)),
-                  const SizedBox(height: 2),
-                  Text(record['objective'] as String,
-                      style: GoogleFonts.inter(fontSize: 12)),
-                  const SizedBox(height: 10),
+                if (widget.record['objective'] != null) ...[
+                  _soapLabel('Data Pemeriksaan'),
+                  const SizedBox(height: 3),
+                  _soapContent(widget.record['objective'] as String),
+                  const SizedBox(height: 12),
                 ],
-                if (skala != null || record['assessment'] != null)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (skala != null)
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Text('Skala Nyeri:',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey.shade700)),
-                              const SizedBox(height: 2),
-                              Text('$skala/10',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w800,
-                                    color: skalaColor,
-                                  )),
-                            ],
-                          ),
-                        ),
-                      if (record['assessment'] != null)
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Text('Diagnosa',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey.shade700)),
-                              const SizedBox(height: 2),
-                              Text(record['assessment'] as String,
-                                  style:
-                                      GoogleFonts.inter(fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                if ((skala != null || record['assessment'] != null) &&
-                    record['plan'] != null)
-                  const SizedBox(height: 10),
-                if (record['plan'] != null) ...[
-                  Text('Perencanaan Tindakan',
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700)),
-                  const SizedBox(height: 2),
-                  Text(record['plan'] as String,
-                      style: GoogleFonts.inter(fontSize: 12)),
+                if (widget.record['assessment'] != null) ...[
+                  _soapLabel('Diagnosa'),
+                  const SizedBox(height: 3),
+                  _soapContent(widget.record['assessment'] as String),
+                  const SizedBox(height: 12),
                 ],
-                if (record['evaluasi_terapi'] != null) ...[
-                  const SizedBox(height: 10),
+                if (widget.record['plan'] != null) ...[
+                  _soapLabel('Perencanaan Tindakan'),
+                  const SizedBox(height: 3),
+                  _soapContent(widget.record['plan'] as String),
+                  const SizedBox(height: 12),
+                ],
+                if (widget.record['evaluasi_terapi'] != null) ...[
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE8F8F6),
                       borderRadius: BorderRadius.circular(10),
-                      border:
-                          Border.all(color: const Color(0xFFB2EDE7)),
+                      border: Border.all(color: const Color(0xFFB2EDE7)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Evaluasi Terapi',
-                            style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF00BBA7))),
+                        Text(
+                          'Evaluasi Terapi',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF00BBA7),
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        Text(record['evaluasi_terapi'] as String,
-                            style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: const Color(0xFF00BBA7))),
+                        Text(
+                          widget.record['evaluasi_terapi'] as String,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: const Color(0xFF00897B),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1561,32 +1839,66 @@ class _RiwayatCard extends StatelessWidget {
             ),
           ),
 
-          // Export button
-          Container(
-            decoration: BoxDecoration(
-              border: Border(
-                  top: BorderSide(color: Colors.grey.shade100)),
+          // ── Divider + Tombol Export ──
+          const Divider(height: 1, color: Color(0xFFF0F0F0)),
+          InkWell(
+            onTap: _isExporting ? null : _exportPdf,
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(14),
+              bottomRight: Radius.circular(14),
             ),
-            child: TextButton.icon(
-              onPressed: () {
-                // TODO: Implement export PDF
-              },
-              icon: const Icon(Icons.download_outlined,
-                  size: 16, color: Color(0xFF00BBA7)),
-              label: Text('Export',
-                  style: GoogleFonts.inter(
-                      color: const Color(0xFF00BBA7),
-                      fontWeight: FontWeight.w500)),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                minimumSize: const Size(double.infinity, 0),
-              ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              child: _isExporting
+                  ? const Center(
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color(0xFF00BBA7),
+                        ),
+                      ),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.file_download_outlined,
+                          size: 18,
+                          color: Color(0xFF00BBA7),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Export',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF00BBA7),
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _soapLabel(String text) => Text(
+        text,
+        style: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Colors.grey.shade600,
+        ),
+      );
+
+  Widget _soapContent(String text) => Text(
+        text,
+        style: GoogleFonts.inter(fontSize: 13, color: Colors.black87),
+      );
 }
 
 // =============================================================================
@@ -1619,15 +1931,13 @@ class _SoapCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: highlight ? const Color(0xFFE8F8F6) : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: highlight
-            ? Border.all(color: const Color(0xFFB2EDE7))
-            : null,
+        border:
+            highlight ? Border.all(color: const Color(0xFFB2EDE7)) : null,
         boxShadow: highlight
             ? null
             : [
                 BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 6)
+                    color: Colors.black.withOpacity(0.04), blurRadius: 6)
               ],
       ),
       child: Column(
@@ -1638,8 +1948,7 @@ class _SoapCard extends StatelessWidget {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(8)),
+                  color: iconBg, borderRadius: BorderRadius.circular(8)),
               child: Icon(icon, size: 15, color: iconColor),
             ),
             const SizedBox(width: 8),
@@ -1657,8 +1966,9 @@ class _SoapCard extends StatelessWidget {
           Text(content,
               style: GoogleFonts.inter(
                   fontSize: 13,
-                  color:
-                      highlight ? const Color(0xFF00BBA7) : Colors.black87)),
+                  color: highlight
+                      ? const Color(0xFF00BBA7)
+                      : Colors.black87)),
         ],
       ),
     );
@@ -1739,8 +2049,7 @@ class _FormField extends StatelessWidget {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(8)),
+                  color: iconBg, borderRadius: BorderRadius.circular(8)),
               child: Icon(icon, size: 15, color: iconColor),
             ),
             const SizedBox(width: 8),
