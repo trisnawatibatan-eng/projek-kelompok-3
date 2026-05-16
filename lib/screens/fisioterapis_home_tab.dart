@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme.dart';
+import '../services/edukasi_service.dart';
 import 'notifikasi_screen.dart';
 import 'fisioterapis_booking_screen.dart';
 import 'fisioterapis_chat_screen.dart';
 import 'fisioterapis_payment_history_screen.dart';
-import 'fisioterapis_tambah_edukasi.dart';
+import 'fisioterapis_kelola_edukasi.dart';
 
 class FisioterapisHomeTab extends StatefulWidget {
   final Map<String, dynamic>? profil;
@@ -18,6 +19,7 @@ class FisioterapisHomeTab extends StatefulWidget {
 
 class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
   final _supabase = Supabase.instance.client;
+  final EdukasiService _edukasiService = EdukasiService();
 
   // ── State booking pending ────────────────────────────────────
   int _pendingBookingCount = 0;
@@ -34,15 +36,17 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
   int _totalPasienHariIni = 0;
   bool _isLoadingPasien = false;
 
+  // ── State edukasi dari Supabase ──────────────────────────────
+  List<Map<String, dynamic>> _edukasiList = [];
+  bool _isLoadingEdukasi = false;
+
   // ── Getters profil ───────────────────────────────────────────
   String get _namaLengkap => widget.profil?['nama_lengkap'] ?? 'Fisioterapis';
 
-  // Dari dok 8: default '' agar tidak muncul fallback palsu jika gelar kosong
   String get _gelar => widget.profil?['gelar'] ?? '';
 
   String get _fotoProfilUrl => widget.profil?['foto_profil_url'] ?? '';
 
-  // Dari dok 8: gabungkan nama + gelar dalam satu getter
   String get _namaLengkapDenganGelar {
     final nama = 'Ftr. $_namaLengkap';
     if (_gelar.isNotEmpty) return '$nama, $_gelar';
@@ -75,6 +79,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
     _loadPendingBookingCount();
     _loadPasienHariIni();
     _loadUnreadNotifCount();
+    _loadEdukasiList();
     _subscribeNotifRealtime();
   }
 
@@ -221,6 +226,69 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
         .subscribe();
   }
 
+  // ── Supabase: load edukasi dari database ──────────────────
+
+  Future<void> _loadEdukasiList() async {
+    try {
+      setState(() => _isLoadingEdukasi = true);
+      final data = await _edukasiService.fetchEdukasiMilikSaya();
+      if (mounted) {
+        setState(() {
+          _edukasiList = data.take(3).toList(); // Tampilkan max 3 edukasi
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading edukasi: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingEdukasi = false);
+    }
+  }
+
+  Color _getKategoriColor(String? kategori) {
+    const Map<String, Color> colors = {
+      'Stroke': Color(0xFF3B82F6),
+      'Nyeri Punggung': Color(0xFF10B981),
+      'Nutrisi': Color(0xFFF59E0B),
+      'Cedera Olahraga': Color(0xFF8B5CF6),
+      'Mental': Color(0xFFF87171),
+      'Latihan': Color(0xFF06B6D4),
+      'Neurologi': Color(0xFFEC4899),
+      'Geriatri': Color(0xFF14B8A6),
+      'Pediatri': Color(0xFFF97316),
+    };
+    return colors[kategori] ?? AppColors.primary;
+  }
+
+  Color _getKategoriBgColor(String? kategori) {
+    const Map<String, Color> colors = {
+      'Stroke': Color(0xFFEFF6FF),
+      'Nyeri Punggung': Color(0xFFD1FAE5),
+      'Nutrisi': Color(0xFFFEF3C7),
+      'Cedera Olahraga': Color(0xFFEDE9FE),
+      'Mental': Color(0xFFFEE2E2),
+      'Latihan': Color(0xFFCFFAFE),
+      'Neurologi': Color(0xFFFCE7F3),
+      'Geriatri': Color(0xFFCCFBF1),
+      'Pediatri': Color(0xFFFEEDDA),
+    };
+    return colors[kategori] ?? AppColors.primary.withOpacity(0.1);
+  }
+
+  String _getEmojiForKategori(String? kategori) {
+    const Map<String, String> emojis = {
+      'Stroke': '🧠',
+      'Nyeri Punggung': '🫁',
+      'Nutrisi': '🥗',
+      'Cedera Olahraga': '🏋️',
+      'Mental': '🧘',
+      'Latihan': '🏃',
+      'Neurologi': '⚡',
+      'Geriatri': '👴',
+      'Pediatri': '👶',
+    };
+    return emojis[kategori] ?? '📄';
+  }
+
   // ── Navigasi ─────────────────────────────────────────────────
 
   Future<void> _navigateToNotifikasiScreen(BuildContext context) async {
@@ -239,43 +307,6 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
     _loadPendingBookingCount();
     _loadPasienHariIni();
   }
-
-  // ── Edukasi (data statis) ────────────────────────────────────
-
-  static const List<Map<String, dynamic>> _edukasiList = [
-    {
-      'kategori': 'PERNAPASAN',
-      'kategoriColor': Color(0xFF3B82F6),
-      'kategoriBg': Color(0xFFEFF6FF),
-      'judul': 'Teknik Pernapasan untuk Nyeri Punggung',
-      'tanggal': '12 Mei 2023',
-      'emoji': '🫁',
-    },
-    {
-      'kategori': 'NUTRISI',
-      'kategoriColor': Color(0xFF10B981),
-      'kategoriBg': Color(0xFFD1FAE5),
-      'judul': 'Suplemen yang Baik untuk Kesehatan Sendi',
-      'tanggal': '24 Mei 2023',
-      'emoji': '🥗',
-    },
-    {
-      'kategori': 'LATIHAN',
-      'kategoriColor': Color(0xFFF59E0B),
-      'kategoriBg': Color(0xFFFEF3C7),
-      'judul': '5 Gerakan Penguatan Otot Core untuk Pemula',
-      'tanggal': '24 Mei 2023',
-      'emoji': '🏋️',
-    },
-    {
-      'kategori': 'MENTAL',
-      'kategoriColor': Color(0xFF8B5CF6),
-      'kategoriBg': Color(0xFFEDE9FE),
-      'judul': 'Mengelola Stres Saat Proses Pemulihan',
-      'tanggal': '24 Mei 2023',
-      'emoji': '🧘',
-    },
-  ];
 
   // ════════════════════════════════════════════════════════════════
   //  BUILD
@@ -351,7 +382,6 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
           ),
           const SizedBox(width: 12),
 
-          // Dari dok 8: nama + gelar dalam satu baris via getter
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -761,21 +791,25 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
                 ),
               ),
               const Spacer(),
-              // Dari dok 7: navigasi ke FisioterapisTambahEdukasiScreen
               GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const FisioterapisTambahEdukasiScreen(),
-                  ),
-                ),
+                onTap: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const FisioterapisKelolaEdukasiScreen(),
+                    ),
+                  );
+                  if (result == true) {
+                    _loadEdukasiList();
+                  }
+                },
                 child: Row(
                   children: [
-                    const Icon(Icons.add,
+                    const Icon(Icons.manage_history,
                         size: 14, color: AppColors.primary),
                     const SizedBox(width: 2),
                     Text(
-                      'Tambah',
+                      'Kelola',
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -788,16 +822,63 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
             ],
           ),
           const SizedBox(height: 12),
-          ..._edukasiList.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _buildEdukasiCard(item),
-              )),
+          if (_isLoadingEdukasi)
+            const Padding(
+              padding: EdgeInsets.all(24.0),
+              child: CircularProgressIndicator(
+                color: AppColors.primary,
+                strokeWidth: 2,
+              ),
+            )
+          else if (_edukasiList.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Icon(Icons.article_outlined,
+                      size: 48, color: Colors.grey.shade300),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Belum ada edukasi',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: AppColors.secondaryText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ..._edukasiList.map((item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _buildEdukasiCard(item),
+                )),
         ],
       ),
     );
   }
 
   Widget _buildEdukasiCard(Map<String, dynamic> item) {
+    final judul = item['judul'] as String? ?? 'Tanpa Judul';
+    final kategori = item['kategori'] as String?;
+    final createdAt = item['created_at'] as String?;
+
+    String formattedDate = '-';
+    if (createdAt != null) {
+      try {
+        final date = DateTime.parse(createdAt);
+        formattedDate =
+            '${date.day} ${_getMonthName(date.month)} ${date.year}';
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    final kategoriColor = _getKategoriColor(kategori);
+    final kategoriBgColor = _getKategoriBgColor(kategori);
+    final emoji = _getEmojiForKategori(kategori);
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -817,13 +898,12 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: item['kategoriBg'] as Color,
+              color: kategoriBgColor,
               borderRadius: BorderRadius.circular(12),
             ),
-            // Dari dok 7: TextStyle biasa agar emoji render lebih konsisten
             child: Center(
               child: Text(
-                item['emoji'],
+                emoji,
                 style: const TextStyle(fontSize: 26),
               ),
             ),
@@ -833,25 +913,26 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: item['kategoriBg'] as Color,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    item['kategori'],
-                    style: GoogleFonts.inter(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: item['kategoriColor'] as Color,
+                if (kategori != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: kategoriBgColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      kategori,
+                      style: GoogleFonts.inter(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: kategoriColor,
+                      ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 4),
                 Text(
-                  item['judul'],
+                  judul,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -863,7 +944,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  item['tanggal'],
+                  formattedDate,
                   style: GoogleFonts.inter(
                       fontSize: 10, color: AppColors.lightText),
                 ),
@@ -873,5 +954,13 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
         ],
       ),
     );
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
+    return months[month - 1];
   }
 }

@@ -1,7 +1,4 @@
 // lib/screens/edukasi_screen.dart
-//
-// Letakkan file ini di: lib/screens/edukasi_screen.dart
-// Dependency: edukasi_service.dart, detail_artikel_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -60,9 +57,6 @@ Color _colorForKategori(String? kategori) {
   }
 }
 
-// --------------------------------------------------
-// Helper: format ukuran file
-// --------------------------------------------------
 String _formatTanggal(String? isoString) {
   if (isoString == null) return '';
   final dt = DateTime.tryParse(isoString);
@@ -87,7 +81,6 @@ class EdukasiScreen extends StatefulWidget {
 class _EdukasiScreenState extends State<EdukasiScreen> {
   final EdukasiService _service = EdukasiService();
 
-  List<Map<String, dynamic>> _unggulan = [];
   List<Map<String, dynamic>> _semuaEdukasi = [];
   bool _isLoading = true;
   String? _error;
@@ -104,14 +97,10 @@ class _EdukasiScreenState extends State<EdukasiScreen> {
       _error = null;
     });
     try {
-      final results = await Future.wait([
-        _service.fetchArtikelUnggulan(),
-        _service.fetchEdukasiPublished(),
-      ]);
+      final data = await _service.fetchEdukasiPublished();
       if (!mounted) return;
       setState(() {
-        _unggulan = results[0];
-        _semuaEdukasi = results[1];
+        _semuaEdukasi = data;
         _isLoading = false;
       });
     } catch (e) {
@@ -148,60 +137,24 @@ class _EdukasiScreenState extends State<EdukasiScreen> {
           Expanded(
             child: _isLoading
                 ? const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF00BBA7)),
+                    child:
+                        CircularProgressIndicator(color: Color(0xFF00BBA7)),
                   )
                 : _error != null
                     ? _buildErrorState()
                     : RefreshIndicator(
                         color: const Color(0xFF00BBA7),
                         onRefresh: _loadData,
-                        child: SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // ---- Artikel Unggulan ----
-                              Text(
-                                'Artikel Unggulan',
-                                style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                        child: _semuaEdukasi.isEmpty
+                            ? _buildEmptyState()
+                            : ListView.builder(
+                                physics:
+                                    const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.all(20),
+                                itemCount: _semuaEdukasi.length,
+                                itemBuilder: (_, i) =>
+                                    _buildEdukasiItem(_semuaEdukasi[i]),
                               ),
-                              const SizedBox(height: 15),
-                              if (_unggulan.isEmpty)
-                                _buildEmptyPlaceholder('Belum ada artikel unggulan')
-                              else
-                                SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    children: _unggulan
-                                        .map((e) => _buildFeaturedCard(e))
-                                        .toList(),
-                                  ),
-                                ),
-
-                              const SizedBox(height: 30),
-
-                              // ---- Semua Edukasi ----
-                              Text(
-                                'Edukasi',
-                                style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 15),
-                              if (_semuaEdukasi.isEmpty)
-                                _buildEmptyPlaceholder('Belum ada konten edukasi')
-                              else
-                                ..._semuaEdukasi
-                                    .map((e) => _buildEdukasiItem(e))
-                                    .toList(),
-                            ],
-                          ),
-                        ),
                       ),
           ),
         ],
@@ -280,115 +233,30 @@ class _EdukasiScreenState extends State<EdukasiScreen> {
     );
   }
 
-  Widget _buildEmptyPlaceholder(String message) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Center(
-        child: Text(
-          message,
-          style: GoogleFonts.inter(color: Colors.grey, fontSize: 13),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFeaturedCard(Map<String, dynamic> data) {
-    final kategori = data['kategori'] as String?;
-    final color = _colorForKategori(kategori);
-    final icon = _iconForKategori(kategori);
-    final thumbnailUrl = data['thumbnail_url'] as String?;
-
-    return Container(
-      width: 170,
-      margin: const EdgeInsets.only(right: 15),
-      child: InkWell(
-        onTap: () => _navigateToDetail(data),
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
+  Widget _buildEmptyState() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.5,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Thumbnail / fallback icon
-              ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(20)),
-                child: thumbnailUrl != null
-                    ? Image.network(
-                        thumbnailUrl,
-                        height: 110,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildIconPlaceholder(
-                          color: color,
-                          icon: icon,
-                          height: 110,
-                        ),
-                        loadingBuilder: (_, child, progress) {
-                          if (progress == null) return child;
-                          return _buildIconPlaceholder(
-                            color: color,
-                            icon: icon,
-                            height: 110,
-                          );
-                        },
-                      )
-                    : _buildIconPlaceholder(
-                        color: color,
-                        icon: icon,
-                        height: 110,
-                      ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Tag kategori
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Text(
-                        kategori ?? '-',
-                        style: GoogleFonts.inter(
-                          color: color,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      data['judul'] as String? ?? '',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        height: 1.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+              Icon(Icons.article_outlined,
+                  size: 56, color: Colors.grey.shade300),
+              const SizedBox(height: 12),
+              Text(
+                'Belum ada konten edukasi',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: Colors.grey.shade500,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 
@@ -485,19 +353,6 @@ class _EdukasiScreenState extends State<EdukasiScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildIconPlaceholder({
-    required Color color,
-    required IconData icon,
-    required double height,
-  }) {
-    return Container(
-      height: height,
-      width: double.infinity,
-      color: color.withOpacity(0.1),
-      child: Icon(icon, color: color, size: 45),
     );
   }
 }

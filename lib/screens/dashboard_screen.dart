@@ -21,10 +21,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _patientData;
   bool _isLoading = true;
 
+  // ── State edukasi ────────────────────────────────────────────
+  List<Map<String, dynamic>> _edukasiList = [];
+  bool _isLoadingEdukasi = false;
+
   @override
   void initState() {
     super.initState();
     _fetchPatientData();
+    _fetchEdukasi();
   }
 
   Future<void> _fetchPatientData() async {
@@ -60,6 +65,94 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  // ── Supabase: fetch edukasi yang sudah dipublish ──────────────
+
+  Future<void> _fetchEdukasi() async {
+    if (_isLoadingEdukasi) return;
+    if (mounted) setState(() => _isLoadingEdukasi = true);
+    try {
+      final response = await _supabase
+          .from('edukasi')
+          .select('id, judul, kategori, thumbnail_url, created_at')
+          .eq('is_published', true)
+          .order('created_at', ascending: false)
+          .limit(3);
+
+      if (mounted) {
+        setState(() {
+          _edukasiList = List<Map<String, dynamic>>.from(response as List);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching edukasi: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingEdukasi = false);
+    }
+  }
+
+  // ── Helpers kategori ─────────────────────────────────────────
+
+  Color _getKategoriColor(String? kategori) {
+    const Map<String, Color> colors = {
+      'Stroke': Color(0xFF3B82F6),
+      'Nyeri Punggung': Color(0xFF10B981),
+      'Nutrisi': Color(0xFFF59E0B),
+      'Cedera Olahraga': Color(0xFF8B5CF6),
+      'Mental': Color(0xFFF87171),
+      'Latihan': Color(0xFF06B6D4),
+      'Neurologi': Color(0xFFEC4899),
+      'Geriatri': Color(0xFF14B8A6),
+      'Pediatri': Color(0xFFF97316),
+    };
+    return colors[kategori] ?? const Color(0xFF00BBA7);
+  }
+
+  Color _getKategoriBgColor(String? kategori) {
+    const Map<String, Color> colors = {
+      'Stroke': Color(0xFFEFF6FF),
+      'Nyeri Punggung': Color(0xFFD1FAE5),
+      'Nutrisi': Color(0xFFFEF3C7),
+      'Cedera Olahraga': Color(0xFFEDE9FE),
+      'Mental': Color(0xFFFEE2E2),
+      'Latihan': Color(0xFFCFFAFE),
+      'Neurologi': Color(0xFFFCE7F3),
+      'Geriatri': Color(0xFFCCFBF1),
+      'Pediatri': Color(0xFFFEEDDA),
+    };
+    return colors[kategori] ?? const Color(0xFF00BBA7).withOpacity(0.1);
+  }
+
+  String _getEmojiForKategori(String? kategori) {
+    const Map<String, String> emojis = {
+      'Stroke': '🧠',
+      'Nyeri Punggung': '🫁',
+      'Nutrisi': '🥗',
+      'Cedera Olahraga': '🏋️',
+      'Mental': '🧘',
+      'Latihan': '🏃',
+      'Neurologi': '⚡',
+      'Geriatri': '👴',
+      'Pediatri': '👶',
+    };
+    return emojis[kategori] ?? '📄';
+  }
+
+  String _formatTanggal(String? createdAt) {
+    if (createdAt == null) return '';
+    try {
+      final date = DateTime.parse(createdAt);
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+        'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+      ];
+      return '${date.day} ${months[date.month - 1]} ${date.year}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  // ── Greeting & name ──────────────────────────────────────────
+
   String get _greeting {
     final hour = DateTime.now().hour;
     if (hour < 11) return 'Selamat pagi';
@@ -73,6 +166,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (fullName == null || fullName.isEmpty) return 'Pasien';
     return fullName.split(' ').first;
   }
+
+  // ════════════════════════════════════════════════════════════════
+  //  BUILD
+  // ════════════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
@@ -107,37 +204,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 15),
                 _buildScheduleCard(),
                 const SizedBox(height: 25),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Edukasi',
-                      style: GoogleFonts.inter(
-                          fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const EdukasiScreen()),
-                      ),
-                      child: Text(
-                        'Lihat Semua →',
-                        style: GoogleFonts.inter(
-                          color: const Color(0xFF00BBA7),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 15),
-                _buildEdukasiItem(
-                  icon: Icons.air,
-                  color: Colors.green,
-                  title: 'Teknik Pernapasan untuk Nyeri Punggung',
-                ),
+                _buildEdukasiSection(),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -178,12 +246,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           Row(
             children: [
-              // Tombol Chat
               GestureDetector(
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const ChatListScreen()),
+                  MaterialPageRoute(builder: (_) => const ChatListScreen()),
                 ),
                 child: Container(
                   margin: const EdgeInsets.only(right: 10),
@@ -199,7 +265,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
               ),
-              // Tombol Notifikasi
               GestureDetector(
                 onTap: () => Navigator.push(
                   context,
@@ -242,7 +307,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Text(
             'Pesan Home Care',
-            style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16),
+            style: GoogleFonts.inter(
+                fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 20),
           SizedBox(
@@ -278,11 +344,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       child: Row(
         children: [
-          CircleAvatar(
+          const CircleAvatar(
             backgroundColor: Colors.white24,
             child: Icon(Icons.person, color: Colors.white),
           ),
-          SizedBox(width: 15),
+          const SizedBox(width: 15),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -293,7 +359,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               Text(
                 'Besok, 10:00 WIB',
-                style: GoogleFonts.inter(color: Colors.white70, fontSize: 12),
+                style:
+                    GoogleFonts.inter(color: Colors.white70, fontSize: 12),
               ),
             ],
           ),
@@ -302,11 +369,96 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildEdukasiItem({
-    required IconData icon,
-    required Color color,
-    required String title,
-  }) {
+  // ── Edukasi Section ──────────────────────────────────────────
+
+  Widget _buildEdukasiSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Edukasi',
+              style: GoogleFonts.inter(
+                  fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const EdukasiScreen()),
+              ),
+              child: Text(
+                'Lihat Semua →',
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF00BBA7),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 15),
+
+        // Loading state
+        if (_isLoadingEdukasi)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: CircularProgressIndicator(
+                color: Color(0xFF00BBA7),
+                strokeWidth: 2,
+              ),
+            ),
+          )
+
+        // Empty state
+        else if (_edukasiList.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 28),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade100),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.article_outlined,
+                    size: 40, color: Colors.grey.shade300),
+                const SizedBox(height: 8),
+                Text(
+                  'Belum ada artikel edukasi',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          )
+
+        // List edukasi dari Supabase
+        else
+          ...List.generate(_edukasiList.length, (index) {
+            return _buildEdukasiCard(_edukasiList[index]);
+          }),
+      ],
+    );
+  }
+
+  Widget _buildEdukasiCard(Map<String, dynamic> item) {
+    final judul = item['judul'] as String? ?? 'Tanpa Judul';
+    final kategori = item['kategori'] as String?;
+    final createdAt = item['created_at'] as String?;
+
+    final kategoriColor = _getKategoriColor(kategori);
+    final kategoriBgColor = _getKategoriBgColor(kategori);
+    final emoji = _getEmojiForKategori(kategori);
+    final tanggal = _formatTanggal(createdAt);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -314,19 +466,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Icon(icon, color: color),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Text(
-              title,
-              style: GoogleFonts.inter(
-                  fontWeight: FontWeight.bold, fontSize: 13),
+          // Thumbnail / emoji
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: kategoriBgColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(emoji, style: const TextStyle(fontSize: 24)),
             ),
           ),
-          const Icon(Icons.chevron_right, color: Colors.grey),
+          const SizedBox(width: 12),
+
+          // Konten teks
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (kategori != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: kategoriBgColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      kategori,
+                      style: GoogleFonts.inter(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: kategoriColor,
+                      ),
+                    ),
+                  ),
+                Text(
+                  judul,
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    height: 1.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (tanggal.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      tanggal,
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
         ],
       ),
     );

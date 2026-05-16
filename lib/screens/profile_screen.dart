@@ -218,97 +218,127 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ── HEADER ───────────────────────────────────────────────
 
   Widget _buildHeader() {
-    return Stack(
-      children: [
-        Container(
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            color: Color(0xFF00BBA7),
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(30),
-              bottomRight: Radius.circular(30),
+    final topPadding = MediaQuery.of(context).padding.top;
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Color(0xFF00BBA7),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(30),
+          bottomRight: Radius.circular(30),
+        ),
+      ),
+      child: Column(
+        children: [
+          // ── Baris app-bar: judul tengah, Edit kanan ──────
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, topPadding + 14, 16, 0),
+            child: Row(
+              children: [
+                // Lebar sama dengan tombol Edit agar judul benar-benar center
+                const SizedBox(width: 72),
+                Expanded(
+                  child: Text(
+                    'Profil Saya',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: _goToEditProfile,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.edit_note,
+                            color: Colors.white, size: 16),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Edit',
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          padding: const EdgeInsets.only(top: 60, bottom: 30),
-          child: Column(
-            children: [
-              const SizedBox(height: 10),
-              CircleAvatar(
-                radius: 42,
-                backgroundColor: Colors.white,
-                child: CircleAvatar(
-                  radius: 38,
-                  backgroundColor: const Color(0xFF009689),
-                  backgroundImage: (_patient?['profile_photo_url'] as String?)?.isNotEmpty == true
-                      ? NetworkImage(_patient!['profile_photo_url'])
-                      : null,
-                  child: (_patient?['profile_photo_url'] as String?)?.isEmpty ?? true
-                      ? Text(_initials,
-                          style: GoogleFonts.inter(
+
+          // ── Avatar + nama + ID ───────────────────────────
+          Padding(
+            padding: const EdgeInsets.only(top: 22, bottom: 28),
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 42,
+                  backgroundColor: Colors.white,
+                  child: CircleAvatar(
+                    radius: 38,
+                    backgroundColor: const Color(0xFF009689),
+                    backgroundImage:
+                        (_patient?['profile_photo_url'] as String?)
+                                    ?.isNotEmpty ==
+                                true
+                            ? NetworkImage(_patient!['profile_photo_url'])
+                            : null,
+                    child: (_patient?['profile_photo_url'] as String?)
+                                    ?.isEmpty ??
+                                true
+                        ? Text(
+                            _initials,
+                            style: GoogleFonts.inter(
                               color: Colors.white,
                               fontSize: 26,
-                              fontWeight: FontWeight.bold))
-                      : null,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Text(_displayName,
+                const SizedBox(height: 12),
+                Text(
+                  _displayName,
                   style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text('ID : $_patientId',
-                    style: GoogleFonts.inter(
-                        color: Colors.white, fontSize: 12)),
-              ),
-            ],
-          ),
-        ),
-        Positioned(
-          top: 55, left: 0, right: 0,
-          child: Center(
-            child: Text('Profil Saya',
-                style: GoogleFonts.inter(
                     color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold)),
-          ),
-        ),
-        Positioned(
-          top: 48, right: 16,
-          child: GestureDetector(
-            onTap: _goToEditProfile,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.edit_note,
-                      color: Colors.white, size: 16),
-                  const SizedBox(width: 4),
-                  Text('Edit',
-                      style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600)),
-                ],
-              ),
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'ID : $_patientId',
+                    style: GoogleFonts.inter(
+                        color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -402,7 +432,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 8),
 
-          // Tampilkan semua dari patient_addresses
           if (_extraAddresses.isEmpty &&
               (_patient?['full_address'] == null ||
                   (_patient!['full_address'] as String).isEmpty))
@@ -502,7 +531,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Row(
                       children: [
-                        // Badge label
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 7, vertical: 2),
@@ -560,12 +588,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
-
-          // Action buttons
           const SizedBox(height: 8),
           Row(
             children: [
-              // Tombol Jadikan Utama (hanya jika bukan primary)
               if (!isPrimary)
                 Expanded(
                   child: GestureDetector(
@@ -595,10 +620,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               if (!isPrimary) const SizedBox(width: 6),
-              // Tombol Hapus
               Expanded(
                 child: GestureDetector(
-                  onTap: () => _deleteAddress(addressId, isPrimary: isPrimary),
+                  onTap: () =>
+                      _deleteAddress(addressId, isPrimary: isPrimary),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     decoration: BoxDecoration(
@@ -635,20 +660,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _setPrimaryAddress(String addressId) async {
     try {
       final user = _supabase.auth.currentUser!;
-
-      // Reset semua is_primary
       await _supabase
           .from('patient_addresses')
           .update({'is_primary': false})
           .eq('patient_id', user.id);
-
-      // Set yang dipilih jadi primary
       await _supabase
           .from('patient_addresses')
           .update({'is_primary': true})
           .eq('id', addressId);
-
-      // Sync ke tabel patients
       final addr =
           _extraAddresses.firstWhere((a) => a['id'] == addressId);
       await _supabase.from('patients').update({
@@ -659,7 +678,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'postal_code': addr['postal_code'],
         'full_address': addr['full_address'],
       }).eq('id', user.id);
-
       _showSnack('Alamat utama berhasil diubah!');
       await _fetchAll();
     } catch (e) {
@@ -687,8 +705,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child:
-                Text('Batal', style: GoogleFonts.inter(color: Colors.grey)),
+            child: Text('Batal',
+                style: GoogleFonts.inter(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -706,8 +724,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .from('patient_addresses')
           .delete()
           .eq('id', addressId);
-
-      // Jika alamat utama dihapus, kosongkan juga di tabel patients
       if (isPrimary) {
         final user = _supabase.auth.currentUser!;
         await _supabase.from('patients').update({
@@ -719,7 +735,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'full_address': null,
         }).eq('id', user.id);
       }
-
       _showSnack('Alamat dihapus.');
       await _fetchAll();
     } catch (e) {
@@ -783,7 +798,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         width: 42,
                         height: 42,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF00BBA7).withOpacity(0.1),
+                          color:
+                              const Color(0xFF00BBA7).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(Icons.lock_outline,
@@ -819,7 +835,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF00BBA7).withOpacity(0.1),
+                        color:
+                            const Color(0xFF00BBA7).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(Icons.notifications_none,
@@ -829,11 +846,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Expanded(
                       child: Text('Notifikasi',
                           style: GoogleFonts.inter(
-                              fontSize: 14, fontWeight: FontWeight.w600)),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600)),
                     ),
                     Switch(
                       value: _notifEnabled,
-                      onChanged: (v) => setState(() => _notifEnabled = v),
+                      onChanged: (v) =>
+                          setState(() => _notifEnabled = v),
                       activeColor: const Color(0xFF00BBA7),
                     ),
                   ],
