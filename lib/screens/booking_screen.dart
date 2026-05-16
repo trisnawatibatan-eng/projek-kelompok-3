@@ -35,6 +35,10 @@ class _BookingScreenState extends State<BookingScreen> {
   String? _selectedPrice;
   int _therapyCost = 0;
 
+  // ── Wilayah pasien ────────────────────────────────────────────
+  String? _patientRegencyId;
+  String? _patientRegencyName;
+
   // ── Step 2: Alamat ────────────────────────────────────────────
   List<Map<String, dynamic>> _addresses = [];
   Map<String, dynamic>? _selectedAddressRow;
@@ -44,11 +48,9 @@ class _BookingScreenState extends State<BookingScreen> {
   int _visitCost = 50000;
 
   // ── Jadwal Fisioterapis ───────────────────────────────────────
-  // { 'Senin': { jam_mulai: '08:00', jam_selesai: '17:00' }, ... }
   Map<String, Map<String, dynamic>> _jadwalMap = {};
   bool _isLoadingJadwal = true;
 
-  // Slot jam yang tersedia untuk tanggal terpilih (interval 60 menit)
   List<TimeOfDay> _availableSlots = [];
 
   DateTime? _selectedDate;
@@ -63,12 +65,10 @@ class _BookingScreenState extends State<BookingScreen> {
 
   String? get _patientId => _supabase.auth.currentUser?.id;
 
-  // Nama hari Indonesia → nama hari di DB
   static const List<String> _hariIndonesia = [
     'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'
   ];
 
-  // DateTime weekday (1=Mon..7=Sun) → nama hari Indonesia
   String _weekdayToHari(int weekday) => _hariIndonesia[weekday - 1];
 
   @override
@@ -94,21 +94,53 @@ class _BookingScreenState extends State<BookingScreen> {
   // ── Load semua data ───────────────────────────────────────────
 
   Future<void> _loadAll() async {
+    // Load data pasien (regency_id) terlebih dahulu
+    await _loadPatientRegency();
     await Future.wait([
       _loadServices(),
       _loadAddresses(),
       _loadFisioterapis(),
     ]);
-    // Load jadwal setelah fisioterapis diketahui
     await _loadJadwal();
+  }
+
+  /// Ambil regency_id dan regency_name pasien yang sedang login
+  Future<void> _loadPatientRegency() async {
+    if (_patientId == null) return;
+    try {
+      final res = await _supabase
+          .from('patients')
+          .select('regency_id, regency_name')
+          .eq('id', _patientId!)
+          .maybeSingle();
+
+      if (mounted && res != null) {
+        _patientRegencyId = res['regency_id'] as String?;
+        _patientRegencyName = res['regency_name'] as String?;
+      }
+    } catch (e) {
+      debugPrint('Error loading patient regency: $e');
+    }
   }
 
   Future<void> _loadServices() async {
     try {
+      // Jika pasien tidak memiliki regency_id, tampilkan pesan kosong
+      if (_patientRegencyId == null || _patientRegencyId!.isEmpty) {
+        if (mounted) setState(() => _isLoadingServices = false);
+        return;
+      }
+
+      // Query services dengan filter fisioterapis di kabupaten/kota yang sama
       final res = await _supabase
           .from('services')
-          .select('*, fisioterapis(id, nama_lengkap, pengalaman_kerja, foto_profil_url)')
+          .select(
+            '*, fisioterapis!inner(id, nama_lengkap, pengalaman_kerja, foto_profil_url, regency_id, regency_name)',
+          )
           .eq('is_active', true)
+          .eq('fisioterapis.status_verifikasi', 'verified')
+          .eq('fisioterapis.is_active', true)
+          .eq('fisioterapis.regency_id', _patientRegencyId!)
           .order('nama_layanan');
 
       if (mounted) {
@@ -168,20 +200,29 @@ class _BookingScreenState extends State<BookingScreen> {
 
   Future<void> _loadFisioterapis() async {
     try {
+      // Jika pasien tidak memiliki regency_id, tidak perlu load fisioterapis
+      if (_patientRegencyId == null || _patientRegencyId!.isEmpty) {
+        if (mounted) setState(() => _isLoadingFisio = false);
+        return;
+      }
+
       final res = await _supabase
           .from('fisioterapis')
           .select('*, harga_kunjungan(harga)')
           .eq('is_active', true)
           .eq('status_verifikasi', 'verified')
+          .eq('regency_id', _patientRegencyId!)
           .limit(1)
-          .single();
+          .maybeSingle();
 
       if (mounted) {
         setState(() {
           _fisioterapis = res;
-          final hargaData = res['harga_kunjungan'];
-          if (hargaData != null && hargaData is Map) {
-            _visitCost = (hargaData['harga'] as num?)?.toInt() ?? 50000;
+          if (res != null) {
+            final hargaData = res['harga_kunjungan'];
+            if (hargaData != null && hargaData is Map) {
+              _visitCost = (hargaData['harga'] as num?)?.toInt() ?? 50000;
+            }
           }
           _isLoadingFisio = false;
         });
@@ -192,9 +233,7 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  /// Load jadwal dari tabel jadwal_fisioterapis berdasarkan fisioterapis yang dipilih
   Future<void> _loadJadwal() async {
-    // Tentukan fisioterapis_id: dari service yang dipilih atau default
     final fisioterapisId = (_selectedService?['fisioterapis'] as Map?)?['id']
         ?? _fisioterapis?['id'];
 
@@ -219,7 +258,6 @@ class _BookingScreenState extends State<BookingScreen> {
         setState(() {
           _jadwalMap = map;
           _isLoadingJadwal = false;
-          // Reset tanggal & jam jika jadwal berubah
           _selectedDate = null;
           _selectedTime = null;
           _availableSlots = [];
@@ -233,7 +271,6 @@ class _BookingScreenState extends State<BookingScreen> {
 
   // ── Hitung slot jam tersedia ──────────────────────────────────
 
-  /// Buat daftar slot waktu (interval 60 menit) dari jam_mulai hingga jam_selesai
   List<TimeOfDay> _buildSlots(String jamMulai, String jamSelesai) {
     final mulai = _parseTime(jamMulai);
     final selesai = _parseTime(jamSelesai);
@@ -262,7 +299,6 @@ class _BookingScreenState extends State<BookingScreen> {
 
   int _timeToMinutes(TimeOfDay t) => t.hour * 60 + t.minute;
 
-  /// Dipanggil setiap kali tanggal dipilih
   void _onDateSelected(DateTime date) {
     final hari = _weekdayToHari(date.weekday);
     final jadwal = _jadwalMap[hari];
@@ -280,8 +316,6 @@ class _BookingScreenState extends State<BookingScreen> {
       }
     });
   }
-
-  // ── Cek apakah tanggal bisa dipilih ──────────────────────────
 
   bool _isDateAvailable(DateTime date) {
     if (date.isBefore(DateTime.now().subtract(const Duration(days: 1)))) {
@@ -435,17 +469,110 @@ class _BookingScreenState extends State<BookingScreen> {
       return const Center(
           child: CircularProgressIndicator(color: Color(0xFF00BBA7)));
     }
+
+    // Kasus: pasien belum mengisi data wilayah di profil
+    if (_patientRegencyId == null || _patientRegencyId!.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.person_pin_circle_outlined,
+                    size: 56, color: Colors.orange.shade400),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Lengkapi Profil Anda',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Harap lengkapi data wilayah (kabupaten/kota) pada profil Anda agar kami dapat menampilkan fisioterapis yang tersedia di area Anda.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                    fontSize: 13, color: Colors.grey.shade600, height: 1.5),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Kasus: tidak ada fisioterapis/layanan di wilayah pasien
     if (_services.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.medical_services_outlined,
-                size: 56, color: Colors.grey),
-            const SizedBox(height: 12),
-            Text('Belum ada layanan tersedia',
-                style: GoogleFonts.inter(color: Colors.grey)),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2F1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.location_off_outlined,
+                    size: 56, color: Color(0xFF00BBA7)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Belum Tersedia di Wilayah Anda',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Tampilkan nama kabupaten/kota pasien jika ada
+              if (_patientRegencyName != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F2F1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.location_on,
+                          size: 14, color: Color(0xFF00BBA7)),
+                      const SizedBox(width: 4),
+                      Text(
+                        _patientRegencyName!,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xFF00897B),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              Text(
+                'Fisioterapis belum tersedia di kabupaten/kota Anda saat ini. Silakan coba lagi nanti atau hubungi admin untuk informasi lebih lanjut.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                    fontSize: 13, color: Colors.grey.shade600, height: 1.5),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -469,7 +596,6 @@ class _BookingScreenState extends State<BookingScreen> {
               _selectedTherapy = svc['nama_layanan'] as String;
               _selectedPrice = hargaStr;
               _therapyCost = harga;
-              // Reset jadwal & tanggal saat layanan berganti
               _isLoadingJadwal = true;
               _selectedDate = null;
               _selectedTime = null;
@@ -559,7 +685,6 @@ class _BookingScreenState extends State<BookingScreen> {
           _buildSelectedTherapyCard(),
           const SizedBox(height: 20),
 
-          // Info jadwal tersedia
           if (!_isLoadingJadwal) _buildJadwalInfo(),
           const SizedBox(height: 20),
 
@@ -644,7 +769,6 @@ class _BookingScreenState extends State<BookingScreen> {
       );
     }
 
-    // Tampilkan hari-hari yang tersedia
     final hariTersedia = _hariIndonesia
         .where((h) => _jadwalMap.containsKey(h))
         .toList();
@@ -1156,7 +1280,6 @@ class _BookingScreenState extends State<BookingScreen> {
   // ── Date Picker dengan filter hari tersedia ───────────────────
 
   Future<void> _selectDate(BuildContext c) async {
-    // Cari tanggal awal yang valid (hari ini atau setelahnya)
     DateTime initialDate = DateTime.now();
     int tries = 0;
     while (!_isDateAvailable(initialDate) && tries < 14) {
