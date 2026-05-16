@@ -6,6 +6,7 @@ import 'notifikasi_screen.dart';
 import 'fisioterapis_booking_screen.dart';
 import 'fisioterapis_chat_screen.dart';
 import 'fisioterapis_payment_history_screen.dart';
+import 'fisioterapis_tambah_edukasi.dart';
 
 class FisioterapisHomeTab extends StatefulWidget {
   final Map<String, dynamic>? profil;
@@ -35,10 +36,13 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
 
   // ── Getters profil ───────────────────────────────────────────
   String get _namaLengkap => widget.profil?['nama_lengkap'] ?? 'Fisioterapis';
+
+  // Dari dok 8: default '' agar tidak muncul fallback palsu jika gelar kosong
   String get _gelar => widget.profil?['gelar'] ?? '';
+
   String get _fotoProfilUrl => widget.profil?['foto_profil_url'] ?? '';
 
-  // Gabungkan prefix Ftr. + nama + suffix gelar jika ada
+  // Dari dok 8: gabungkan nama + gelar dalam satu getter
   String get _namaLengkapDenganGelar {
     final nama = 'Ftr. $_namaLengkap';
     if (_gelar.isNotEmpty) return '$nama, $_gelar';
@@ -273,6 +277,10 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
     },
   ];
 
+  // ════════════════════════════════════════════════════════════════
+  //  BUILD
+  // ════════════════════════════════════════════════════════════════
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -320,23 +328,30 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
                     _fotoProfilUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Center(
-                      child: Text(_inisial,
-                          style: GoogleFonts.inter(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700)),
+                      child: Text(
+                        _inisial,
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   )
                 : Center(
-                    child: Text(_inisial,
-                        style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700)),
+                    child: Text(
+                      _inisial,
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
           ),
           const SizedBox(width: 12),
-          // Nama & gelar dalam satu baris: "Ftr. Nama, Gelar"
+
+          // Dari dok 8: nama + gelar dalam satu baris via getter
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,6 +379,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
               ],
             ),
           ),
+
           // Ikon kanan
           Row(
             children: [
@@ -413,7 +429,8 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
               right: -4,
               top: -4,
               child: Container(
-                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                constraints:
+                    const BoxConstraints(minWidth: 16, minHeight: 16),
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 decoration: const BoxDecoration(
                   color: Color(0xFFEF4444),
@@ -585,7 +602,7 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
     );
   }
 
-  // ── Pasien Hari Ini (dinamis) ────────────────────────────────
+  // ── Pasien Hari Ini ──────────────────────────────────────────
 
   Widget _buildPasienHariIni() {
     return Padding(
@@ -716,9 +733,11 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
           ),
         ),
         const SizedBox(height: 2),
-        Text(label,
-            style: GoogleFonts.inter(
-                fontSize: 11, color: AppColors.secondaryText)),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+              fontSize: 11, color: AppColors.secondaryText),
+        ),
       ],
     );
   }
@@ -742,11 +761,18 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
                 ),
               ),
               const Spacer(),
+              // Dari dok 7: navigasi ke FisioterapisTambahEdukasiScreen
               GestureDetector(
-                onTap: () {},
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const FisioterapisTambahEdukasiScreen(),
+                  ),
+                ),
                 child: Row(
                   children: [
-                    const Icon(Icons.add, size: 14, color: AppColors.primary),
+                    const Icon(Icons.add,
+                        size: 14, color: AppColors.primary),
                     const SizedBox(width: 2),
                     Text(
                       'Tambah',
@@ -794,8 +820,12 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
               color: item['kategoriBg'] as Color,
               borderRadius: BorderRadius.circular(12),
             ),
+            // Dari dok 7: TextStyle biasa agar emoji render lebih konsisten
             child: Center(
-              child: Text(item['emoji'], style: GoogleFonts.inter(fontSize: 26)),
+              child: Text(
+                item['emoji'],
+                style: const TextStyle(fontSize: 26),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -804,8 +834,8 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
                     color: item['kategoriBg'] as Color,
                     borderRadius: BorderRadius.circular(4),
@@ -832,9 +862,11 @@ class _FisioterapisHomeTabState extends State<FisioterapisHomeTab> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                Text(item['tanggal'],
-                    style: GoogleFonts.inter(
-                        fontSize: 10, color: AppColors.lightText)),
+                Text(
+                  item['tanggal'],
+                  style: GoogleFonts.inter(
+                      fontSize: 10, color: AppColors.lightText),
+                ),
               ],
             ),
           ),
