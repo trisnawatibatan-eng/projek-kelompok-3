@@ -27,7 +27,7 @@ class _FisioterapisEditProfilScreenState
   final _gelarController = TextEditingController();
   final _emailController = TextEditingController();
   final _teleponController = TextEditingController();
-  final _alamatLengkapController = TextEditingController(); // detail jalan
+  final _alamatLengkapController = TextEditingController();
   final _postalController = TextEditingController();
 
   // Controllers - Informasi Profesional
@@ -37,12 +37,13 @@ class _FisioterapisEditProfilScreenState
   final _biografiController = TextEditingController();
   final _sertifikasiController = TextEditingController();
 
-  // ── Wilayah (sama seperti pasien) ────────────────────────────
+  // ── Wilayah ───────────────────────────────────────────────────
   List _provinces = [];
   List _regencies = [];
   List _districts = [];
   List _villages = [];
 
+  // ID & label wilayah yang dipilih
   String? _provinceId, _regencyId, _districtId, _villageId;
   String? _provinceLabel, _regencyLabel, _districtLabel, _villageLabel;
 
@@ -147,70 +148,61 @@ class _FisioterapisEditProfilScreenState
     }
   }
 
-  // ── Cari wilayah by ID untuk pre-fill saat load profil ───────
+  // ── Prefill wilayah dari ID yang sudah tersimpan ──────────────
 
   Future<void> _prefillWilayah({
     required String? provinceId,
+    required String? provinceName,
     required String? regencyId,
+    required String? regencyName,
     required String? districtId,
-    required String? villageId,
+    required String? districtName,
   }) async {
-    if (provinceId == null) return;
-    try {
-      // Provinces sudah loaded, cari label
-      final prov = (_provinces as List)
-          .cast<Map>()
-          .firstWhere((p) => p['id'] == provinceId, orElse: () => {});
-      if (prov.isNotEmpty) {
-        setState(() {
-          _provinceId = provinceId;
-          _provinceLabel = prov['name'];
-        });
-      }
+    // Langsung set dari kolom name yang sudah tersimpan di DB
+    // tanpa perlu fetch ulang ke API jika name sudah ada
+    if (provinceId != null) {
+      setState(() {
+        _provinceId = provinceId;
+        _provinceLabel = provinceName;
+      });
 
-      if (regencyId == null) return;
-      final regRes = await http.get(Uri.parse(
-          'https://www.emsifa.com/api-wilayah-indonesia/api/regencies/$provinceId.json'));
-      final regData = json.decode(regRes.body) as List;
-      final reg = regData.cast<Map>()
-          .firstWhere((r) => r['id'] == regencyId, orElse: () => {});
-      if (reg.isNotEmpty) {
-        setState(() {
-          _regencies = regData;
-          _regencyId = regencyId;
-          _regencyLabel = reg['name'];
-        });
-      }
+      // Load regencies agar dropdown Kab/Kota bisa dipakai
+      try {
+        final res = await http.get(Uri.parse(
+            'https://www.emsifa.com/api-wilayah-indonesia/api/regencies/$provinceId.json'));
+        final regData = json.decode(res.body) as List;
+        if (mounted) setState(() => _regencies = regData);
+      } catch (_) {}
+    }
 
-      if (districtId == null) return;
-      final distRes = await http.get(Uri.parse(
-          'https://www.emsifa.com/api-wilayah-indonesia/api/districts/$regencyId.json'));
-      final distData = json.decode(distRes.body) as List;
-      final dist = distData.cast<Map>()
-          .firstWhere((d) => d['id'] == districtId, orElse: () => {});
-      if (dist.isNotEmpty) {
-        setState(() {
-          _districts = distData;
-          _districtId = districtId;
-          _districtLabel = dist['name'];
-        });
-      }
+    if (regencyId != null) {
+      setState(() {
+        _regencyId = regencyId;
+        _regencyLabel = regencyName;
+      });
 
-      if (villageId == null) return;
-      final vilRes = await http.get(Uri.parse(
-          'https://www.emsifa.com/api-wilayah-indonesia/api/villages/$districtId.json'));
-      final vilData = json.decode(vilRes.body) as List;
-      final vil = vilData.cast<Map>()
-          .firstWhere((v) => v['id'] == villageId, orElse: () => {});
-      if (vil.isNotEmpty) {
-        setState(() {
-          _villages = vilData;
-          _villageId = villageId;
-          _villageLabel = vil['name'];
-        });
-      }
-    } catch (e) {
-      debugPrint('Error prefill wilayah: $e');
+      // Load districts
+      try {
+        final res = await http.get(Uri.parse(
+            'https://www.emsifa.com/api-wilayah-indonesia/api/districts/$regencyId.json'));
+        final distData = json.decode(res.body) as List;
+        if (mounted) setState(() => _districts = distData);
+      } catch (_) {}
+    }
+
+    if (districtId != null) {
+      setState(() {
+        _districtId = districtId;
+        _districtLabel = districtName;
+      });
+
+      // Load villages agar dropdown Kelurahan bisa dipakai
+      try {
+        final res = await http.get(Uri.parse(
+            'https://www.emsifa.com/api-wilayah-indonesia/api/villages/$districtId.json'));
+        final vilData = json.decode(res.body) as List;
+        if (mounted) setState(() => _villages = vilData);
+      } catch (_) {}
     }
   }
 
@@ -240,31 +232,11 @@ class _FisioterapisEditProfilScreenState
         _pendidikanController.text = data['pendidikan_terakhir'] ?? '';
         _biografiController.text = data['biografi'] ?? '';
         _existingFotoProfilUrl = data['foto_profil_url'];
+        _postalController.text = data['postal_code'] ?? '';
 
-        // Alamat lengkap (detail jalan)
-        // Kita parse dari kolom 'alamat' yang berformat:
-        // "full_address||province_id||regency_id||district_id||village_id||postal"
-        // Jika belum pakai format baru, fallback ke teks biasa
-        final rawAlamat = data['alamat'] as String? ?? '';
-        if (rawAlamat.contains('||')) {
-          final parts = rawAlamat.split('||');
-          _alamatLengkapController.text = parts.elementAtOrNull(0) ?? '';
-          final pId = parts.elementAtOrNull(1);
-          final rId = parts.elementAtOrNull(2);
-          final dId = parts.elementAtOrNull(3);
-          final vId = parts.elementAtOrNull(4);
-          _postalController.text = parts.elementAtOrNull(5) ?? '';
-          // Prefill wilayah setelah provinces loaded
-          await _prefillWilayah(
-            provinceId: pId,
-            regencyId: rId,
-            districtId: dId,
-            villageId: vId,
-          );
-        } else {
-          // Profil lama — isi ke alamat lengkap saja
-          _alamatLengkapController.text = rawAlamat;
-        }
+        // ── PERBAIKAN: Ambil alamat dari kolom 'alamat' (teks jalan saja) ──
+        // dan wilayah dari kolom terpisah province_id, regency_id, dst.
+        _alamatLengkapController.text = data['alamat'] ?? '';
 
         // Parse sertifikasi
         final raw = data['sertifikasi'] as String? ?? '';
@@ -276,11 +248,29 @@ class _FisioterapisEditProfilScreenState
             );
           });
         }
+
+        // ── PERBAIKAN: Prefill wilayah dari kolom terpisah di DB ──────────
+        await _prefillWilayah(
+          provinceId: data['province_id'] as String?,
+          provinceName: data['province_name'] as String?,
+          regencyId: data['regency_id'] as String?,
+          regencyName: data['regency_name'] as String?,
+          districtId: data['district_id'] as String?,
+          districtName: data['district_name'] as String?,
+        );
+
+        // Set village dari DB jika ada
+        final villageId = data['village_id'] as String?;
+        final villageName = data['village_name'] as String?;
+        if (villageId != null && mounted) {
+          setState(() {
+            _villageId = villageId;
+            _villageLabel = villageName;
+          });
+        }
       }
     } catch (e) {
-      if (mounted) {
-        _showSnackError('Gagal memuat profil: $e');
-      }
+      if (mounted) _showSnackError('Gagal memuat profil: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -440,24 +430,28 @@ class _FisioterapisEditProfilScreenState
 
       final sertifikasiValue = _sertifikasiList.join(', ');
 
-      // Simpan alamat dalam format terstruktur:
-      // "full_address||province_id||regency_id||district_id||village_id||postal"
-      final alamatTerstruktur = [
-        _alamatLengkapController.text.trim(),
-        _provinceId ?? '',
-        _regencyId ?? '',
-        _districtId ?? '',
-        _villageId ?? '',
-        _postalController.text.trim(),
-      ].join('||');
-
+      // ── PERBAIKAN: Simpan wilayah ke kolom terpisah, bukan format || ──
+      // Kolom 'alamat' hanya berisi detail jalan (free text)
       final payload = {
         'user_id': userId,
         'nama_lengkap': _namaController.text.trim(),
         'gelar': _gelarController.text.trim(),
         'email': _emailController.text.trim(),
         'nomor_telepon': _teleponController.text.trim(),
-        'alamat': alamatTerstruktur,
+
+        // Alamat detail jalan saja (tanpa encode wilayah)
+        'alamat': _alamatLengkapController.text.trim(),
+
+        // ── Wilayah disimpan ke kolom masing-masing ──────────────────────
+        'province_id': _provinceId,
+        'province_name': _provinceLabel,
+        'regency_id': _regencyId,
+        'regency_name': _regencyLabel,
+        'district_id': _districtId,
+        'district_name': _districtLabel,
+        'village_id': _villageId,       // nullable, boleh null
+        'village_name': _villageLabel,  // nullable, boleh null
+
         'nomor_str_sipa': _strController.text.trim(),
         'pengalaman_kerja': _pengalamanController.text.trim(),
         'pendidikan_terakhir': _pendidikanController.text.trim(),
@@ -479,7 +473,8 @@ class _FisioterapisEditProfilScreenState
               style: GoogleFonts.inter(color: Colors.white)),
           backgroundColor: AppColors.primary,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ));
         Navigator.pop(context);
       }
@@ -518,19 +513,22 @@ class _FisioterapisEditProfilScreenState
 
   Future<void> _pickFotoProfil() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final picked =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (picked != null) setState(() => _fotoProfilFile = File(picked.path));
   }
 
   Future<void> _pickFile(bool isStr) async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final picked =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (picked != null && isStr) setState(() => _fotoStrFile = File(picked.path));
   }
 
   Future<void> _pickMultipleSertifikat() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final picked =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (picked != null) setState(() => _sertifikatFiles.add(File(picked.path)));
   }
 
@@ -547,7 +545,8 @@ class _FisioterapisEditProfilScreenState
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary))
           : Column(
               children: [
                 Expanded(
@@ -585,7 +584,8 @@ class _FisioterapisEditProfilScreenState
                               hint: 'S.Tr.Kes / S.Ft / Ners',
                               controller: _gelarController,
                               required: false,
-                              subtitle: 'Gelar akademik atau profesi (hanya huruf)',
+                              subtitle:
+                                  'Gelar akademik atau profesi (hanya huruf)',
                               inputFormatters: [
                                 FilteringTextInputFormatter.allow(
                                     RegExp(r"[a-zA-Z\s\.\,\'\-]")),
@@ -633,7 +633,7 @@ class _FisioterapisEditProfilScreenState
                           ]),
                           const SizedBox(height: 16),
 
-                          // ── Seksi Alamat (sistem wilayah) ──────────
+                          // ── Seksi Alamat ───────────────────────
                           _buildSection('Alamat Fisioterapis', [
                             _buildWilayahRow(),
                             const SizedBox(height: 14),
@@ -707,14 +707,13 @@ class _FisioterapisEditProfilScreenState
   }
 
   // ════════════════════════════════════════════════════════════════
-  //  WIDGET: Wilayah (Provinsi → Kab/Kota → Kecamatan → Kelurahan)
+  //  WIDGET: Wilayah
   // ════════════════════════════════════════════════════════════════
 
   Widget _buildWilayahRow() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Provinsi
         _buildLocationTile(
           icon: Icons.map_outlined,
           label: 'Provinsi',
@@ -731,13 +730,19 @@ class _FisioterapisEditProfilScreenState
               setState(() {
                 _provinceId = val['id'];
                 _provinceLabel = val['name'];
+                // Reset bawahan
+                _regencyId = _regencyLabel = null;
+                _districtId = _districtLabel = null;
+                _villageId = _villageLabel = null;
+                _regencies = [];
+                _districts = [];
+                _villages = [];
               });
               _loadRegencies(val['id']);
             }
           },
         ),
         const SizedBox(height: 10),
-        // Kab/Kota & Kecamatan
         Row(
           children: [
             Expanded(
@@ -756,6 +761,11 @@ class _FisioterapisEditProfilScreenState
                           setState(() {
                             _regencyId = val['id'];
                             _regencyLabel = val['name'];
+                            // Reset bawahan
+                            _districtId = _districtLabel = null;
+                            _villageId = _villageLabel = null;
+                            _districts = [];
+                            _villages = [];
                           });
                           _loadDistricts(val['id']);
                         }
@@ -779,6 +789,9 @@ class _FisioterapisEditProfilScreenState
                           setState(() {
                             _districtId = val['id'];
                             _districtLabel = val['name'];
+                            // Reset bawahan
+                            _villageId = _villageLabel = null;
+                            _villages = [];
                           });
                           _loadVillages(val['id']);
                         }
@@ -788,7 +801,6 @@ class _FisioterapisEditProfilScreenState
           ],
         ),
         const SizedBox(height: 10),
-        // Kelurahan
         _buildLocationTile(
           icon: Icons.holiday_village_outlined,
           label: 'Kelurahan / Desa (Opsional)',
@@ -846,7 +858,9 @@ class _FisioterapisEditProfilScreenState
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             decoration: BoxDecoration(
-              color: enabled ? const Color(0xFFF9FAFB) : const Color(0xFFF1F5F9),
+              color: enabled
+                  ? const Color(0xFFF9FAFB)
+                  : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: value != null
@@ -871,7 +885,8 @@ class _FisioterapisEditProfilScreenState
                 ),
                 Icon(Icons.keyboard_arrow_down,
                     size: 18,
-                    color: enabled ? AppColors.primary : AppColors.lightText),
+                    color:
+                        enabled ? AppColors.primary : AppColors.lightText),
               ],
             ),
           ),
@@ -923,7 +938,8 @@ class _FisioterapisEditProfilScreenState
               child: Stack(
                 children: [
                   Container(
-                    width: 80, height: 80,
+                    width: 80,
+                    height: 80,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
@@ -936,13 +952,16 @@ class _FisioterapisEditProfilScreenState
                                 (_existingFotoProfilUrl?.isNotEmpty ?? false)
                             ? Image.network(_existingFotoProfilUrl!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => _avatarPlaceholder())
+                                errorBuilder: (_, __, ___) =>
+                                    _avatarPlaceholder())
                             : _avatarPlaceholder(),
                   ),
                   Positioned(
-                    bottom: 0, right: 0,
+                    bottom: 0,
+                    right: 0,
                     child: Container(
-                      width: 24, height: 24,
+                      width: 24,
+                      height: 24,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
@@ -971,8 +990,8 @@ class _FisioterapisEditProfilScreenState
 
   Widget _avatarPlaceholder() => Container(
         color: const Color(0xFF00BBA7),
-        child: const Center(
-            child: Icon(Icons.person, color: Colors.white, size: 40)),
+        child:
+            const Center(child: Icon(Icons.person, color: Colors.white, size: 40)),
       );
 
   // ════════════════════════════════════════════════════════════════
@@ -1048,8 +1067,8 @@ class _FisioterapisEditProfilScreenState
           if (subtitle != null) ...[
             const SizedBox(height: 2),
             Text(subtitle,
-                style: GoogleFonts.inter(
-                    fontSize: 9, color: AppColors.lightText)),
+                style:
+                    GoogleFonts.inter(fontSize: 9, color: AppColors.lightText)),
           ],
           const SizedBox(height: 6),
           TextFormField(
@@ -1057,12 +1076,12 @@ class _FisioterapisEditProfilScreenState
             keyboardType: keyboardType,
             maxLines: maxLines,
             inputFormatters: inputFormatters,
-            style: GoogleFonts.inter(
-                fontSize: 13, color: AppColors.primaryText),
+            style:
+                GoogleFonts.inter(fontSize: 13, color: AppColors.primaryText),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: GoogleFonts.inter(
-                  fontSize: 13, color: AppColors.lightText),
+              hintStyle:
+                  GoogleFonts.inter(fontSize: 13, color: AppColors.lightText),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               border: OutlineInputBorder(
@@ -1073,8 +1092,8 @@ class _FisioterapisEditProfilScreenState
                   borderSide: BorderSide(color: AppColors.borderColor)),
               focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                      color: AppColors.primary, width: 1.5)),
+                  borderSide:
+                      const BorderSide(color: AppColors.primary, width: 1.5)),
               filled: true,
               fillColor: const Color(0xFFF9FAFB),
             ),
@@ -1109,12 +1128,12 @@ class _FisioterapisEditProfilScreenState
           TextFormField(
             controller: controller,
             maxLines: 4,
-            style: GoogleFonts.inter(
-                fontSize: 13, color: AppColors.primaryText),
+            style:
+                GoogleFonts.inter(fontSize: 13, color: AppColors.primaryText),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: GoogleFonts.inter(
-                  fontSize: 13, color: AppColors.lightText),
+              hintStyle:
+                  GoogleFonts.inter(fontSize: 13, color: AppColors.lightText),
               contentPadding: const EdgeInsets.all(12),
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -1124,8 +1143,8 @@ class _FisioterapisEditProfilScreenState
                   borderSide: BorderSide(color: AppColors.borderColor)),
               focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                      color: AppColors.primary, width: 1.5)),
+                  borderSide:
+                      const BorderSide(color: AppColors.primary, width: 1.5)),
               filled: true,
               fillColor: const Color(0xFFF9FAFB),
             ),
@@ -1135,7 +1154,7 @@ class _FisioterapisEditProfilScreenState
     );
   }
 
-  // ── Sertifikasi multi-item ───────────────────────────────────
+  // ── Sertifikasi multi-item ────────────────────────────────────
 
   Widget _buildSertifikasiMultiField() {
     return Padding(
@@ -1167,8 +1186,8 @@ class _FisioterapisEditProfilScreenState
                 decoration: BoxDecoration(
                   color: const Color(0xFFE6FAF8),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                      color: AppColors.primary.withOpacity(0.3)),
+                  border:
+                      Border.all(color: AppColors.primary.withOpacity(0.3)),
                 ),
                 child: Row(
                   children: [
@@ -1208,12 +1227,10 @@ class _FisioterapisEditProfilScreenState
                         horizontal: 12, vertical: 10),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide:
-                            BorderSide(color: AppColors.borderColor)),
+                        borderSide: BorderSide(color: AppColors.borderColor)),
                     enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide:
-                            BorderSide(color: AppColors.borderColor)),
+                        borderSide: BorderSide(color: AppColors.borderColor)),
                     focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: const BorderSide(
@@ -1228,26 +1245,28 @@ class _FisioterapisEditProfilScreenState
               GestureDetector(
                 onTap: _tambahSertifikasi,
                 child: Container(
-                  width: 40, height: 40,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: AppColors.primary,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.add, color: Colors.white, size: 20),
+                  child:
+                      const Icon(Icons.add, color: Colors.white, size: 20),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 4),
           Text('Ketuk + untuk menambah sertifikasi',
-              style:
-                  GoogleFonts.inter(fontSize: 9, color: AppColors.lightText)),
+              style: GoogleFonts.inter(
+                  fontSize: 9, color: AppColors.lightText)),
         ],
       ),
     );
   }
 
-  // ── Dokumen section ──────────────────────────────────────────
+  // ── Dokumen section ───────────────────────────────────────────
 
   Widget _buildDokumenSection() {
     return Padding(
@@ -1376,7 +1395,8 @@ class _FisioterapisEditProfilScreenState
                         fontWeight: FontWeight.w500,
                         color: AppColors.secondaryText)),
                 const SizedBox(height: 4),
-                Text('PDF atau gambar (Max. 5MB)\nTambahkan lebih dari 1 file',
+                Text(
+                    'PDF atau gambar (Max. 5MB)\nTambahkan lebih dari 1 file',
                     style: GoogleFonts.inter(
                         fontSize: 9, color: AppColors.lightText),
                     textAlign: TextAlign.center),
@@ -1421,7 +1441,8 @@ class _FisioterapisEditProfilScreenState
               color: const Color(0xFFF9FAFB),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: file != null ? AppColors.primary : AppColors.borderColor,
+                color:
+                    file != null ? AppColors.primary : AppColors.borderColor,
               ),
             ),
             child: Column(
@@ -1449,8 +1470,8 @@ class _FisioterapisEditProfilScreenState
                 ),
                 const SizedBox(height: 4),
                 Text(subtitle,
-                    style:
-                        GoogleFonts.inter(fontSize: 9, color: AppColors.lightText),
+                    style: GoogleFonts.inter(
+                        fontSize: 9, color: AppColors.lightText),
                     textAlign: TextAlign.center),
               ],
             ),
@@ -1460,7 +1481,7 @@ class _FisioterapisEditProfilScreenState
     );
   }
 
-  // ── Simpan button ────────────────────────────────────────────
+  // ── Simpan button ─────────────────────────────────────────────
 
   Widget _buildSimpanButton() {
     return Container(
@@ -1479,7 +1500,8 @@ class _FisioterapisEditProfilScreenState
           ),
           child: _isLoading
               ? const SizedBox(
-                  width: 20, height: 20,
+                  width: 20,
+                  height: 20,
                   child: CircularProgressIndicator(
                       color: Colors.white, strokeWidth: 2))
               : Text('Simpan Perubahan',

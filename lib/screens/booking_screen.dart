@@ -36,8 +36,10 @@ class _BookingScreenState extends State<BookingScreen> {
   int _therapyCost = 0;
 
   // ── Wilayah pasien ────────────────────────────────────────────
+  // FIX: Dibaca dari patient_addresses (is_primary=true), bukan dari patients
   String? _patientRegencyId;
   String? _patientRegencyName;
+  bool _hasPrimaryAddress = false; // true jika punya alamat utama
 
   // ── Step 2: Alamat ────────────────────────────────────────────
   List<Map<String, dynamic>> _addresses = [];
@@ -94,39 +96,73 @@ class _BookingScreenState extends State<BookingScreen> {
   // ── Load semua data ───────────────────────────────────────────
 
   Future<void> _loadAll() async {
-    // Load data pasien (regency_id) terlebih dahulu
-    await _loadPatientRegency();
+    // FIX: Load addresses dulu (untuk ambil regency_id dari alamat utama),
+    // baru load services & fisioterapis yang butuh regency_id
+    await _loadAddresses();
     await Future.wait([
       _loadServices(),
-      _loadAddresses(),
       _loadFisioterapis(),
     ]);
     await _loadJadwal();
   }
 
-  /// Ambil regency_id dan regency_name pasien yang sedang login
-  Future<void> _loadPatientRegency() async {
-    if (_patientId == null) return;
+  // ── FIX: Baca regency dari patient_addresses (is_primary=true) ──
+  // Jika tidak ada alamat utama, fallback ke alamat pertama.
+  // Jika tidak ada alamat sama sekali → _hasPrimaryAddress = false.
+  Future<void> _loadAddresses() async {
+    if (_patientId == null) {
+      if (mounted) setState(() => _isLoadingAddresses = false);
+      return;
+    }
     try {
       final res = await _supabase
-          .from('patients')
-          .select('regency_id, regency_name')
-          .eq('id', _patientId!)
-          .maybeSingle();
+          .from('patient_addresses')
+          .select()
+          .eq('patient_id', _patientId!)
+          .order('is_primary', ascending: false)
+          .order('created_at');
 
-      if (mounted && res != null) {
-        _patientRegencyId = res['regency_id'] as String?;
-        _patientRegencyName = res['regency_name'] as String?;
+      if (mounted) {
+        final list = List<Map<String, dynamic>>.from(res as List);
+
+        // Pilih alamat utama untuk dipakai sebagai filter wilayah
+        Map<String, dynamic>? primaryAddr;
+        if (list.isNotEmpty) {
+          primaryAddr = list.firstWhere(
+            (a) => a['is_primary'] == true,
+            orElse: () => list.first,
+          );
+        }
+
+        setState(() {
+          _addresses = list;
+          _isLoadingAddresses = false;
+          _selectedAddressRow = primaryAddr;
+
+          if (primaryAddr != null) {
+            // FIX: Ambil regency_id dari patient_addresses, bukan dari patients
+            _patientRegencyId = primaryAddr['regency_id'] as String?;
+            _patientRegencyName = primaryAddr['regency_name'] as String?;
+            _hasPrimaryAddress = true;
+          } else {
+            _patientRegencyId = null;
+            _patientRegencyName = null;
+            _hasPrimaryAddress = false;
+          }
+        });
       }
     } catch (e) {
-      debugPrint('Error loading patient regency: $e');
+      debugPrint('Error loading addresses: $e');
+      if (mounted) setState(() => _isLoadingAddresses = false);
     }
   }
 
   Future<void> _loadServices() async {
     try {
-      // Jika pasien tidak memiliki regency_id, tampilkan pesan kosong
-      if (_patientRegencyId == null || _patientRegencyId!.isEmpty) {
+      // Jika pasien belum punya alamat tersimpan, tampilkan pesan kosong
+      if (!_hasPrimaryAddress ||
+          _patientRegencyId == null ||
+          _patientRegencyId!.isEmpty) {
         if (mounted) setState(() => _isLoadingServices = false);
         return;
       }
@@ -135,7 +171,8 @@ class _BookingScreenState extends State<BookingScreen> {
       final res = await _supabase
           .from('services')
           .select(
-            '*, fisioterapis!inner(id, nama_lengkap, pengalaman_kerja, foto_profil_url, regency_id, regency_name)',
+            '*, fisioterapis!inner(id, nama_lengkap, pengalaman_kerja, '
+            'foto_profil_url, regency_id, regency_name)',
           )
           .eq('is_active', true)
           .eq('fisioterapis.status_verifikasi', 'verified')
@@ -167,41 +204,12 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  Future<void> _loadAddresses() async {
-    if (_patientId == null) {
-      if (mounted) setState(() => _isLoadingAddresses = false);
-      return;
-    }
-    try {
-      final res = await _supabase
-          .from('patient_addresses')
-          .select()
-          .eq('patient_id', _patientId!)
-          .order('is_primary', ascending: false);
-
-      if (mounted) {
-        final list = List<Map<String, dynamic>>.from(res as List);
-        setState(() {
-          _addresses = list;
-          _isLoadingAddresses = false;
-          if (list.isNotEmpty) {
-            _selectedAddressRow = list.firstWhere(
-              (a) => a['is_primary'] == true,
-              orElse: () => list.first,
-            );
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading addresses: $e');
-      if (mounted) setState(() => _isLoadingAddresses = false);
-    }
-  }
-
   Future<void> _loadFisioterapis() async {
     try {
-      // Jika pasien tidak memiliki regency_id, tidak perlu load fisioterapis
-      if (_patientRegencyId == null || _patientRegencyId!.isEmpty) {
+      // Jika pasien tidak memiliki alamat, tidak perlu load fisioterapis
+      if (!_hasPrimaryAddress ||
+          _patientRegencyId == null ||
+          _patientRegencyId!.isEmpty) {
         if (mounted) setState(() => _isLoadingFisio = false);
         return;
       }
@@ -234,8 +242,9 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Future<void> _loadJadwal() async {
-    final fisioterapisId = (_selectedService?['fisioterapis'] as Map?)?['id']
-        ?? _fisioterapis?['id'];
+    final fisioterapisId =
+        (_selectedService?['fisioterapis'] as Map?)?['id'] ??
+            _fisioterapis?['id'];
 
     if (fisioterapisId == null) {
       if (mounted) setState(() => _isLoadingJadwal = false);
@@ -291,7 +300,8 @@ class _BookingScreenState extends State<BookingScreen> {
   TimeOfDay? _parseTime(String t) {
     try {
       final parts = t.split(':');
-      return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+      return TimeOfDay(
+          hour: int.parse(parts[0]), minute: int.parse(parts[1]));
     } catch (_) {
       return null;
     }
@@ -351,7 +361,8 @@ class _BookingScreenState extends State<BookingScreen> {
       final timeStr =
           '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}:00';
       final total = _therapyCost + _visitCost;
-      final address = _selectedAddressRow!['full_address'] as String? ?? '';
+      final address =
+          _selectedAddressRow!['full_address'] as String? ?? '';
 
       final fisioterapisId =
           (_selectedService?['fisioterapis'] as Map?)?['id'] ??
@@ -384,8 +395,8 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  void _showSnack(String msg) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  void _showSnack(String msg) => ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content: Text(msg)));
 
   // ── Build ─────────────────────────────────────────────────────
 
@@ -455,23 +466,25 @@ class _BookingScreenState extends State<BookingScreen> {
             shape: BoxShape.circle),
         child: Center(
             child: Text(t,
-                style:
-                    GoogleFonts.inter(color: Colors.white, fontSize: 12))),
+                style: GoogleFonts.inter(
+                    color: Colors.white, fontSize: 12))),
       );
 
-  Widget _stepLine(bool a) =>
-      Container(width: 40, height: 2, color: a ? const Color(0xFF00897B) : Colors.white24);
+  Widget _stepLine(bool a) => Container(
+      width: 40,
+      height: 2,
+      color: a ? const Color(0xFF00897B) : Colors.white24);
 
   // ── STEP 1: PILIH LAYANAN ─────────────────────────────────────
 
   Widget _buildTherapySelection() {
-    if (_isLoadingServices) {
+    if (_isLoadingServices || _isLoadingAddresses) {
       return const Center(
           child: CircularProgressIndicator(color: Color(0xFF00BBA7)));
     }
 
-    // Kasus: pasien belum mengisi data wilayah di profil
-    if (_patientRegencyId == null || _patientRegencyId!.isEmpty) {
+    // FIX: Kasus pasien belum punya alamat tersimpan sama sekali
+    if (!_hasPrimaryAddress || _addresses.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -484,12 +497,13 @@ class _BookingScreenState extends State<BookingScreen> {
                   color: Colors.orange.shade50,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.person_pin_circle_outlined,
+                child: Icon(Icons.location_off_outlined,
                     size: 56, color: Colors.orange.shade400),
               ),
               const SizedBox(height: 16),
               Text(
-                'Lengkapi Profil Anda',
+                'Tambahkan Alamat Terlebih Dahulu',
+                textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -498,10 +512,28 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Harap lengkapi data wilayah (kabupaten/kota) pada profil Anda agar kami dapat menampilkan fisioterapis yang tersedia di area Anda.',
+                'Harap tambahkan alamat pada profil Anda agar kami dapat menampilkan fisioterapis yang tersedia di area Anda.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
-                    fontSize: 13, color: Colors.grey.shade600, height: 1.5),
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    height: 1.5),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back, size: 16),
+                label: Text('Kembali ke Profil',
+                    style: GoogleFonts.inter(
+                        fontSize: 13, fontWeight: FontWeight.w600)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00BBA7),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 12),
+                ),
               ),
             ],
           ),
@@ -537,7 +569,6 @@ class _BookingScreenState extends State<BookingScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              // Tampilkan nama kabupaten/kota pasien jika ada
               if (_patientRegencyName != null) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -566,10 +597,12 @@ class _BookingScreenState extends State<BookingScreen> {
                 const SizedBox(height: 12),
               ],
               Text(
-                'Fisioterapis belum tersedia di kabupaten/kota Anda saat ini. Silakan coba lagi nanti atau hubungi admin untuk informasi lebih lanjut.',
+                'Fisioterapis belum tersedia di kabupaten/kota Anda saat ini. Silakan coba lagi nanti atau hubungi admin.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
-                    fontSize: 13, color: Colors.grey.shade600, height: 1.5),
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    height: 1.5),
               ),
             ],
           ),
@@ -583,7 +616,8 @@ class _BookingScreenState extends State<BookingScreen> {
       itemBuilder: (context, index) {
         final svc = _services[index];
         final harga = (svc['harga'] as num).toInt();
-        final hargaStr = 'Rp ${NumberFormat('#,###', 'id_ID').format(harga)}';
+        final hargaStr =
+            'Rp ${NumberFormat('#,###', 'id_ID').format(harga)}';
         final isSelected = _selectedService?['id'] == svc['id'];
         final fisio = svc['fisioterapis'] as Map?;
         final deskripsi = svc['deskripsi'] as String?;
@@ -614,7 +648,8 @@ class _BookingScreenState extends State<BookingScreen> {
                       : Colors.grey.shade200,
                   width: isSelected ? 2 : 1),
               borderRadius: BorderRadius.circular(12),
-              color: isSelected ? const Color(0xFFE0F2F1) : Colors.white,
+              color:
+                  isSelected ? const Color(0xFFE0F2F1) : Colors.white,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,14 +666,16 @@ class _BookingScreenState extends State<BookingScreen> {
                     children: [
                       Text(svc['nama_layanan'] as String,
                           style: GoogleFonts.inter(
-                              fontWeight: FontWeight.bold, fontSize: 14)),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14)),
                       if (fisio != null) ...[
                         const SizedBox(height: 2),
                         Text('Ftr. ${fisio['nama_lengkap'] ?? ''}',
                             style: GoogleFonts.inter(
                                 fontSize: 11, color: Colors.grey)),
                       ],
-                      if (deskripsi != null && deskripsi.isNotEmpty) ...[
+                      if (deskripsi != null &&
+                          deskripsi.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         Text(deskripsi,
                             style: GoogleFonts.inter(
@@ -684,30 +721,27 @@ class _BookingScreenState extends State<BookingScreen> {
         children: [
           _buildSelectedTherapyCard(),
           const SizedBox(height: 20),
-
           if (!_isLoadingJadwal) _buildJadwalInfo(),
           const SizedBox(height: 20),
-
           _buildLabel(Icons.location_on, "Alamat"),
           _isLoadingAddresses
               ? const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF00BBA7)))
+                  child: CircularProgressIndicator(
+                      color: Color(0xFF00BBA7)))
               : _isChoosingAddress
                   ? _buildAddressList()
                   : _buildSelectedAddressCard(),
           const SizedBox(height: 20),
-
           _buildLabel(Icons.calendar_today, "Tanggal Kunjungan *"),
           _isLoadingJadwal
               ? const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF00BBA7)))
+                  child: CircularProgressIndicator(
+                      color: Color(0xFF00BBA7)))
               : _buildDateSelector(),
           const SizedBox(height: 20),
-
           _buildLabel(Icons.access_time, "Waktu Kunjungan *"),
           _buildTimeSelector(),
           const SizedBox(height: 20),
-
           _buildLabel(Icons.notes, "Catatan (opsional)"),
           Container(
             decoration: BoxDecoration(
@@ -719,15 +753,14 @@ class _BookingScreenState extends State<BookingScreen> {
               maxLines: 3,
               decoration: InputDecoration(
                 hintText: 'Tulis catatan untuk fisioterapis...',
-                hintStyle:
-                    GoogleFonts.inter(fontSize: 13, color: Colors.grey),
+                hintStyle: GoogleFonts.inter(
+                    fontSize: 13, color: Colors.grey),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.all(15),
               ),
             ),
           ),
           const SizedBox(height: 30),
-
           _buildActionButtons(
             onNext: () {
               if (_selectedDate == null || _selectedTime == null) {
@@ -757,21 +790,22 @@ class _BookingScreenState extends State<BookingScreen> {
           border: Border.all(color: Colors.orange.shade200),
         ),
         child: Row(children: [
-          Icon(Icons.warning_amber_rounded, color: Colors.orange.shade400, size: 18),
+          Icon(Icons.warning_amber_rounded,
+              color: Colors.orange.shade400, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Fisioterapis belum mengatur jadwal. Silakan hubungi admin.',
-              style: GoogleFonts.inter(fontSize: 12, color: Colors.orange.shade800),
+              style: GoogleFonts.inter(
+                  fontSize: 12, color: Colors.orange.shade800),
             ),
           ),
         ]),
       );
     }
 
-    final hariTersedia = _hariIndonesia
-        .where((h) => _jadwalMap.containsKey(h))
-        .toList();
+    final hariTersedia =
+        _hariIndonesia.where((h) => _jadwalMap.containsKey(h)).toList();
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -783,7 +817,8 @@ class _BookingScreenState extends State<BookingScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            const Icon(Icons.schedule, size: 16, color: Color(0xFF00BBA7)),
+            const Icon(Icons.schedule,
+                size: 16, color: Color(0xFF00BBA7)),
             const SizedBox(width: 6),
             Text('Jadwal Tersedia',
                 style: GoogleFonts.inter(
@@ -797,14 +832,18 @@ class _BookingScreenState extends State<BookingScreen> {
             runSpacing: 6,
             children: hariTersedia.map((hari) {
               final jadwal = _jadwalMap[hari]!;
-              final mulai = _formatTimeStr(jadwal['jam_mulai'] as String);
-              final selesai = _formatTimeStr(jadwal['jam_selesai'] as String);
+              final mulai =
+                  _formatTimeStr(jadwal['jam_mulai'] as String);
+              final selesai =
+                  _formatTimeStr(jadwal['jam_selesai'] as String);
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF00BBA7)),
+                  border:
+                      Border.all(color: const Color(0xFF00BBA7)),
                 ),
                 child: Text(
                   '$hari  $mulai–$selesai',
@@ -830,7 +869,7 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  // ── Date selector dengan validasi hari ───────────────────────
+  // ── Date selector ─────────────────────────────────────────────
 
   Widget _buildDateSelector() {
     if (_jadwalMap.isEmpty) {
@@ -840,12 +879,9 @@ class _BookingScreenState extends State<BookingScreen> {
           color: Colors.grey[100],
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Row(
-          children: [
-            Text('Tidak ada jadwal tersedia',
-                style: GoogleFonts.inter(fontSize: 13, color: Colors.grey)),
-          ],
-        ),
+        child: Text('Tidak ada jadwal tersedia',
+            style:
+                GoogleFonts.inter(fontSize: 13, color: Colors.grey)),
       );
     }
 
@@ -854,12 +890,14 @@ class _BookingScreenState extends State<BookingScreen> {
       child: Container(
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-            color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12)),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(children: [
-              const Icon(Icons.calendar_month, color: Color(0xFF00BBA7), size: 18),
+              const Icon(Icons.calendar_month,
+                  color: Color(0xFF00BBA7), size: 18),
               const SizedBox(width: 10),
               Text(
                 _selectedDate == null
@@ -867,7 +905,9 @@ class _BookingScreenState extends State<BookingScreen> {
                     : DateFormat('dd/MM/yyyy').format(_selectedDate!),
                 style: GoogleFonts.inter(
                     fontSize: 13,
-                    color: _selectedDate == null ? Colors.grey : Colors.black87),
+                    color: _selectedDate == null
+                        ? Colors.grey
+                        : Colors.black87),
               ),
             ]),
             const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
@@ -877,16 +917,18 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
-  // ── Time selector: grid slot jam ─────────────────────────────
+  // ── Time selector ─────────────────────────────────────────────
 
   Widget _buildTimeSelector() {
     if (_selectedDate == null) {
       return Container(
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-            color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12)),
         child: Text('Pilih tanggal terlebih dahulu',
-            style: GoogleFonts.inter(fontSize: 13, color: Colors.grey)),
+            style:
+                GoogleFonts.inter(fontSize: 13, color: Colors.grey)),
       );
     }
 
@@ -900,7 +942,8 @@ class _BookingScreenState extends State<BookingScreen> {
         ),
         child: Text(
           'Tidak ada slot jam tersedia pada hari ini',
-          style: GoogleFonts.inter(fontSize: 13, color: Colors.orange.shade800),
+          style: GoogleFonts.inter(
+              fontSize: 13, color: Colors.orange.shade800),
         ),
       );
     }
@@ -908,12 +951,14 @@ class _BookingScreenState extends State<BookingScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Pilih jam kunjungan',
-              style: GoogleFonts.inter(fontSize: 12, color: Colors.grey)),
+              style:
+                  GoogleFonts.inter(fontSize: 12, color: Colors.grey)),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -970,8 +1015,10 @@ class _BookingScreenState extends State<BookingScreen> {
     final fisioData =
         (_selectedService?['fisioterapis'] as Map<String, dynamic>?) ??
             _fisioterapis;
-    final namaFisio = fisioData?['nama_lengkap'] as String? ?? '-';
-    final pengalaman = fisioData?['pengalaman_kerja'] as String? ?? '';
+    final namaFisio =
+        fisioData?['nama_lengkap'] as String? ?? '-';
+    final pengalaman =
+        fisioData?['pengalaman_kerja'] as String? ?? '';
     final fotoUrl = fisioData?['foto_profil_url'] as String?;
     final timeLabel =
         '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')} WIB';
@@ -985,15 +1032,17 @@ class _BookingScreenState extends State<BookingScreen> {
           Container(
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF00BBA7)),
+                border:
+                    Border.all(color: const Color(0xFF00BBA7)),
                 borderRadius: BorderRadius.circular(12)),
             child: Row(
               children: [
                 CircleAvatar(
                   backgroundColor: const Color(0xFF00BBA7),
-                  backgroundImage: fotoUrl != null && fotoUrl.isNotEmpty
-                      ? NetworkImage(fotoUrl)
-                      : null,
+                  backgroundImage:
+                      fotoUrl != null && fotoUrl.isNotEmpty
+                          ? NetworkImage(fotoUrl)
+                          : null,
                   child: fotoUrl == null || fotoUrl.isEmpty
                       ? const Icon(Icons.person, color: Colors.white)
                       : null,
@@ -1005,7 +1054,8 @@ class _BookingScreenState extends State<BookingScreen> {
                     children: [
                       Text('Ftr. $namaFisio',
                           style: GoogleFonts.inter(
-                              fontWeight: FontWeight.bold, fontSize: 13)),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13)),
                       if (pengalaman.isNotEmpty)
                         Text('• $pengalaman',
                             style: GoogleFonts.inter(
@@ -1033,7 +1083,8 @@ class _BookingScreenState extends State<BookingScreen> {
                 ),
                 _rowDetail(
                   "Alamat",
-                  _selectedAddressRow?['full_address'] as String? ?? '-',
+                  _selectedAddressRow?['full_address'] as String? ??
+                      '-',
                 ),
                 if (_noteController.text.trim().isNotEmpty)
                   _rowDetail("Catatan", _noteController.text.trim()),
@@ -1071,12 +1122,13 @@ class _BookingScreenState extends State<BookingScreen> {
                 borderRadius: BorderRadius.circular(12)),
             child: Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.orange),
-                SizedBox(width: 10),
+                const Icon(Icons.info_outline, color: Colors.orange),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     "Pembayaran tunai dilakukan setelah layanan selesai.",
-                    style: GoogleFonts.inter(fontSize: 12, color: Colors.orange),
+                    style: GoogleFonts.inter(
+                        fontSize: 12, color: Colors.orange),
                   ),
                 ),
               ],
@@ -1086,7 +1138,8 @@ class _BookingScreenState extends State<BookingScreen> {
 
           _buildActionButtons(
             onNext: _isSubmitting ? () {} : _submitBooking,
-            nextLabel: _isSubmitting ? "Memproses..." : "Konfirmasi Pesanan",
+            nextLabel:
+                _isSubmitting ? "Memproses..." : "Konfirmasi Pesanan",
           ),
         ],
       ),
@@ -1105,7 +1158,8 @@ class _BookingScreenState extends State<BookingScreen> {
           const SizedBox(width: 10),
           Expanded(
               child: Text(_selectedTherapy ?? '',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w600))),
+                  style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600))),
           Text(_selectedPrice ?? '',
               style: GoogleFonts.inter(
                   fontWeight: FontWeight.bold,
@@ -1122,10 +1176,12 @@ class _BookingScreenState extends State<BookingScreen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.orange.shade200)),
         child: Row(children: [
-          Icon(Icons.warning_amber_rounded, color: Colors.orange.shade400),
+          Icon(Icons.warning_amber_rounded,
+              color: Colors.orange.shade400),
           const SizedBox(width: 10),
           Expanded(
-              child: Text('Belum ada alamat tersimpan. Tambahkan di profil.',
+              child: Text(
+                  'Belum ada alamat tersimpan. Tambahkan di profil.',
                   style: GoogleFonts.inter(
                       fontSize: 12, color: Colors.black54))),
         ]),
@@ -1144,11 +1200,13 @@ class _BookingScreenState extends State<BookingScreen> {
           if (addr != null) ...[
             Row(children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                     color: const Color(0xFFE0F2F1),
                     borderRadius: BorderRadius.circular(4)),
-                child: Text(addr['label'] as String? ?? 'Rumah',
+                child: Text(
+                    addr['label'] as String? ?? 'Rumah',
                     style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
@@ -1156,26 +1214,32 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
               if (addr['is_primary'] == true) ...[
                 const SizedBox(width: 6),
-                const Icon(Icons.star, size: 12, color: Color(0xFF00BBA7)),
+                const Icon(Icons.star,
+                    size: 12, color: Color(0xFF00BBA7)),
               ],
             ]),
             const SizedBox(height: 6),
             Text(addr['full_address'] as String? ?? '',
                 style: GoogleFonts.inter(fontSize: 12)),
             Text(
-              '${addr['district_name']}, ${addr['regency_name']}, ${addr['province_name']}',
-              style: GoogleFonts.inter(fontSize: 11, color: Colors.grey),
+              '${addr['district_name'] ?? ''}, '
+              '${addr['regency_name'] ?? ''}, '
+              '${addr['province_name'] ?? ''}',
+              style:
+                  GoogleFonts.inter(fontSize: 11, color: Colors.grey),
             ),
           ],
           const SizedBox(height: 8),
-          InkWell(
-            onTap: () => setState(() => _isChoosingAddress = true),
-            child: Text("Ganti alamat",
-                style: GoogleFonts.inter(
-                    color: const Color(0xFF00BBA7),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12)),
-          ),
+          // FIX: Tampilkan "Ganti alamat" hanya jika punya lebih dari 1 alamat
+          if (_addresses.length > 1)
+            InkWell(
+              onTap: () => setState(() => _isChoosingAddress = true),
+              child: Text("Ganti alamat",
+                  style: GoogleFonts.inter(
+                      color: const Color(0xFF00BBA7),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12)),
+            ),
         ],
       ),
     );
@@ -1190,7 +1254,8 @@ class _BookingScreenState extends State<BookingScreen> {
           children: _addresses
               .map((addr) => RadioListTile<String>(
                     value: addr['id'] as String,
-                    groupValue: _selectedAddressRow?['id'] as String?,
+                    groupValue:
+                        _selectedAddressRow?['id'] as String?,
                     activeColor: const Color(0xFF00BBA7),
                     title: Text(
                       '${addr['label']} — ${addr['full_address']}',
@@ -1228,7 +1293,8 @@ class _BookingScreenState extends State<BookingScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(l,
-                style: GoogleFonts.inter(color: Colors.grey, fontSize: 13)),
+                style: GoogleFonts.inter(
+                    color: Colors.grey, fontSize: 13)),
             const SizedBox(width: 20),
             Flexible(
               child: Text(v,
@@ -1241,19 +1307,21 @@ class _BookingScreenState extends State<BookingScreen> {
       );
 
   Widget _buildActionButtons(
-          {required VoidCallback onNext, required String nextLabel}) =>
+          {required VoidCallback onNext,
+          required String nextLabel}) =>
       Row(children: [
         Expanded(
           child: OutlinedButton(
-            onPressed: () =>
-                setState(() { if (_currentStep > 1) _currentStep--; }),
+            onPressed: () => setState(
+                () { if (_currentStep > 1) _currentStep--; }),
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: Color(0xFF00BBA7)),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10)),
             ),
             child: Text("Kembali",
-                style: GoogleFonts.inter(color: const Color(0xFF00BBA7))),
+                style: GoogleFonts.inter(
+                    color: const Color(0xFF00BBA7))),
           ),
         ),
         const SizedBox(width: 15),
@@ -1272,12 +1340,13 @@ class _BookingScreenState extends State<BookingScreen> {
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white))
                 : Text(nextLabel,
-                    style: GoogleFonts.inter(color: Colors.white)),
+                    style:
+                        GoogleFonts.inter(color: Colors.white)),
           ),
         ),
       ]);
 
-  // ── Date Picker dengan filter hari tersedia ───────────────────
+  // ── Date Picker ───────────────────────────────────────────────
 
   Future<void> _selectDate(BuildContext c) async {
     DateTime initialDate = DateTime.now();
@@ -1295,7 +1364,8 @@ class _BookingScreenState extends State<BookingScreen> {
       selectableDayPredicate: _isDateAvailable,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: Color(0xFF00BBA7)),
+          colorScheme: const ColorScheme.light(
+              primary: Color(0xFF00BBA7)),
         ),
         child: child!,
       ),
